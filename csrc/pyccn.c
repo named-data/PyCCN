@@ -107,6 +107,8 @@ _pyccn_Name_to_ccn(PyObject* self, PyObject* args) {
 	return PyCObject_FromVoidPtr( (void*) name, __ccn_name_destroy );
 }
 
+
+
 // Can be called directly from c library
 // For now, everything is a bytearray
 //
@@ -156,6 +158,19 @@ Name_from_ccn( struct ccn_charbuf* name ) {
 	fprintf(stderr,"Name_from_ccn ends\n");
 	return py_name;
 }
+
+// Takes a byte array with DTAG
+//
+static PyObject*
+Name_from_ccn_tagged_bytearray( const unsigned char* buf, size_t size) {
+		PyObject* py_name;
+	    struct ccn_charbuf* name = ccn_charbuf_create();
+	    ccn_charbuf_append(name, buf, size);
+		py_name = Name_from_ccn(name);
+		ccn_charbuf_destroy(&name);
+		return py_name;
+}
+
 // From within python
 //
 static PyObject*
@@ -182,7 +197,7 @@ _pyccn_Name_from_ccn(PyObject* self, PyObject* args) {
 
 void __ccn_key_destroy(void* p) {
 	if (p != NULL)
-		free(p);
+		ccn_pubkey_free(p);			 // what about private keys?
 }
 
 struct ccn_pkey*
@@ -278,12 +293,84 @@ _pyccn_Key_to_ccn_private(PyObject* self, PyObject* args) {
 	return PyCObject_FromVoidPtr( (void*) key, __ccn_key_destroy );
 }
 // Can be called directly from c library
+// Note that this isn't the wire format, so we
+// do a potentially redundant step here and regenerate the DER format
+// so that we can do the key hash
 static PyObject*
-Key_from_ccn( struct ccn_pkey* key ) {
+Key_from_ccn( struct ccn_pkey* key_ccn ) {
+
+	fprintf(stderr,"Key_from_ccn start\n");
+
+	// 1) Create python object
+	PyObject* py_key = PyObject_CallObject(KeyType, NULL);
+
+
+
+	// 2) Parse c structure and fill python attributes
+	//    using PyObject_SetAttrString
+
+
+	 // If this is a private key, split private and public keys
+	// There is probably a less convoluted way to do this than pulling it out to RSA
+	// Also, create the digest...
+	// These non-ccn functions assume the CCN defaults, RSA + SHA256
+	RSA* private_key_rsa = EVP_PKEY_get1_RSA((EVP_PKEY*)key_ccn);
+	struct ccn_pkey *private_key_ccn, *public_key_ccn;
+	unsigned char* public_key_digest;
+	size_t public_key_digest_len;
+	ccn_keypair_from_rsa(private_key_rsa, &private_key_ccn, &public_key_ccn);
+	create_public_key_digest(private_key_rsa, &public_key_digest, &public_key_digest_len);
+	//  ccn_digest has a more convoluted API, with examples
+	// in ccn_client, but *for now* it boils down to the same thing.
+
+	// TODO:  incorporate pyOpenSSL to manipulate RSA keys?
 	//
-	// Build the python Key here
-	//
-	return NULL;
+
+	PyObject* p;
+
+
+    // type
+	p = PyString_FromString("RSA");		// TODO: support others?
+	PyObject_SetAttrString(py_key, "type", p);
+	Py_INCREF(p);
+
+
+    // publicKeyID
+	p = PyByteArray_FromStringAndSize((char*)public_key_digest, public_key_digest_len);
+	PyObject_SetAttrString(py_key, "publicKeyID", p);
+	Py_INCREF(p);
+	//free (public_key_digest); -- this is the job of python
+    // publicKeyIDsize
+	p = PyInt_FromLong(public_key_digest_len);
+	PyObject_SetAttrString(py_key, "publicKeyIDsize", p);
+	Py_INCREF(p);
+
+    // pubID
+    // TODO: pubID not implemented
+	p = Py_None;
+	PyObject_SetAttrString(py_key, "pubID", p);
+	Py_INCREF(p);
+
+	// 3) Set ccn_data to a cobject pointing to the c struct
+	//    and ensure proper destructor is set up for the c object.
+    // privateKey
+	// Don't free these here, python will call destructor
+	p = PyCObject_FromVoidPtr(private_key_ccn, __ccn_key_destroy);
+	PyObject_SetAttrString(py_key, "ccn_data_private", p);
+	Py_INCREF(p);
+
+    // publicKey
+	// Don't free this here, python will call destructor
+	p = PyCObject_FromVoidPtr(public_key_ccn, __ccn_key_destroy);
+	PyObject_SetAttrString(py_key, "ccn_data_public",  p);
+	Py_INCREF(p);
+
+	// 4) Return the created object
+
+	//free(public_key_digest);
+
+	fprintf(stderr,"Key_from_ccn ends\n");
+	return py_key;
 }
 // From within python
 //
@@ -356,13 +443,110 @@ _pyccn_KeyLocator_to_ccn(PyObject* self, PyObject* args) {
 	return PyCObject_FromVoidPtr( (void*) key_locator, __ccn_key_locator_destroy );
 }
 
+
+
 // Can be called directly from c library
+//
+//	Certificate is not supported yet, as it doesn't seem to be in CCNx.
+//
 static PyObject*
 KeyLocator_from_ccn( struct ccn_charbuf* key_locator ) {
+
+	// This accepts a pointer to a charbuf that begins with the DTAG_KeyLocator
 	//
-	// Build the python KeyLocator here
-	//
-	return NULL;
+	fprintf(stderr,"KeyLocator_from_ccn start\n");
+
+	// 1) Create python object
+	PyObject* py_keylocator = PyObject_CallObject(KeyLocatorType, NULL);
+
+	// 2) Parse c structure and fill python attributes
+	//    using PyObject_SetAttrString
+
+	// Based on ccn_locate_key in ccn_client
+
+    int res=0;
+    struct ccn_buf_decoder decoder;
+    struct ccn_buf_decoder *d;
+    struct ccn_pkey *pubkey;
+    size_t start;
+    size_t stop;
+
+    d = ccn_buf_decoder_start(&decoder, key_locator->buf, key_locator->length);
+
+    // TODO: Rewrite to simplify
+    if (ccn_buf_match_dtag(d, CCN_DTAG_KeyLocator)) {
+		ccn_buf_advance(d);
+		if (ccn_buf_match_dtag(d, CCN_DTAG_KeyName)) {
+			    ccn_buf_advance(d);
+				start = d->decoder.token_index;
+				if (!ccn_buf_match_dtag(d, CCN_DTAG_Name)) {
+					fprintf(stderr, "No name inside? \n");
+				} else {
+					ccn_buf_advance(d);
+				}
+				// TODO: srsly?   Matching a blob doesn't seem to work, so we have to iterate through
+				// couldn't there be a... ignore internal tags?
+				while (ccn_buf_match_dtag(d, CCN_DTAG_Component)) {
+						ccn_buf_advance(d);
+						if (ccn_buf_match_blob(d, NULL, NULL)) {
+							ccn_buf_advance(d);
+						}
+						ccn_buf_check_close(d);
+				}
+				stop = d->decoder.token_index;
+			 if (stop>start) {
+				fprintf(stderr, "Parse CCN_DTAG_Name inside KeyName, len=%zd\n", stop-start);
+				PyObject* py_name = Name_from_ccn_tagged_bytearray(d->buf +start, stop-start);
+				Py_INCREF(py_name);
+				PyObject_SetAttrString(py_keylocator, "name", py_name);
+			 } else {
+				 fprintf(stderr, "Error parsing CCN_DTAG_KeyName, res = %d\n", res);
+			 }
+		}
+		else if (ccn_buf_match_dtag(d, CCN_DTAG_Key)) {
+			const unsigned char *dkey;
+			size_t dkey_size;
+			ccn_parse_required_tagged_BLOB(d, CCN_DTAG_Key, 1, -1);
+			stop = d->decoder.token_index;
+			res = ccn_ref_tagged_BLOB(CCN_DTAG_Key, d->buf,
+									  start,stop,
+									  &dkey, &dkey_size);
+			if (res==0) {
+				fprintf(stderr, "Parse CCN_DTAG_Key, len=%zd\n", dkey_size);
+				pubkey = ccn_d2i_pubkey(dkey, dkey_size);		// free with ccn_pubkey_free()
+				PyObject* py_key = Key_from_ccn(pubkey); // Now the key object must destroy it.s
+				Py_INCREF(py_key);
+				PyObject_SetAttrString(py_keylocator, "key", py_key);
+			} else {
+				 fprintf(stderr, "Error parsing CCN_DTAG_Key, res = %d\n", res);
+			 }
+		}
+		else if (ccn_buf_match_dtag(d, CCN_DTAG_Certificate)) {
+			fprintf(stderr,"KeyLocator_from_ccn certificate DTAG found?? Unsupported.\n");
+		}
+
+	    ccn_buf_check_close(d);// we don't really check the parser, though-
+    } else {
+    	fprintf(stderr, "Parse result for Keylocator DTAG: %d\n", res);
+
+    }
+    if (res!=0) {
+    	py_keylocator=Py_None;
+    	Py_INCREF(py_keylocator);
+    	return py_keylocator;
+    }
+	// 3) Set ccn_data to a cobject pointing to the c struct
+	//    and ensure proper destructor is set up for the c object.
+	PyObject* ccn_data =  PyCObject_FromVoidPtr( (void*) key_locator, __ccn_key_locator_destroy );
+	Py_INCREF(ccn_data);
+	PyObject_SetAttrString(py_keylocator, "ccn_data", ccn_data);
+
+
+
+
+	// 4) Return the created object
+	fprintf(stderr,"KeyLocator_from_ccn ends\n");
+	return py_keylocator;
 }
 // From within python
 //
@@ -466,10 +650,42 @@ _pyccn_Interest_to_ccn(PyObject* self, PyObject* args) {
 // Can be called directly from c library
 static PyObject*
 Interest_from_ccn_parsed( struct ccn_charbuf* interest, struct ccn_parsed_interest* parsed_interest ) {
-	//
-	// Build the python interest here
-	//
-	return NULL;
+	fprintf(stderr,"KeyLocator_from_ccn start\n");
+
+	// 1) Create python object
+	PyObject* py_interest = PyObject_CallObject(InterestType, NULL);
+
+	// 2) Parse c structure and fill python attributes
+	//    using PyObject_SetAttrString
+
+//        self.name = None  # Start from None to use for templates?
+//        self.minSuffixComponents = None  # default 0
+//        self.maxSuffixComponents = None  # default infinity
+//        self.publisherPublicKeyDigest = None   # SHA256 hash
+//        self.exclude = None
+//        self.childSelector = None
+//        self.answerOriginKind = None
+//        self.scope  = None
+//        self.interestLifetime = None
+//        self.nonce = None
+//        # pyccn
+//        self.ccn = None # Reference to CCN object
+//        self.ccn_data_dirty = False
+//        self.ccn_data = None  # backing charbuf
+//        self.ccn_data_parsed = None  # backing parsed interest
+
+	// 3) Set ccn_data to a cobject pointing to the c struct
+	//    and ensure proper destructor is set up for the c object.
+	PyObject* ccn_data =  PyCObject_FromVoidPtr( (void*) interest, __ccn_interest_destroy );
+	Py_INCREF(ccn_data);
+	PyObject_SetAttrString(py_interest, "ccn_data", ccn_data);
+	PyObject* ccn_data_parsed =  PyCObject_FromVoidPtr( (void*) parsed_interest, __ccn_parsed_interest_destroy );
+	Py_INCREF(ccn_data_parsed);
+	PyObject_SetAttrString(py_interest, "ccn_data_parsed", ccn_data_parsed);
+
+	// 4) Return the created object
+	fprintf(stderr,"Interest_from_ccn ends\n");
+	return py_interest;
 }
 
 // Can be called directly from c library
@@ -501,6 +717,82 @@ _pyccn_Interest_from_ccn(PyObject* self, PyObject* args) {
 					(struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_interest),
 					(struct ccn_parsed_interest*) PyCObject_AsVoidPtr(cobj_parsed_interest));
 		}
+	}
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+
+// ************
+// ExclusionFilter
+//
+//
+
+void __ccn_exclusion_filter_destroy(void* p) {
+	if (p != NULL)
+		;
+}
+
+struct ccn_charbuf*
+ExclusionFilter_to_ccn(PyObject* py_ExclusionFilter) {
+	struct ccn_charbuf* sig = ccn_charbuf_create();
+	//
+	// Build the ExclusionFilter here.
+	//
+	return sig;
+}
+static PyObject*
+_pyccn_ExclusionFilter_to_ccn(PyObject* self, PyObject* args) {
+	PyObject* py_ExclusionFilter;
+	struct ccn_charbuf* ExclusionFilter;
+	if (PyArg_ParseTuple(args, "O", &py_ExclusionFilter)) {
+		if (strcmp(py_ExclusionFilter->ob_type->tp_name,"ExclusionFilter") != 0) {
+			PyErr_SetString(PyExc_TypeError, "Must pass an ExclusionFilter");
+			return NULL;
+		}
+		ExclusionFilter = ExclusionFilter_to_ccn(py_ExclusionFilter);
+	}
+	return PyCObject_FromVoidPtr( (void*) ExclusionFilter, __ccn_exclusion_filter_destroy );
+}
+
+// Can be called directly from c library
+static PyObject*
+ExclusionFilter_from_ccn( struct ccn_charbuf* ExclusionFilter ) {
+	fprintf(stderr,"ExclusionFilter_from_ccn start\n");
+
+	// 1) Create python object
+	PyObject* py_exclusionfilter = PyObject_CallObject(ExclusionFilterType, NULL);
+
+	// 2) Parse c structure and fill python attributes
+	//    using PyObject_SetAttrString
+//
+//    self.data = None        # shoudl this be a list?
+//    # pyccn
+//    self.ccn_data_dirty = False
+//    self.ccn_data = None  # backing charbuf
+
+	// 3) Set ccn_data to a cobject pointing to the c struct
+	//    and ensure proper destructor is set up for the c object.
+	PyObject* ccn_data =  PyCObject_FromVoidPtr( (void*) ExclusionFilter, __ccn_exclusion_filter_destroy );
+	Py_INCREF(ccn_data);
+	PyObject_SetAttrString(py_exclusionfilter, "ccn_data", ccn_data);
+
+	// 4) Return the created object
+	fprintf(stderr,"ExclusionFilter_from_ccn ends\n");
+	return py_exclusionfilter;
+}
+// From within python
+//
+//TODO: Check cobjecttype
+static PyObject*
+_pyccn_ExclusionFilter_from_ccn(PyObject* self, PyObject* args) {
+	PyObject* cobj_ExclusionFilter;
+	if (PyArg_ParseTuple(args, "O", &cobj_ExclusionFilter)) {
+		if (!PyCObject_Check(cobj_ExclusionFilter)) {
+			PyErr_SetString(PyExc_TypeError, "Must pass a CObject containing a [??]");
+			return NULL;
+		}
+		return ExclusionFilter_from_ccn( (struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_ExclusionFilter) );
 	}
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -543,10 +835,30 @@ _pyccn_Signature_to_ccn(PyObject* self, PyObject* args) {
 // Can be called directly from c library
 static PyObject*
 Signature_from_ccn( struct ccn_charbuf* signature ) {
-	//
-	// Build the python signature here
-	//
-	return NULL;
+	fprintf(stderr,"Signature_from_ccn start\n");
+
+	// 1) Create python object
+	PyObject* py_signature = PyObject_CallObject(SignatureType, NULL);
+
+	// 2) Parse c structure and fill python attributes
+	//    using PyObject_SetAttrString
+
+//    self.digestAlgorithm = None
+//    self.witness = None
+//    self.signatureBits = None
+//    # pyccn
+//    self.ccn_data_dirty = False
+//    self.ccn_data = None  # backing charbuf
+
+	// 3) Set ccn_data to a cobject pointing to the c struct
+	//    and ensure proper destructor is set up for the c object.
+	PyObject* ccn_data =  PyCObject_FromVoidPtr( (void*) signature, __ccn_signature_destroy );
+	Py_INCREF(ccn_data);
+	PyObject_SetAttrString(py_signature, "ccn_data", ccn_data);
+
+	// 4) Return the created object
+	fprintf(stderr,"Signature_from_ccn ends\n");
+	return py_signature;
 }
 // From within python
 //
@@ -622,12 +934,132 @@ _pyccn_SignedInfo_to_ccn(PyObject* self, PyObject* args) {
 }
 
 // Can be called directly from c library
+//
+// Pointer to a tagged blob starting with CCN_DTAG_SignedInfo
+//
 static PyObject*
 SignedInfo_from_ccn( struct ccn_charbuf* signed_info ) {
+	fprintf(stderr,"SignedInfo_from_ccn start, size=%zd\n", signed_info->length);
+
+	// 1) Create python object
+	PyObject* py_signedinfo = PyObject_CallObject(SignedInfoType, NULL);
+
+	// 2) Parse c structure and fill python attributes
+	//    using PyObject_SetAttrString
+	// based on chk_signing_params
+	// from ccn_client.c
 	//
-	// Build the python signedinfo here
+	//outputs:
+
+	// Note, it is ok that non-filled optional elements
+	// are initialized to None (through the .py file __init__)
 	//
-	return NULL;
+
+	PyObject* p;
+
+
+	//
+    struct ccn_buf_decoder decoder;
+    struct ccn_buf_decoder *d;
+    size_t start;
+    size_t stop;
+    size_t size;
+    const unsigned char *ptr = NULL;
+    int i=0;
+    d = ccn_buf_decoder_start(&decoder,
+                              signed_info->buf,
+                              signed_info->length);
+    if (ccn_buf_match_dtag(d, CCN_DTAG_SignedInfo)) {
+		ccn_buf_advance(d);
+		if (ccn_buf_match_dtag(d, CCN_DTAG_PublisherPublicKeyDigest))
+			start = d->decoder.token_index;
+		ccn_parse_required_tagged_BLOB(d, CCN_DTAG_PublisherPublicKeyDigest, 16, 64);
+		stop = d->decoder.token_index; // check - do we need this here?
+		i = ccn_ref_tagged_BLOB(CCN_DTAG_PublisherPublicKeyDigest, d->buf, start, stop, &ptr, &size);
+		if (i == 0) {
+			//    self.publisherPublicKeyDigest = None     # SHA256 hash
+			fprintf(stderr, "PyObject_SetAttrString publisherPublicKeyDigest\n");
+			p = PyByteArray_FromStringAndSize((const char*)ptr, size);
+			PyObject_SetAttrString(py_signedinfo, "publisherPublicKeyDigest", p);
+			Py_INCREF(p);
+		}
+
+		start = d->decoder.token_index;
+		ccn_parse_optional_tagged_BLOB(d, CCN_DTAG_Timestamp, 1, -1);
+		stop = d->decoder.token_index;
+		i = ccn_ref_tagged_BLOB(CCN_DTAG_Timestamp, d->buf, start, stop, &ptr, &size);
+		if (i == 0) {
+			//    self.timeStamp = None   # CCNx timestamp
+			fprintf(stderr, "PyObject_SetAttrString timestamp\n");
+			p = PyByteArray_FromStringAndSize((const char*)ptr, size);
+			PyObject_SetAttrString(py_signedinfo, "timestamp", p);
+			Py_INCREF(p);
+		}
+		start = d->decoder.token_index;
+		ccn_parse_optional_tagged_BLOB(d, CCN_DTAG_Type, 1, -1);
+		stop = d->decoder.token_index;
+		i = ccn_ref_tagged_BLOB(CCN_DTAG_Type, d->buf, start, stop, &ptr, &size);
+		if (i == 0) {
+			//    type = None   # CCNx type
+			// TODO: Provide a string representation with the Base64 mnemonic?
+			fprintf(stderr, "PyObject_SetAttrString type\n");
+			p = PyByteArray_FromStringAndSize((const char*)ptr, size);
+			PyObject_SetAttrString(py_signedinfo, "type", p);
+			Py_INCREF(p);
+		}
+		i = ccn_parse_optional_tagged_nonNegativeInteger(d, CCN_DTAG_FreshnessSeconds);
+		if (i >= 0) {
+			//    self.freshnessSeconds = None
+			fprintf(stderr, "PyObject_SetAttrString freshnessSeconds\n");
+			p = PyLong_FromLong(i);
+			PyObject_SetAttrString(py_signedinfo, "freshnessSeconds", p);
+			Py_INCREF(p);
+		}
+		if (ccn_buf_match_dtag(d, CCN_DTAG_FinalBlockID)) {
+			ccn_buf_advance(d);
+			start = d->decoder.token_index;
+			if (ccn_buf_match_some_blob(d))
+				ccn_buf_advance(d);
+			stop = d->decoder.token_index;
+			ccn_buf_check_close(d);
+			if (d->decoder.state >= 0 && stop > start) {
+				//    self.finalBlockID = None
+				fprintf(stderr, "PyObject_SetAttrString finalBlockID, len=%zd\n", stop-start);
+				p = PyByteArray_FromStringAndSize((const char*)(d->buf + start), stop - start);
+				PyObject_SetAttrString(py_signedinfo, "finalBlockID", p);
+				Py_INCREF(p);
+			}
+		}
+		start = d->decoder.token_index;
+		if (ccn_buf_match_dtag(d, CCN_DTAG_KeyLocator))
+			ccn_buf_advance_past_element(d);
+		stop = d->decoder.token_index;
+		if (d->decoder.state >= 0 && stop > start) {
+			fprintf(stderr, "PyObject_SetAttrString keyLocator, len=%zd\n", stop-start);
+			struct ccn_charbuf* keyLocator = ccn_charbuf_create();
+			ccn_charbuf_append(keyLocator, d->buf + start, stop - start);
+			//    self.keyLocator = None
+			p = KeyLocator_from_ccn(keyLocator); // it will free
+			PyObject_SetAttrString(py_signedinfo, "keyLocator", p);
+			Py_INCREF(p);
+		}
+		ccn_buf_check_close(d);
+	} else {
+		fprintf(stderr, "Did not pass data starting with CCN_DTAG_SignedInfo.\n");
+	}
+	if (d->decoder.state < 0) {
+		fprintf(stderr, "SignedInfo decode error.\n");
+	}
+
+	// 3) Set ccn_data to a cobject pointing to the c struct
+	//    and ensure proper destructor is set up for the c object.
+	PyObject* ccn_data =  PyCObject_FromVoidPtr( (void*) signed_info, __ccn_signed_info_destroy );
+	Py_INCREF(ccn_data);
+	PyObject_SetAttrString(py_signedinfo, "ccn_data", ccn_data);
+
+	// 4) Return the created object
+	fprintf(stderr,"SignedInfo_from_ccn ends\n");
+	return py_signedinfo;
 }
 // From within python
 //
@@ -798,7 +1230,7 @@ ContentObject_from_ccn_parsed( struct ccn_charbuf* content_object,
 		dump_charbuf(name, stderr);
 		fprintf(stderr, "\n");
 		py_name = Name_from_ccn( name ) ;
-		ccn_charbuf_destroy(&name);
+		// ccn_charbuf_destroy(&name);		// ToDo:  Do we need this destructor?   This is called when the name is finally destroyed.
 	} else {
 		py_name = Py_None;
 	}
@@ -822,8 +1254,13 @@ ContentObject_from_ccn_parsed( struct ccn_charbuf* content_object,
 	Py_INCREF(py_signature);
 
 	fprintf(stderr,"ContentObject_from_ccn_parsed SignedInfo\n");
-	// TODO: Signed Info
-	PyObject* py_signedinfo = Py_None;
+
+
+	struct ccn_charbuf* signed_info = ccn_charbuf_create();
+	ccn_charbuf_append(signed_info,  &content_object->buf[parsed_content_object->offset[CCN_PCO_B_SignedInfo]],
+							  (size_t) (parsed_content_object->offset[CCN_PCO_E_SignedInfo] - parsed_content_object->offset[CCN_PCO_B_SignedInfo]));
+
+	PyObject* py_signedinfo = SignedInfo_from_ccn(signed_info);  // it will destroy?
 	PyObject_SetAttrString(py_co, "signedInfo", py_signedinfo);
 	Py_INCREF(py_signedinfo);
 
@@ -894,7 +1331,14 @@ _pyccn_ContentObject_from_ccn(PyObject* self, PyObject* args) {
 }
 
 
-
+// Called by destructor
+//
+void __ccn_destroy(void* p) {
+	if (p != NULL) {
+		ccn_disconnect((struct ccn*) p);		// Ok to call this even if already disconn?
+		ccn_destroy((struct ccn**)&p);
+	}
+}
 
 
 // *** Python method declarations
@@ -912,14 +1356,7 @@ _pyccn_ccn_create(PyObject* self, PyObject* args) {
 	return PyCObject_FromVoidPtr((void*) ccn_handle, __ccn_destroy);  // Deprecated, use capsules after 2.7.1
 }
 
-// Called by destructor
-//
-void __ccn_destroy(void* p) {
-	if (p != NULL) {
-		ccn_disconnect((struct ccn*) p);		// Ok to call this even if already disconn?
-		ccn_destroy((struct ccn**)&p);
-	}
-}
+
 
 
 // Second argument to ccn_connect not yet supported
@@ -1110,7 +1547,7 @@ _pyccn_ccn_get(PyObject* self, PyObject* args) {
 		} else {
 			py_co = ContentObject_from_ccn_parsed(data,pco,comps);
 		}
-		free(pco);
+		free(pco);	// TODO: freed by the destructor?
 		ccn_charbuf_destroy(&data);
 		ccn_indexbuf_destroy(&comps);
 	}
@@ -1299,6 +1736,10 @@ static PyMethodDef PyCCNMethods[] = {
 		 {"_pyccn_SignedInfo_to_ccn", _pyccn_SignedInfo_to_ccn, METH_VARARGS,
 		  ""},
 		 {"_pyccn_SignedInfo_from_ccn", _pyccn_SignedInfo_from_ccn, METH_VARARGS,
+		  ""},
+		 {"_pyccn_ExclusionFilter_to_ccn", _pyccn_ExclusionFilter_to_ccn, METH_VARARGS,
+		  ""},
+		 {"_pyccn_ExclusionFilter_from_ccn", _pyccn_ExclusionFilter_from_ccn, METH_VARARGS,
 		  ""},
 		 {"_pyccn_UpcallInfo_from_ccn", _pyccn_UpcallInfo_from_ccn, METH_VARARGS,
 		  ""},

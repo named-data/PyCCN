@@ -92,7 +92,7 @@ class SignedInfo(object):
     def __getattribute__(self, name):
         if name=="ccn_data":
             if object.__getattribute__(self, 'ccn_data_dirty'):
-                self.ccn_data = _pyccn._pyccn_Signature_to_ccn(self)
+                self.ccn_data = _pyccn._pyccn_SignedInfo_to_ccn(self)
                 self.ccn_data_dirty = False
         return object.__getattribute__(self, name) 
     

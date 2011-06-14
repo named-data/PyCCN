@@ -28,8 +28,10 @@ import CCN,Name,Interest
 c = CCN.CCN()
 n = Name.Name()
 i = Interest.Interest()
-n.components = ["foo"]
-c.get(n,i,5000)
+n.components = ["foo", "dork"]
+co = c.get(n,i,5000)
+n.components = ["foo", "zero"]
+co = c.get(n,i,5000)
 
 import _pyccn
 import Name
