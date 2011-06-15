@@ -566,6 +566,81 @@ _pyccn_KeyLocator_from_ccn(PyObject* self, PyObject* args) {
 
 
 
+// ************
+// ExclusionFilter
+//
+//
+
+void __ccn_exclusion_filter_destroy(void* p) {
+	if (p != NULL)
+		;
+}
+
+struct ccn_charbuf*
+ExclusionFilter_to_ccn(PyObject* py_ExclusionFilter) {
+	struct ccn_charbuf* sig = ccn_charbuf_create();
+	//
+	// Build the ExclusionFilter here.
+	//
+	return sig;
+}
+static PyObject*
+_pyccn_ExclusionFilter_to_ccn(PyObject* self, PyObject* args) {
+	PyObject* py_ExclusionFilter;
+	struct ccn_charbuf* ExclusionFilter;
+	if (PyArg_ParseTuple(args, "O", &py_ExclusionFilter)) {
+		if (strcmp(py_ExclusionFilter->ob_type->tp_name,"ExclusionFilter") != 0) {
+			PyErr_SetString(PyExc_TypeError, "Must pass an ExclusionFilter");
+			return NULL;
+		}
+		ExclusionFilter = ExclusionFilter_to_ccn(py_ExclusionFilter);
+	}
+	return PyCObject_FromVoidPtr( (void*) ExclusionFilter, __ccn_exclusion_filter_destroy );
+}
+
+// Can be called directly from c library
+static PyObject*
+ExclusionFilter_from_ccn( struct ccn_charbuf* ExclusionFilter ) {
+	fprintf(stderr,"ExclusionFilter_from_ccn start\n");
+
+	// 1) Create python object
+	PyObject* py_exclusionfilter = PyObject_CallObject(ExclusionFilterType, NULL);
+
+	// 2) Parse c structure and fill python attributes
+	//    using PyObject_SetAttrString
+//
+//    self.data = None        # shoudl this be a list?
+//    # pyccn
+//    self.ccn_data_dirty = False
+//    self.ccn_data = None  # backing charbuf
+
+	// 3) Set ccn_data to a cobject pointing to the c struct
+	//    and ensure proper destructor is set up for the c object.
+	PyObject* ccn_data =  PyCObject_FromVoidPtr( (void*) ExclusionFilter, __ccn_exclusion_filter_destroy );
+	Py_INCREF(ccn_data);
+	PyObject_SetAttrString(py_exclusionfilter, "ccn_data", ccn_data);
+
+	// 4) Return the created object
+	fprintf(stderr,"ExclusionFilter_from_ccn ends\n");
+	return py_exclusionfilter;
+}
+// From within python
+//
+//TODO: Check cobjecttype
+static PyObject*
+_pyccn_ExclusionFilter_from_ccn(PyObject* self, PyObject* args) {
+	PyObject* cobj_ExclusionFilter;
+	if (PyArg_ParseTuple(args, "O", &cobj_ExclusionFilter)) {
+		if (!PyCObject_Check(cobj_ExclusionFilter)) {
+			PyErr_SetString(PyExc_TypeError, "Must pass a CObject containing a [??]");
+			return NULL;
+		}
+		return ExclusionFilter_from_ccn( (struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_ExclusionFilter) );
+	}
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
 
 // ************
 // Interest
@@ -649,7 +724,7 @@ _pyccn_Interest_to_ccn(PyObject* self, PyObject* args) {
 
 // Can be called directly from c library
 static PyObject*
-Interest_from_ccn_parsed( struct ccn_charbuf* interest, struct ccn_parsed_interest* parsed_interest ) {
+Interest_from_ccn_parsed( struct ccn_charbuf* interest, struct ccn_parsed_interest* pi ) {
 	fprintf(stderr,"KeyLocator_from_ccn start\n");
 
 	// 1) Create python object
@@ -658,28 +733,133 @@ Interest_from_ccn_parsed( struct ccn_charbuf* interest, struct ccn_parsed_intere
 	// 2) Parse c structure and fill python attributes
 	//    using PyObject_SetAttrString
 
-//        self.name = None  # Start from None to use for templates?
-//        self.minSuffixComponents = None  # default 0
-//        self.maxSuffixComponents = None  # default infinity
-//        self.publisherPublicKeyDigest = None   # SHA256 hash
-//        self.exclude = None
-//        self.childSelector = None
-//        self.answerOriginKind = None
-//        self.scope  = None
-//        self.interestLifetime = None
-//        self.nonce = None
-//        # pyccn
-//        self.ccn = None # Reference to CCN object
-//        self.ccn_data_dirty = False
-//        self.ccn_data = None  # backing charbuf
-//        self.ccn_data_parsed = None  # backing parsed interest
+	ssize_t l;
+    const unsigned char *blob;
+    size_t blob_size;
+    PyObject* p;
+    struct ccn_charbuf* cb;
+    int i;
+
+	// Best decoding examples are in packet-ccn.c for wireshark plugin?
+
+	//        self.name = None  # Start from None to use for templates?
+	l = CCN_PI_E_Name - CCN_PI_B_Name;
+	if (l>0) {
+		cb = ccn_charbuf_create();	// freed by python destructor that holds the pointer
+		ccn_charbuf_append(cb, interest->buf + pi->offset[CCN_PI_B_Name], l);
+		p = Name_from_ccn(cb);
+		PyObject_SetAttrString(py_interest, "name", p);
+		Py_INCREF(p);
+	}
+
+	//        self.minSuffixComponents = None  # default 0
+	l = CCN_PI_E_MinSuffixComponents - CCN_PI_B_MinSuffixComponents;
+	if (l>0) {
+		i =  ccn_fetch_tagged_nonNegativeInteger(CCN_DTAG_MinSuffixComponents, interest->buf,
+					pi->offset[CCN_PI_B_MinSuffixComponents], pi->offset[CCN_PI_E_MinSuffixComponents]);
+		p = PyInt_FromLong(i);
+		PyObject_SetAttrString(py_interest, "minSuffixComponents", p);
+		Py_INCREF(p);
+	}
+
+	//        self.maxSuffixComponents = None  # default infinity
+	l = CCN_PI_E_MaxSuffixComponents - CCN_PI_B_MaxSuffixComponents;
+	if (l>0) {
+		i =  ccn_fetch_tagged_nonNegativeInteger(CCN_DTAG_MaxSuffixComponents, interest->buf,
+					pi->offset[CCN_PI_B_MaxSuffixComponents], pi->offset[CCN_PI_E_MaxSuffixComponents]);
+		p = PyInt_FromLong(i);
+		PyObject_SetAttrString(py_interest, "maxSuffixComponents", p);
+		Py_INCREF(p);
+	}
+
+	//        self.publisherPublicKeyDigest = None   # SHA256 hash
+	// TODO: what is CN_PI_B_PublisherID?
+	l =  CCN_PI_E_PublisherIDKeyDigest - CCN_PI_B_PublisherIDKeyDigest;
+	if (l>0) {
+        i = ccn_ref_tagged_BLOB(CCN_DTAG_PublisherPublicKeyDigest, interest->buf,
+                                pi->offset[CCN_PI_B_PublisherIDKeyDigest],
+                                pi->offset[CCN_PI_E_PublisherIDKeyDigest],
+                                &blob, &blob_size);
+        p = PyByteArray_FromStringAndSize((const char*) blob, blob_size);
+		PyObject_SetAttrString(py_interest, "publisherPublicKeyDigest", p);
+		Py_INCREF(p);
+	}
+
+	//        self.exclude = None
+	l =  CCN_PI_E_Exclude -	CCN_PI_B_Exclude;
+	if (l>0) {
+		cb = ccn_charbuf_create();	// freed by python destructor that holds the pointer
+		ccn_charbuf_append(cb, interest->buf + pi->offset[CCN_PI_B_Exclude], l);
+		p = ExclusionFilter_from_ccn(cb);
+		PyObject_SetAttrString(py_interest, "exclude", p);
+		Py_INCREF(p);
+	}
+
+	//        self.childSelector = None
+	l =  CCN_PI_E_ChildSelector - CCN_PI_B_ChildSelector;
+	if (l>0) {
+		i =  ccn_fetch_tagged_nonNegativeInteger(CCN_DTAG_ChildSelector, interest->buf,
+					pi->offset[CCN_PI_B_ChildSelector], pi->offset[CCN_PI_E_ChildSelector]);
+		p = PyInt_FromLong(i);
+		PyObject_SetAttrString(py_interest, "childSelector", p);
+		Py_INCREF(p);
+	}
+
+	//        self.answerOriginKind = None
+	l =  CCN_PI_E_AnswerOriginKind - CCN_PI_B_AnswerOriginKind;
+	if (l>0) {
+		i =  ccn_fetch_tagged_nonNegativeInteger(CCN_DTAG_AnswerOriginKind, interest->buf,
+					pi->offset[CCN_PI_B_AnswerOriginKind], pi->offset[CCN_PI_E_AnswerOriginKind]);
+		p = PyInt_FromLong(i);
+		PyObject_SetAttrString(py_interest, "answerOriginKind", p);
+		Py_INCREF(p);
+	}
+
+	//        self.scope  = None
+	l =  CCN_PI_E_Scope - CCN_PI_B_Scope;
+	if (l>0) {
+		i =  ccn_fetch_tagged_nonNegativeInteger(CCN_DTAG_Scope, interest->buf,
+					pi->offset[CCN_PI_B_Scope], pi->offset[CCN_PI_E_Scope]);
+		p = PyInt_FromLong(i);
+		PyObject_SetAttrString(py_interest, "scope", p);
+		Py_INCREF(p);
+	}
+
+	//        self.interestLifetime = None
+	l =  CCN_PI_E_InterestLifetime - CCN_PI_B_InterestLifetime;
+	if (l>0) {
+		// From packet-ccn.c
+        i = ccn_ref_tagged_BLOB(CCN_DTAG_InterestLifetime, interest->buf,
+                                pi->offset[CCN_PI_B_InterestLifetime],
+                                pi->offset[CCN_PI_E_InterestLifetime],
+                                &blob, &blob_size);
+        double lifetime = 0.0;
+        for (i = 0; i < blob_size; i++)
+            lifetime = lifetime * 256.0 + (double)blob[i];
+        lifetime /= 4096.0;
+		p = PyFloat_FromDouble(lifetime);
+		PyObject_SetAttrString(py_interest, "interestLifetime", p);
+		Py_INCREF(p);
+	}
+
+	//        self.nonce = None
+	l =  CCN_PI_E_Nonce - CCN_PI_B_Nonce;
+	if (l>0) {
+        i = ccn_ref_tagged_BLOB(CCN_DTAG_Nonce, interest->buf,
+                                pi->offset[CCN_PI_B_Nonce],
+                                pi->offset[CCN_PI_E_Nonce],
+                                &blob, &blob_size);
+        p = PyByteArray_FromStringAndSize((const char*) blob, blob_size);
+		PyObject_SetAttrString(py_interest, "nonce", p);
+		Py_INCREF(p);
+	}
 
 	// 3) Set ccn_data to a cobject pointing to the c struct
 	//    and ensure proper destructor is set up for the c object.
 	PyObject* ccn_data =  PyCObject_FromVoidPtr( (void*) interest, __ccn_interest_destroy );
 	Py_INCREF(ccn_data);
 	PyObject_SetAttrString(py_interest, "ccn_data", ccn_data);
-	PyObject* ccn_data_parsed =  PyCObject_FromVoidPtr( (void*) parsed_interest, __ccn_parsed_interest_destroy );
+	PyObject* ccn_data_parsed =  PyCObject_FromVoidPtr( (void*) pi, __ccn_parsed_interest_destroy );
 	Py_INCREF(ccn_data_parsed);
 	PyObject_SetAttrString(py_interest, "ccn_data_parsed", ccn_data_parsed);
 
@@ -722,81 +902,6 @@ _pyccn_Interest_from_ccn(PyObject* self, PyObject* args) {
 	return Py_None;
 }
 
-
-// ************
-// ExclusionFilter
-//
-//
-
-void __ccn_exclusion_filter_destroy(void* p) {
-	if (p != NULL)
-		;
-}
-
-struct ccn_charbuf*
-ExclusionFilter_to_ccn(PyObject* py_ExclusionFilter) {
-	struct ccn_charbuf* sig = ccn_charbuf_create();
-	//
-	// Build the ExclusionFilter here.
-	//
-	return sig;
-}
-static PyObject*
-_pyccn_ExclusionFilter_to_ccn(PyObject* self, PyObject* args) {
-	PyObject* py_ExclusionFilter;
-	struct ccn_charbuf* ExclusionFilter;
-	if (PyArg_ParseTuple(args, "O", &py_ExclusionFilter)) {
-		if (strcmp(py_ExclusionFilter->ob_type->tp_name,"ExclusionFilter") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass an ExclusionFilter");
-			return NULL;
-		}
-		ExclusionFilter = ExclusionFilter_to_ccn(py_ExclusionFilter);
-	}
-	return PyCObject_FromVoidPtr( (void*) ExclusionFilter, __ccn_exclusion_filter_destroy );
-}
-
-// Can be called directly from c library
-static PyObject*
-ExclusionFilter_from_ccn( struct ccn_charbuf* ExclusionFilter ) {
-	fprintf(stderr,"ExclusionFilter_from_ccn start\n");
-
-	// 1) Create python object
-	PyObject* py_exclusionfilter = PyObject_CallObject(ExclusionFilterType, NULL);
-
-	// 2) Parse c structure and fill python attributes
-	//    using PyObject_SetAttrString
-//
-//    self.data = None        # shoudl this be a list?
-//    # pyccn
-//    self.ccn_data_dirty = False
-//    self.ccn_data = None  # backing charbuf
-
-	// 3) Set ccn_data to a cobject pointing to the c struct
-	//    and ensure proper destructor is set up for the c object.
-	PyObject* ccn_data =  PyCObject_FromVoidPtr( (void*) ExclusionFilter, __ccn_exclusion_filter_destroy );
-	Py_INCREF(ccn_data);
-	PyObject_SetAttrString(py_exclusionfilter, "ccn_data", ccn_data);
-
-	// 4) Return the created object
-	fprintf(stderr,"ExclusionFilter_from_ccn ends\n");
-	return py_exclusionfilter;
-}
-// From within python
-//
-//TODO: Check cobjecttype
-static PyObject*
-_pyccn_ExclusionFilter_from_ccn(PyObject* self, PyObject* args) {
-	PyObject* cobj_ExclusionFilter;
-	if (PyArg_ParseTuple(args, "O", &cobj_ExclusionFilter)) {
-		if (!PyCObject_Check(cobj_ExclusionFilter)) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a CObject containing a [??]");
-			return NULL;
-		}
-		return ExclusionFilter_from_ccn( (struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_ExclusionFilter) );
-	}
-	Py_INCREF(Py_None);
-	return Py_None;
-}
 
 
 
@@ -1248,7 +1353,7 @@ ContentObject_from_ccn_parsed( struct ccn_charbuf* content_object,
 	Py_INCREF(py_content);
 
 	fprintf(stderr,"ContentObject_from_ccn_parsed Signature\n");
-	// TODO: Signature
+	// TODO: Signature -- could use Interest parsing as an example
 	PyObject* py_signature = Py_None;
 	PyObject_SetAttrString(py_co, "signature", py_signature);
 	Py_INCREF(py_signature);
@@ -1265,7 +1370,7 @@ ContentObject_from_ccn_parsed( struct ccn_charbuf* content_object,
 	Py_INCREF(py_signedinfo);
 
 	fprintf(stderr,"ContentObject_from_ccn_parsed DigestAlgorithm\n");
-	PyObject* py_digestalgorithm = Py_None;
+	PyObject* py_digestalgorithm = Py_None;  // TODO...
 	PyObject_SetAttrString(py_co, "digestAlgorithm", py_digestalgorithm);
 	Py_INCREF(py_digestalgorithm);
 
@@ -1652,6 +1757,8 @@ _pyccn_ccn_compare_names(PyObject* self, PyObject* args) {
 //
 static PyMethodDef PyCCNMethods[] = {
 
+		// TODO: Fill in the help functions
+
 		// ** Methods of CCN
 		//
 		{"_pyccn_ccn_create", _pyccn_ccn_create, METH_VARARGS,
@@ -1769,6 +1876,7 @@ init_pyccn(void)
 	PyObject* KeyDict = PyModule_GetDict(KeyModule);
 	PyObject* NameDict = PyModule_GetDict(NameModule);
 
+	// These are used to instantiate new objects in C code
 	CCNType = PyDict_GetItemString(CCNDict, "CCN");
 	InterestType = PyDict_GetItemString(InterestDict, "Interest");
 	ContentObjectType = PyDict_GetItemString(ContentObjectDict, "ContentObject");
