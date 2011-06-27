@@ -36,7 +36,8 @@ class CCN(object):
     def put(self, contentObject):
         return _pyccn._pyccn_ccn_put(self, contentObject)
 
-
+    def getDefaultKey(self):
+        return _pyccn._pyccn_ccn_get_default_key(self);
     
     # ? 
     def loadDefaultKey(self):

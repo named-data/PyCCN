@@ -2,6 +2,7 @@
 
 #include "Python.h"
 #include "ccn/ccn.h"
+#include "ccn/hashtb.h"
 #include "ccn/uri.h"
 #include "ccn/signing.h"
 #include "pyccn.h"
@@ -18,6 +19,7 @@ static PyObject* ExclusionFilterType;
 static PyObject* KeyLocatorType;
 static PyObject* SignatureType;
 static PyObject* SignedInfoType;
+static PyObject* SigningParamsType;
 static PyObject* UpcallInfoType;
 
 static PyObject* NameModule;
@@ -200,6 +202,42 @@ void __ccn_key_destroy(void* p) {
 		ccn_pubkey_free(p);			 // what about private keys?
 }
 
+struct ccn_keystore*
+Key_to_ccn_keystore(PyObject* py_key) {
+	// An imperfect conversion here, but...
+
+	// This is supposed to be an opaque type.
+	// We borrow this from ccn_keystore.c
+	// so that we can work with the ccn hashtable
+	// and do Key_to_keystore... but this may not be
+	// ever needed.
+	struct ccn_keystore_private {
+		int initialized;
+		EVP_PKEY *private_key;
+		EVP_PKEY *public_key;
+		X509 *certificate;
+		ssize_t pubkey_digest_length;
+		unsigned char pubkey_digest[SHA256_DIGEST_LENGTH];
+	};
+
+
+	struct ccn_keystore_private* keystore = calloc(1, sizeof(struct ccn_keystore_private));
+	keystore->initialized = 1;
+	// TODO: Do I need to INCREF here?
+	keystore->private_key = (EVP_PKEY*) PyCObject_AsVoidPtr( PyObject_GetAttrString(py_key, "ccn_data_private") );
+	keystore->public_key = (EVP_PKEY*) PyCObject_AsVoidPtr( PyObject_GetAttrString(py_key, "ccn_data_public") );
+
+	RSA* private_key_rsa = EVP_PKEY_get1_RSA((EVP_PKEY*)keystore->private_key);
+	unsigned char* public_key_digest;
+	size_t public_key_digest_len;
+	create_public_key_digest(private_key_rsa, &public_key_digest, &public_key_digest_len);
+	memcpy(keystore->pubkey_digest, public_key_digest, public_key_digest_len);
+	keystore->pubkey_digest_length = public_key_digest_len;
+	free(public_key_digest);
+	free (private_key_rsa);
+	return (struct ccn_keystore*) keystore;
+
+}
 struct ccn_pkey*
 Key_to_ccn_private(PyObject* py_key) {
 	// TODO: Do I need to INCREF here?
@@ -210,62 +248,7 @@ Key_to_ccn_public(PyObject* py_key) {
 	// TODO: Do I need to INCREF here?
 	return (struct ccn_pkey*) PyCObject_AsVoidPtr( PyObject_GetAttrString(py_key, "ccn_data_public") );
 }
-static PyObject*
-_pyccn_generate_RSA_key(PyObject* self, PyObject* args) {
-	PyObject *py_key;
-	long keylen=0;
-	 struct ccn_pkey *private_key, *public_key;
-	 unsigned char* public_key_digest;
-	 size_t public_key_digest_len;
-	int result = -1;
-	if (PyArg_ParseTuple(args, "Ol", &py_key, &keylen)) {
-		if (strcmp(py_key->ob_type->tp_name,"Key") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a Key");
-			return NULL;
-		}
-		generate_key(keylen, &private_key, &public_key, &public_key_digest, &public_key_digest_len);
 
-		PyObject* p;
-        // privateKey
-		// Don't free these here, python will call destructor
-		p = PyCObject_FromVoidPtr(private_key, __ccn_key_destroy);
-		PyObject_SetAttrString(py_key, "ccn_data_private", p);
-		Py_INCREF(p);
-
-        // publicKey
-		// Don't free this here, python will call destructor
-		p = PyCObject_FromVoidPtr(public_key, __ccn_key_destroy);
-		PyObject_SetAttrString(py_key, "ccn_data_public",  p);
-		Py_INCREF(p);
-
-        // type
-		p = PyString_FromString("RSA");
-		PyObject_SetAttrString(py_key, "type", p);
-		Py_INCREF(p);
-
-        // publicKeyID
-		p = PyByteArray_FromStringAndSize((char*)public_key_digest, public_key_digest_len);
-		PyObject_SetAttrString(py_key, "publicKeyID", p);
-		Py_INCREF(p);
-		free (public_key_digest);
-
-        // publicKeyIDsize
-		p = PyInt_FromLong(public_key_digest_len);
-		PyObject_SetAttrString(py_key, "publicKeyIDsize", p);
-		Py_INCREF(p);
-
-        // pubID
-        // TODO: pubID not implemented
-		p = Py_None;
-		PyObject_SetAttrString(py_key, "pubID", p);
-		Py_INCREF(p);
-
-
-		result = 0;
-
-	}
-	return Py_BuildValue("i", result);
-}
 static PyObject*
 _pyccn_Key_to_ccn_public(PyObject* self, PyObject* args) {
 	PyObject* py_key;
@@ -388,6 +371,136 @@ _pyccn_Key_from_ccn(PyObject* self, PyObject* args) {
 	return Py_None;
 }
 
+// TODO: Revise to make a method of CCN?
+//
+// args:  Key to fill, CCN Handle
+static PyObject*
+_pyccn_ccn_get_default_key(PyObject* self, PyObject* args) {
+    fprintf(stderr,"Got _pyccn_ccn_get_default_key start\n");
+	PyObject* py_ccn;
+	struct ccn_keystore* keystore;
+	const struct ccn_pkey* private_key;
+	if (PyArg_ParseTuple(args, "O", &py_ccn)) {
+		if (strcmp(py_ccn->ob_type->tp_name, "CCN") != 0) {
+			PyErr_SetString(PyExc_TypeError, "Must pass a CCN");
+			return NULL;
+		}
+		struct ccn_private {
+		    int sock;
+		    size_t outbufindex;
+		    struct ccn_charbuf *interestbuf;
+		    struct ccn_charbuf *inbuf;
+		    struct ccn_charbuf *outbuf;
+		    struct ccn_charbuf *ccndid;
+		    struct hashtb *interests_by_prefix;
+		    struct hashtb *interest_filters;
+		    struct ccn_skeleton_decoder decoder;
+		    struct ccn_indexbuf *scratch_indexbuf;
+		    struct hashtb *keys;    /* public keys, by pubid */
+		    struct hashtb *keystores;   /* unlocked private keys */
+		    struct ccn_charbuf *default_pubid;
+		    struct timeval now;
+		    int timeout;
+		    int refresh_us;
+		    int err;                    /* pos => errno value, neg => other */
+		    int errline;
+		    int verbose_error;
+		    int tap;
+		    int running;
+		};
+
+		// In order to get the default key, have to call ccn_chk_signing_params
+		// which seems to get the key and insert it in the hash table
+		struct ccn_private* h = (struct ccn_private*) PyCObject_AsVoidPtr(PyObject_GetAttrString(py_ccn, "ccn_data"));
+	    struct ccn_signing_params name_sp = CCN_SIGNING_PARAMS_INIT;
+	    struct ccn_signing_params p = CCN_SIGNING_PARAMS_INIT;
+	    struct ccn_charbuf *timestamp = NULL;
+	    struct ccn_charbuf *finalblockid = NULL;
+	    struct ccn_charbuf *keylocator = NULL;
+	    int res = ccn_chk_signing_params((struct ccn*)h, &name_sp, &p, &timestamp, &finalblockid, &keylocator);
+
+		struct hashtb_enumerator ee;
+		struct hashtb_enumerator *e = &ee;
+		 res = 0;
+		hashtb_start(h->keystores, e);
+			if (hashtb_seek(e, p.pubid, sizeof(p.pubid), 0) != HT_OLD_ENTRY) {
+				fprintf(stderr,"No default keystore?\n");
+				res = -1;
+				hashtb_end(e);
+		    	Py_INCREF(Py_None);
+		    	return Py_None;
+			} else {
+				struct ccn_keystore **pk = e->data;
+				keystore = *pk;
+				private_key = (struct ccn_pkey*) ccn_keystore_private_key(keystore);
+			}
+		hashtb_end(e);
+
+			return Key_from_ccn((struct ccn_pkey*) private_key);
+	} else {
+		return NULL;
+	}
+}
+
+// TODO: Revise to make a method of Key?
+//
+
+static PyObject*
+_pyccn_generate_RSA_key(PyObject* self, PyObject* args) {
+	PyObject *py_key;
+	long keylen=0;
+	 struct ccn_pkey *private_key, *public_key;
+	 unsigned char* public_key_digest;
+	 size_t public_key_digest_len;
+	int result = -1;
+	if (PyArg_ParseTuple(args, "Ol", &py_key, &keylen)) {
+		if (strcmp(py_key->ob_type->tp_name,"Key") != 0) {
+			PyErr_SetString(PyExc_TypeError, "Must pass a Key");
+			return NULL;
+		}
+		generate_key(keylen, &private_key, &public_key, &public_key_digest, &public_key_digest_len);
+
+		PyObject* p;
+        // privateKey
+		// Don't free these here, python will call destructor
+		p = PyCObject_FromVoidPtr(private_key, __ccn_key_destroy);
+		PyObject_SetAttrString(py_key, "ccn_data_private", p);
+		Py_INCREF(p);
+
+        // publicKey
+		// Don't free this here, python will call destructor
+		p = PyCObject_FromVoidPtr(public_key, __ccn_key_destroy);
+		PyObject_SetAttrString(py_key, "ccn_data_public",  p);
+		Py_INCREF(p);
+
+        // type
+		p = PyString_FromString("RSA");
+		PyObject_SetAttrString(py_key, "type", p);
+		Py_INCREF(p);
+
+        // publicKeyID
+		p = PyByteArray_FromStringAndSize((char*)public_key_digest, public_key_digest_len);
+		PyObject_SetAttrString(py_key, "publicKeyID", p);
+		Py_INCREF(p);
+		free (public_key_digest);
+
+        // publicKeyIDsize
+		p = PyInt_FromLong(public_key_digest_len);
+		PyObject_SetAttrString(py_key, "publicKeyIDsize", p);
+		Py_INCREF(p);
+
+        // pubID
+        // TODO: pubID not implemented
+		p = Py_None;
+		PyObject_SetAttrString(py_key, "pubID", p);
+		Py_INCREF(p);
+
+
+		result = 0;
+
+	}
+	return Py_BuildValue("i", result);
+}
 
 // ************
 // KeyLocator
@@ -1335,6 +1448,110 @@ _pyccn_SignedInfo_from_ccn(PyObject* self, PyObject* args) {
 }
 
 
+
+// ************
+// SigningParams
+//
+//
+
+// Note that SigningParams information is essentially redundant
+// to what's in SignedInfo, and is internal to the
+// ccn libraries.
+// See the source for ccn_sign_content, for example.
+//
+// To use it requires working with keystores & hashtables to
+// reference keys, which requires accessing private functions in the library
+//
+// So, we don't provide "to_ccn" functionality here, only "from_ccn" in case
+// there is a need to parse a struct coming from the c library.
+
+
+// Can be called directly from c library
+//
+// Pointer to a tagged blob starting with CCN_DTAG_SigningParams
+//
+
+void __ccn_signing_params_destroy(void* p) {
+	if (p != NULL) {
+		struct ccn_signing_params* sp = (struct ccn_signing_params*) p;
+		if (sp->template_ccnb != NULL)
+			ccn_charbuf_destroy(&sp->template_ccnb);
+		free(p);
+	}
+}
+
+static PyObject*
+SigningParams_from_ccn( struct ccn_signing_params* signing_params ) {
+	fprintf(stderr,"SigningParams_from_ccn start\n");
+
+	// 1) Create python object
+	PyObject* py_SigningParams = PyObject_CallObject(SigningParamsType, NULL);
+
+	// 2) Parse c structure and fill python attributes
+	//    using PyObject_SetAttrString
+	PyObject* p;
+
+	p = PyInt_FromLong( signing_params->sp_flags );
+	PyObject_SetAttrString(py_SigningParams, "flags", p);
+	Py_INCREF(p);
+
+	p = PyInt_FromLong (signing_params->type );
+	PyObject_SetAttrString(py_SigningParams, "type", p);
+	Py_INCREF(p);
+
+	p = PyInt_FromLong (signing_params->freshness );
+	PyObject_SetAttrString(py_SigningParams, "freshness", p);
+	Py_INCREF(p);
+
+	p = PyInt_FromLong (signing_params->api_version );
+	PyObject_SetAttrString(py_SigningParams, "apiVersion", p);
+	Py_INCREF(p);
+
+	if (signing_params->template_ccnb != NULL)
+		if (signing_params->template_ccnb->length > 0)
+			p = SignedInfo_from_ccn(signing_params->template_ccnb);
+		else
+			p = Py_None;
+	else
+		p = Py_None;
+	PyObject_SetAttrString(py_SigningParams, "template", p);
+	Py_INCREF(p);
+
+	// Right now we're going to set this to the byte array corresponding
+	// to the key hash, but this is not ideal
+	// TODO:  Figure out how to deal with keys here...
+	p = PyByteArray_FromStringAndSize((char*)signing_params->pubid, 32);
+	PyObject_SetAttrString(py_SigningParams, "key", p);
+	Py_INCREF(p);
+
+	// 3) Set ccn_data to a cobject pointing to the c struct
+	//    and ensure proper destructor is set up for the c object.
+	PyObject* ccn_data =  PyCObject_FromVoidPtr( (void*) signing_params, __ccn_signing_params_destroy );
+	Py_INCREF(ccn_data);
+	PyObject_SetAttrString(py_SigningParams, "ccn_data", ccn_data);
+
+	// 4) Return the created object
+	fprintf(stderr,"SigningParams_from_ccn ends\n");
+	return py_SigningParams;
+}
+
+// From within python
+//
+static PyObject*
+_pyccn_SigningParams_from_ccn(PyObject* self, PyObject* args) {
+	PyObject* cobj_signing_params;
+	if (PyArg_ParseTuple(args, "O", &cobj_signing_params)) {
+		if (!PyCObject_Check(cobj_signing_params)) {
+			PyErr_SetString(PyExc_TypeError, "Must pass a CObject containing a struct ccn_signing_params*");
+			return NULL;
+		}
+		return SigningParams_from_ccn( (struct ccn_signing_params*) PyCObject_AsVoidPtr(cobj_signing_params) );
+	}
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+
 // ************
 // UpcallInfo
 //
@@ -1409,8 +1626,8 @@ _pyccn_ContentObject_to_ccn(PyObject* self, PyObject* args) {
 			PyErr_SetString(PyExc_TypeError, "Must pass a ContentObject as arg 1");
 			return NULL;
 		}
-		if (strcmp(py_key->ob_type->tp_name,"Key") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a key as arg 2");
+		if ( strcmp(py_key->ob_type->tp_name,"Key") != 0) {
+			PyErr_SetString(PyExc_TypeError, "Must pass a key as arg 2 ");
 			return NULL;
 		}
 		// Build the ContentObject here.
@@ -1446,7 +1663,12 @@ _pyccn_ContentObject_to_ccn(PyObject* self, PyObject* args) {
 		}
 
 		// Key
+
 		struct ccn_pkey* private_key = Key_to_ccn_private( py_key );
+		// Note that we don't load this key into the keystore hashtable in the library
+		// because it makes this method require access to a ccn handle, and in fact,
+		// ccn_sign_content just calls ccn_encode_ContentObject anyway.
+		//
 
 		// Encode the content object
 		result = ccn_encode_ContentObject( content_object, name, signed_info, content->buf, content->length, digest_alg, private_key);
@@ -1842,7 +2064,17 @@ _pyccn_ccn_put(PyObject* self, PyObject* args) {
 }
 
 // Keys
-static PyObject* // int
+
+
+// We do not use these because working with the key storage
+// in the library requires objects to have a handle to a CCN
+// library, which is unnecessary.  Also, the hashtable storing
+// keys in the library and keystore type itself is opaque to
+// applications.
+// So, Python users will have to come up with their own keystores.
+/*
+
+ static PyObject* // int
 _pyccn_ccn_load_default_key(PyObject* self, PyObject* args) {
 	return 0;
 }
@@ -1855,6 +2087,7 @@ static PyObject*  // pkey
 _pyccn_ccn_get_public_key(PyObject* self, PyObject* args) {
 	return 0;
 }
+*/
 
 
 // ** Methods of ContentObject
@@ -1881,15 +2114,23 @@ _pyccn_ccn_content_matches_interest(PyObject* self, PyObject* args) {
 // ** Methods of SignedInfo
 //
 // Signing
+/* We don't expose this because ccn_signing_params is not that useful to us
+ * see comments above on this.
 static PyObject* // int
 _pyccn_ccn_chk_signing_params(PyObject* self, PyObject* args) {
 	// Build internal signing params struct
 	return 0;
 }
-static PyObject* // int
+*/
+
+/* We don't expose this because it is done automatically in the Python SignedInfo object
+
+static PyObject*
 _pyccn_ccn_signed_info_create(PyObject* self, PyObject* args) {
 	return 0;
 }
+
+*/
 
 // Naming
 static PyObject* // int
@@ -1924,6 +2165,7 @@ static PyMethodDef PyCCNMethods[] = {
 		 ""},
 		{"_pyccn_ccn_disconnect", _pyccn_ccn_disconnect, METH_VARARGS,
 		 ""},
+
 /*		{"_pyccn_ccn_destroy", _pyccn_ccn_destroy, METH_VARARGS,
 		 ""},
 		 // Use del instead.
@@ -1940,12 +2182,16 @@ static PyMethodDef PyCCNMethods[] = {
 		 ""},
 		{"_pyccn_ccn_put", _pyccn_ccn_put, METH_VARARGS,
 		 ""},
+		{"_pyccn_ccn_get_default_key", _pyccn_ccn_get_default_key, METH_VARARGS,
+		 ""},
+/*
 		{"_pyccn_ccn_load_default_key", _pyccn_ccn_load_default_key, METH_VARARGS,
 		 ""},
 		{"_pyccn_ccn_load_private_key", _pyccn_ccn_load_private_key, METH_VARARGS,
 		 ""},
 		{"_pyccn_ccn_get_public_key", _pyccn_ccn_get_public_key, METH_VARARGS,
 		 ""},
+*/
 		{"_pyccn_generate_RSA_key", _pyccn_generate_RSA_key, METH_VARARGS,
 		 ""},
 
@@ -1957,10 +2203,10 @@ static PyMethodDef PyCCNMethods[] = {
 		 ""},
 		{"_pyccn_ccn_content_matches_interest", _pyccn_ccn_content_matches_interest, METH_VARARGS,
 		 ""},
-		{"_pyccn_ccn_chk_signing_params", _pyccn_ccn_chk_signing_params, METH_VARARGS,
+/*		{"_pyccn_ccn_chk_signing_params", _pyccn_ccn_chk_signing_params, METH_VARARGS,
 		 ""},
 		{"_pyccn_ccn_signed_info_create", _pyccn_ccn_signed_info_create, METH_VARARGS,
-		 ""},
+		 ""},  */
 
 		// Naming
 		{"_pyccn_ccn_name_init", _pyccn_ccn_name_init, METH_VARARGS,
@@ -2001,7 +2247,11 @@ static PyMethodDef PyCCNMethods[] = {
 		  ""},
 		 {"_pyccn_SignedInfo_from_ccn", _pyccn_SignedInfo_from_ccn, METH_VARARGS,
 		  ""},
-		 {"_pyccn_ExclusionFilter_to_ccn", _pyccn_ExclusionFilter_to_ccn, METH_VARARGS,
+/*		 {"_pyccn_SignedInfo_to_ccn", _pyccn_SigningParams_to_ccn, METH_VARARGS,
+		  ""},*/
+		 {"_pyccn_SignedInfo_from_ccn", _pyccn_SigningParams_from_ccn, METH_VARARGS,
+		  ""},
+	     {"_pyccn_ExclusionFilter_to_ccn", _pyccn_ExclusionFilter_to_ccn, METH_VARARGS,
 		  ""},
 		 {"_pyccn_ExclusionFilter_from_ccn", _pyccn_ExclusionFilter_from_ccn, METH_VARARGS,
 		  ""},
@@ -2045,6 +2295,7 @@ init_pyccn(void)
 	ExclusionFilterType = PyDict_GetItemString(InterestDict, "ExclusionFilter");
 	SignatureType = PyDict_GetItemString(ContentObjectDict, "Signature");
 	SignedInfoType = PyDict_GetItemString(ContentObjectDict, "SignedInfo");
+	SigningParamsType = PyDict_GetItemString(ContentObjectDict, "SigningParams");
 	UpcallInfoType = PyDict_GetItemString(ClosureDict, "UpcallInfo");
 
 }
