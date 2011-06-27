@@ -84,7 +84,7 @@ struct ccn_charbuf* Name_to_ccn( PyObject* py_name ) {
 			// TODO: Throw error
 			fprintf(stderr, "Can't encoded component, type unknown.\n");
 		}
-		Py_DECREF(item);
+		Py_DECREF(item);  // do we do this here?
 	}
 	Py_DECREF(iterator);
 	if (PyErr_Occurred()) {
@@ -576,13 +576,60 @@ void __ccn_exclusion_filter_destroy(void* p) {
 		;
 }
 
+
 struct ccn_charbuf*
 ExclusionFilter_to_ccn(PyObject* py_ExclusionFilter) {
-	struct ccn_charbuf* sig = ccn_charbuf_create();
+	struct ccn_charbuf* exclude = ccn_charbuf_create();
+	//  Build exclusion list - This uses explicit exclusion rather than Bloom filters
+	//  as Bloom will be deprecated
+	//  IMPORTANT:  Exclusion component list must be sorted following "Canonical CCNx ordering"
+	//              http://www.ccnx.org/releases/latest/doc/technical/CanonicalOrder.html
+	// 				in which shortest components go first.
+	// This sorting is expected to be handled on the Python side, not here.
 	//
-	// Build the ExclusionFilter here.
-	//
-	return sig;
+	if (py_ExclusionFilter == Py_None)
+		return exclude;
+
+	ccn_charbuf_append_tt(exclude, CCN_DTAG_Exclude, CCN_DTAG);
+
+	// This code is similar to what's used in Name;
+	// could probably be generalized.
+
+	PyObject *iterator = PyObject_GetIter(py_ExclusionFilter);
+	PyObject *item;
+	if (iterator == NULL) {
+		// TODO: Return error
+	}
+	Py_ssize_t blobsize;
+	const char* blob;
+	while ((item = PyIter_Next(iterator))) {
+		if (PyByteArray_Check(item)) {
+			blobsize = PyByteArray_Size(item);
+			blob = PyByteArray_AsString(item);
+		} else if (PyString_Check(item)) { // Unicode or UTF-8?
+			blob = PyString_AsString(item);
+			blobsize = strlen(blob); // more efficient way?
+			// Note, we choose to convert numbers to their string
+			// representation; if we want numeric encoding, use a
+			// byte array and do it explicitly.
+		} else if (PyFloat_Check(item) || PyLong_Check(item)
+				|| PyInt_Check(item)) {
+			PyObject* p = PyObject_Str(item);
+			blob = PyString_AsString(p);
+			blobsize = strlen(blob); // More efficient way?
+		} else {
+			// TODO: Throw error
+			fprintf(stderr, "Can't encoded component, type unknown.\n");
+		}
+		Py_DECREF(item); // do we do this here?
+		ccnb_append_tagged_blob(exclude, CCN_DTAG_Component, blob, blobsize);
+	}
+	Py_DECREF(iterator);
+	if (PyErr_Occurred()) {
+		// TODO: Propagate error
+	}
+	ccn_charbuf_append_closer(exclude); /* </Exclude> */
+	return exclude;
 }
 static PyObject*
 _pyccn_ExclusionFilter_to_ccn(PyObject* self, PyObject* args) {
@@ -656,6 +703,67 @@ void __ccn_parsed_interest_destroy(void* p) {
 		free(p);
 }
 
+struct ccn_charbuf*
+Interest_to_ccn(PyObject* py_interest) {
+	struct ccn_charbuf* interest;
+
+	PyObject* p;
+
+    interest = ccn_charbuf_create();
+
+    ccn_charbuf_append_tt(interest, CCN_DTAG_Interest, CCN_DTAG);
+
+
+    if ((p=PyObject_GetAttrString(py_interest, "name")) != Py_None) {
+    	struct ccn_charbuf* name = Name_to_ccn(p);
+    	ccn_charbuf_append_charbuf(interest, name);
+    	ccn_charbuf_destroy(&name);
+    } else { // Empty name because it is required?
+        ccn_charbuf_append_tt(interest, CCN_DTAG_Name, CCN_DTAG);
+        ccn_charbuf_append_closer(interest); /* </Name> */
+    }
+
+
+    if ((p=PyObject_GetAttrString(py_interest, "minSuffixComponents")) != Py_None) {
+	    ccnb_tagged_putf(interest, CCN_DTAG_MinSuffixComponents, "%dl", PyInt_AsLong(p));
+    }
+    if ((p=PyObject_GetAttrString(py_interest, "maxSuffixComponents")) != Py_None) {
+	    ccnb_tagged_putf(interest, CCN_DTAG_MaxSuffixComponents, "%dl", PyInt_AsLong(p));
+    }
+    if ((p=PyObject_GetAttrString(py_interest, "publisherPublicKeyDigest")) != Py_None) {	// expect a byte array?
+    	// TODO: Type check here?
+    	size_t blobsize = (size_t) PyByteArray_Size(p);
+		const char* blob = PyByteArray_AsString(p);
+		ccnb_append_tagged_blob(interest, CCN_DTAG_PublisherPublicKeyDigest, blob, blobsize);
+	}
+    if ((p=PyObject_GetAttrString(py_interest, "exclude")) != Py_None) {
+    	struct ccn_charbuf* exclusionfilter = ExclusionFilter_to_ccn(p);
+    	ccn_charbuf_append_charbuf(interest, exclusionfilter);
+    	ccn_charbuf_destroy(&exclusionfilter);
+    }
+    if ((p=PyObject_GetAttrString(py_interest, "childSelector")) != Py_None) {
+	    ccnb_tagged_putf(interest, CCN_DTAG_ChildSelector, "%dl", PyInt_AsLong(p));
+    }
+    if ((p=PyObject_GetAttrString(py_interest, "answerOriginKind")) != Py_None) {
+	    ccnb_tagged_putf(interest, CCN_DTAG_AnswerOriginKind, "%dl", PyInt_AsLong(p));
+    }
+    if ((p=PyObject_GetAttrString(py_interest, "scope")) != Py_None) {
+	    ccnb_tagged_putf(interest, CCN_DTAG_Scope, "%dl", PyInt_AsLong(p));
+    }
+    if ((p=PyObject_GetAttrString(py_interest, "interestLifetime")) != Py_None) {
+	    ccnb_tagged_putf(interest, CCN_DTAG_InterestLifetime, "%dl", PyLong_AsLong(p));
+    }
+    if ((p=PyObject_GetAttrString(py_interest, "nonce")) != Py_None) {
+    	// TODO: Nonce
+    	// This is automatically added by the library?
+    	//
+    }
+
+    ccn_charbuf_append_closer(interest); /* </Interest> */
+
+    return interest;
+}
+
 static PyObject*
 _pyccn_Interest_to_ccn(PyObject* self, PyObject* args) {
 	PyObject* py_interest;
@@ -667,49 +775,7 @@ _pyccn_Interest_to_ccn(PyObject* self, PyObject* args) {
 			return NULL;
 		}
 		//  Build an interest
-		PyObject* p;
-
-	    interest = ccn_charbuf_create();
-
-	    ccn_charbuf_append_tt(interest, CCN_DTAG_Interest, CCN_DTAG);
-
-	    ccn_charbuf_append_tt(interest, CCN_DTAG_Name, CCN_DTAG);
-	    if ((p=PyObject_GetAttrString(py_interest, "name")) != Py_None) {
-	    	// TODO: Name
-	    }
-	    ccn_charbuf_append_closer(interest); /* </Name> */
-
-	    if ((p=PyObject_GetAttrString(py_interest, "minSuffixComponents")) != Py_None) {
-		    ccnb_tagged_putf(interest, CCN_DTAG_MinSuffixComponents, "%dl", PyInt_AsLong(p));
-	    }
-	    if ((p=PyObject_GetAttrString(py_interest, "maxSuffixComponents")) != Py_None) {
-		    ccnb_tagged_putf(interest, CCN_DTAG_MaxSuffixComponents, "%dl", PyInt_AsLong(p));
-	    }
-	    if ((p=PyObject_GetAttrString(py_interest, "publisherPublicKeyDigest")) != Py_None) {
-	    	// TODO: publisherPublicKeyDigest
-	    }
-	    if ((p=PyObject_GetAttrString(py_interest, "exclude")) != Py_None) {
-	    	// TODO: exclusion filter
-	    }
-	    if ((p=PyObject_GetAttrString(py_interest, "childSelector")) != Py_None) {
-		    ccnb_tagged_putf(interest, CCN_DTAG_ChildSelector, "%dl", PyInt_AsLong(p));
-	    }
-	    if ((p=PyObject_GetAttrString(py_interest, "answerOriginKind")) != Py_None) {
-		    ccnb_tagged_putf(interest, CCN_DTAG_AnswerOriginKind, "%dl", PyInt_AsLong(p));
-	    }
-	    if ((p=PyObject_GetAttrString(py_interest, "scope")) != Py_None) {
-		    ccnb_tagged_putf(interest, CCN_DTAG_Scope, "%dl", PyInt_AsLong(p));
-	    }
-	    if ((p=PyObject_GetAttrString(py_interest, "interestLifetime")) != Py_None) {
-		    ccnb_tagged_putf(interest, CCN_DTAG_InterestLifetime, "%dl", PyLong_AsLong(p));
-	    }
-	    if ((p=PyObject_GetAttrString(py_interest, "nonce")) != Py_None) {
-	    	// TODO: Nonce
-	    	// This is automatically added by the library?
-	    	//
-	    }
-
-	    ccn_charbuf_append_closer(interest); /* </Interest> */
+		interest = Interest_to_ccn( py_interest );
 
 	    parsed_interest = calloc( sizeof(struct ccn_parsed_interest), 1 );
 		int result = 0;
@@ -917,12 +983,36 @@ void __ccn_signature_destroy(void* p) {
 
 struct ccn_charbuf*
 Signature_to_ccn(PyObject* py_signature) {
+	fprintf(stderr, "Signature_to_ccn starts \n");
 	struct ccn_charbuf* sig = ccn_charbuf_create();
-	//
-	// Build the Signature here.
-	//
+	PyObject* py_digestAlgorithm = PyObject_GetAttrString(py_signature, "digestAlgorithm");
+	PyObject* py_witness = PyObject_GetAttrString(py_signature, "witness");
+	PyObject* py_signatureBits = PyObject_GetAttrString(py_signature, "signatureBits");
+	const char* blob;
+	size_t blobsize;
+	int res = -1;
+	res= ccn_charbuf_append_tt(sig, CCN_DTAG_Signature, CCN_DTAG);
+	if (py_digestAlgorithm != Py_None) {
+		struct ccn_charbuf* digestAlgorithm = ccn_charbuf_create();
+		ccn_charbuf_append_string(digestAlgorithm, PyString_AsString(py_digestAlgorithm));
+		res = ccnb_append_tagged_blob(sig, CCN_DTAG_DigestAlgorithm, digestAlgorithm->buf, digestAlgorithm->length);
+		ccn_charbuf_destroy(&digestAlgorithm);
+	}
+	if (py_witness != Py_None) {
+		blobsize = (size_t) PyByteArray_Size(py_witness);
+		blob = PyByteArray_AsString(py_witness);
+		fprintf(stderr,"witness blobsize = %zd\n", blobsize);
+		res = ccnb_append_tagged_blob(sig, CCN_DTAG_Witness, blob, blobsize);
+	}
+	if (py_signatureBits != Py_None) {
+		blobsize = (size_t) PyByteArray_Size(py_signatureBits);
+		blob = PyByteArray_AsString(py_signatureBits);
+		res= ccnb_append_tagged_blob(sig, CCN_DTAG_SignatureBits, blob, blobsize);
+	}
+	res= ccn_charbuf_append_closer(sig); /* </Signature> */
 	return sig;
 }
+
 static PyObject*
 _pyccn_Signature_to_ccn(PyObject* self, PyObject* args) {
 	PyObject* py_signature;
@@ -940,7 +1030,7 @@ _pyccn_Signature_to_ccn(PyObject* self, PyObject* args) {
 // Can be called directly from c library
 static PyObject*
 Signature_from_ccn( struct ccn_charbuf* signature ) {
-	fprintf(stderr,"Signature_from_ccn start\n");
+	fprintf(stderr,"Signature_from_ccn start, len=%zd\n", signature->length);
 
 	// 1) Create python object
 	PyObject* py_signature = PyObject_CallObject(SignatureType, NULL);
@@ -948,12 +1038,73 @@ Signature_from_ccn( struct ccn_charbuf* signature ) {
 	// 2) Parse c structure and fill python attributes
 	//    using PyObject_SetAttrString
 
-//    self.digestAlgorithm = None
-//    self.witness = None
-//    self.signatureBits = None
-//    # pyccn
-//    self.ccn_data_dirty = False
-//    self.ccn_data = None  # backing charbuf
+	PyObject* p;
+
+	//
+	//
+	//
+	// Neither DigestAlgorithm nor Witness are included in the packet
+	// from ccnput, so they are apparently both optional
+	//
+    struct ccn_buf_decoder decoder;
+    struct ccn_buf_decoder *d;
+    size_t start;
+    size_t stop;
+    size_t size;
+    const unsigned char *ptr = NULL;
+    int i=0;
+    d = ccn_buf_decoder_start(&decoder,
+                              signature->buf,
+                              signature->length);
+    if (ccn_buf_match_dtag(d, CCN_DTAG_Signature)) {
+    	fprintf (stderr,"Is a signature\n");
+		ccn_buf_advance(d);
+		start = d->decoder.token_index;
+		ccn_parse_optional_tagged_BLOB(d, CCN_DTAG_DigestAlgorithm, 1, -1);
+		stop = d->decoder.token_index;
+		i = ccn_ref_tagged_BLOB(CCN_DTAG_DigestAlgorithm, d->buf, start, stop, &ptr, &size);
+		if (i == 0) {
+			//    self.timeStamp = None   # CCNx timestamp
+			fprintf(stderr, "PyObject_SetAttrString digestAlgorithm\n");
+			p = PyByteArray_FromStringAndSize((const char*)ptr, size);
+			PyObject_SetAttrString(py_signature, "digestAlgorithm", p);
+			Py_INCREF(p);
+		}
+
+
+		start = d->decoder.token_index;
+		ccn_parse_optional_tagged_BLOB(d, CCN_DTAG_Witness, 1, -1);
+		stop = d->decoder.token_index;
+		fprintf(stderr, "witness start %zd stop %zd\n", start,stop);
+		i = ccn_ref_tagged_BLOB(CCN_DTAG_Witness, d->buf, start, stop, &ptr, &size);
+		if (i == 0) {
+			// The Witness is represented as a DER-encoded PKCS#1 DigestInfo,
+			// which contains an AlgorithmIdentifier (an OID, together with any necessary parameters)
+			// and a byte array (OCTET STRING) containing the digest information to be interpreted according to that OID.
+			// http://www.ccnx.org/releases/latest/doc/technical/SignatureGeneration.html
+			fprintf(stderr, "PyObject_SetAttrString witness\n");
+			p = PyByteArray_FromStringAndSize((const char*)ptr, size);
+			PyObject_SetAttrString(py_signature, "witness", p);
+			Py_INCREF(p);
+		}
+		start = d->decoder.token_index;
+		ccn_parse_required_tagged_BLOB(d, CCN_DTAG_SignatureBits, 1, -1);
+		stop = d->decoder.token_index;
+		i = ccn_ref_tagged_BLOB(CCN_DTAG_SignatureBits, d->buf, start, stop, &ptr, &size);
+		if (i == 0) {
+			fprintf(stderr, "PyObject_SetAttrString signatureBits\n");
+			p = PyByteArray_FromStringAndSize((const char*)ptr, size);
+			PyObject_SetAttrString(py_signature, "signatureBits", p);
+			Py_INCREF(p);
+		}
+
+		ccn_buf_check_close(d);
+	} else {
+		fprintf(stderr, "Did not pass data starting with CCN_DTAG_Signature.\n");
+	}
+	if (d->decoder.state < 0) {
+		fprintf(stderr, "Signature decode error.\n");
+	}
 
 	// 3) Set ccn_data to a cobject pointing to the c struct
 	//    and ensure proper destructor is set up for the c object.
@@ -1078,6 +1229,7 @@ SignedInfo_from_ccn( struct ccn_charbuf* signed_info ) {
 		ccn_buf_advance(d);
 		if (ccn_buf_match_dtag(d, CCN_DTAG_PublisherPublicKeyDigest))
 			start = d->decoder.token_index;
+		//TODO - what if not?
 		ccn_parse_required_tagged_BLOB(d, CCN_DTAG_PublisherPublicKeyDigest, 16, 64);
 		stop = d->decoder.token_index; // check - do we need this here?
 		i = ccn_ref_tagged_BLOB(CCN_DTAG_PublisherPublicKeyDigest, d->buf, start, stop, &ptr, &size);
@@ -1354,7 +1506,12 @@ ContentObject_from_ccn_parsed( struct ccn_charbuf* content_object,
 
 	fprintf(stderr,"ContentObject_from_ccn_parsed Signature\n");
 	// TODO: Signature -- could use Interest parsing as an example
-	PyObject* py_signature = Py_None;
+
+	struct ccn_charbuf* signature = ccn_charbuf_create();
+	ccn_charbuf_append(signature,  &content_object->buf[parsed_content_object->offset[CCN_PCO_B_Signature]],
+							  (size_t) (parsed_content_object->offset[CCN_PCO_E_Signature] - parsed_content_object->offset[CCN_PCO_B_Signature]));
+
+	PyObject* py_signature = Signature_from_ccn(signature);  // it will destroy?
 	PyObject_SetAttrString(py_co, "signature", py_signature);
 	Py_INCREF(py_signature);
 

@@ -2,6 +2,12 @@
 # Front ccn_parsed_interest.
 # Sort of. 
 
+#
+#    //  IMPORTANT:  Exclusion component list must be sorted following "Canonical CCNx ordering"
+#   //              http://www.ccnx.org/releases/latest/doc/technical/CanonicalOrder.html
+#    //                 in which shortest components go first.
+#
+
 import Name
 
 class Interest(object):
