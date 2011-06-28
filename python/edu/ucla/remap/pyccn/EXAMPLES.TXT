@@ -32,7 +32,7 @@ c.put(co)
 import _pyccn, ContentObject
 sig = ContentObject.Signature()
 sig.digestAlgorithm="foo"
-sig.witness = bytearray("doofus")
+sig.witness = bytearray("bar")
 sig.signatureBits= bytearray('124091')
 fork = _pyccn._pyccn_Signature_from_ccn(_pyccn._pyccn_Signature_to_ccn(sig)) 
 
@@ -46,7 +46,7 @@ import CCN,Name,Interest
 c = CCN.CCN()
 n = Name.Name()
 i = Interest.Interest()
-n.components = ["foo", "dork"]
+n.components = ["foo", "bar"]
 co = c.get(n,i,5000)
 n.components = ["foo", "zero"]
 co = c.get(n,i,5000)
