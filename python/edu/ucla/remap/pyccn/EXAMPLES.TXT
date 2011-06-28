@@ -1,4 +1,11 @@
 
+Need to export PYTHONPATH=/Users/jburke/Documents/workspace/pyccn/Debug
+
+On the Mac, need to make sure you access the version of Python the libraries are compiled against
+/System/Library/Frameworks/Python.framework/Versions/Current/bin/python
+
+some examples that should work - 
+
 import CCN,Name,Interest,ContentObject,Key
 c = CCN.CCN()
 k = Key.Key()
@@ -22,6 +29,17 @@ co.signedInfo = si
 co.sign(k)
 c.put(co)
 
+import _pyccn, ContentObject
+sig = ContentObject.Signature()
+sig.digestAlgorithm="foo"
+sig.witness = bytearray("doofus")
+sig.signatureBits= bytearray('124091')
+fork = _pyccn._pyccn_Signature_from_ccn(_pyccn._pyccn_Signature_to_ccn(sig)) 
+
+
+import CCN
+c = CCN.CCN()
+k = c.getDefaultKey()
 
 
 import CCN,Name,Interest

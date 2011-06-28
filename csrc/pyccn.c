@@ -1,5 +1,55 @@
 
 
+//
+//  Python bindings for CCNx
+//  jburke@ucla.edu
+//  6/27/2011
+//
+//  (C) 2011 Regents of the University of California
+//  Unreleased...
+//
+//
+
+// This is intended to be a rather "thin" implementation, which supports
+// Python objects corresponding to the major CCNx entities - Interest, ContentObject,
+// and so on, as well as some support objects.  The C code is mostly just
+// responsible for marshaling data back and forth between the formats, though
+// there are some useful functions for key generation/access included.
+//
+// These are mapped more or less directly from the CCNx wire format, and the
+// Python objects are, in fact, backed by a cached version of the wire format
+// or native c object, a Python CObject kept in self.ccn_data. Accessing the
+// attribute regenerates this backing CObject if necessary - those mechanics
+// are in the Python code.
+//
+// The Interest and ContentObject objects also cache their parsed versions
+// as well
+//
+//
+
+// So far this is being built with Eclipse compiling on Mac OS X 10.6.6
+// Using Apple's version of Python 2.6.1.  It should under other versions
+// if things are compiled against the right headers.
+// Link to a shared library (.so).
+//
+
+// Still left to do:
+// - Finish implementing ccn library calls of interest (stubs below)
+// - Fill in help text python method declaration
+// - Error checking and exception handling
+// - Check proper use of Py_INCREF and Py_DECREF macros.
+// - Update for new key functions in the current branch Nick B has
+// - Unit test and debug against C and Java APIs
+// - Buffer overflow protection?
+// - Lots of interesting high-level stuff in Python may require new support code here.
+
+// Long-term:
+// - Most key- and signing-related functions are hardcoded
+//   for RSA and SHA256 because the wire format and/or libraries
+//   provide no other examples.  Need to keep an eye on API support
+//   and update.
+
+
 #include "Python.h"
 #include "ccn/ccn.h"
 #include "ccn/hashtb.h"
@@ -8,13 +58,19 @@
 #include "pyccn.h"
 #include "key_utils.h"
 
+// Primary types for the Python libraries,
+// taken directly from the CCNx wire format
+//
 static PyObject* NameType;
 static PyObject* CCNType;
 static PyObject* InterestType;
 static PyObject* ContentObjectType;
 static PyObject* ClosureType;
 static PyObject* KeyType;
-// plus:
+
+// Plus some secondary helper types, which
+// are declared as inner classes.
+//
 static PyObject* ExclusionFilterType;
 static PyObject* KeyLocatorType;
 static PyObject* SignatureType;
@@ -22,6 +78,8 @@ static PyObject* SignedInfoType;
 static PyObject* SigningParamsType;
 static PyObject* UpcallInfoType;
 
+// Pointers to the various modules themselves.
+//
 static PyObject* NameModule;
 static PyObject* CCNModule;
 static PyObject* InterestModule;
@@ -30,7 +88,9 @@ static PyObject* ClosureModule;
 static PyObject* KeyModule;
 
 
-
+// Utility function to print out character buffers and
+// escape non-printable ascii.
+//
 void dump_charbuf (struct ccn_charbuf* c, FILE* fp) {
 	int i=0;
 	for (i=0; i < c->length; i++) {
@@ -43,7 +103,13 @@ void dump_charbuf (struct ccn_charbuf* c, FILE* fp) {
 
 
 
-
+//
+// IMPLEMENTATION OF OBJECT CONVERTERS,
+// TO AND FROM CCNx LIBRARY STRUCTURES OR
+// FROM THE WIRE FORMAT, IF THERE ARE NO
+// CORRESPONDING C STRUCTS.
+//
+//
 
 // ************
 // Name
@@ -68,6 +134,9 @@ struct ccn_charbuf* Name_to_ccn( PyObject* py_name ) {
 	   // TODO: Return error
 	}
 
+	// Parse the list of components and
+	// convert them to C objects
+	//
 	while ( (item = PyIter_Next(iterator)) ) {
 		if (PyByteArray_Check(item)) {
 			Py_ssize_t n = PyByteArray_Size(item);
@@ -83,7 +152,7 @@ struct ccn_charbuf* Name_to_ccn( PyObject* py_name ) {
 			ccn_name_append_str(name, PyString_AsString(s));
 			Py_DECREF(s);
 		} else {
-			// TODO: Throw error
+			// TODO: Throw exception
 			fprintf(stderr, "Can't encoded component, type unknown.\n");
 		}
 		Py_DECREF(item);  // do we do this here?
@@ -209,8 +278,9 @@ Key_to_ccn_keystore(PyObject* py_key) {
 	// This is supposed to be an opaque type.
 	// We borrow this from ccn_keystore.c
 	// so that we can work with the ccn hashtable
-	// and do Key_to_keystore... but this may not be
-	// ever needed.
+	// and do Key_to_keystore... but this whole method may not be
+	// ever needed, as the ccn_keystore type seems
+	// to be primarily for the use of the library internally?
 	struct ccn_keystore_private {
 		int initialized;
 		EVP_PKEY *private_key;
@@ -223,7 +293,7 @@ Key_to_ccn_keystore(PyObject* py_key) {
 
 	struct ccn_keystore_private* keystore = calloc(1, sizeof(struct ccn_keystore_private));
 	keystore->initialized = 1;
-	// TODO: Do I need to INCREF here?
+	// TODO: need to INCREF here?
 	keystore->private_key = (EVP_PKEY*) PyCObject_AsVoidPtr( PyObject_GetAttrString(py_key, "ccn_data_private") );
 	keystore->public_key = (EVP_PKEY*) PyCObject_AsVoidPtr( PyObject_GetAttrString(py_key, "ccn_data_public") );
 
@@ -240,12 +310,12 @@ Key_to_ccn_keystore(PyObject* py_key) {
 }
 struct ccn_pkey*
 Key_to_ccn_private(PyObject* py_key) {
-	// TODO: Do I need to INCREF here?
+	// TODO: need to INCREF here?
 	return (struct ccn_pkey*) PyCObject_AsVoidPtr( PyObject_GetAttrString(py_key, "ccn_data_private") );
 }
 struct ccn_pkey*
 Key_to_ccn_public(PyObject* py_key) {
-	// TODO: Do I need to INCREF here?
+	// TODO: need to INCREF here?
 	return (struct ccn_pkey*) PyCObject_AsVoidPtr( PyObject_GetAttrString(py_key, "ccn_data_public") );
 }
 
@@ -287,11 +357,7 @@ Key_from_ccn( struct ccn_pkey* key_ccn ) {
 	// 1) Create python object
 	PyObject* py_key = PyObject_CallObject(KeyType, NULL);
 
-
-
 	// 2) Parse c structure and fill python attributes
-	//    using PyObject_SetAttrString
-
 
 	 // If this is a private key, split private and public keys
 	// There is probably a less convoluted way to do this than pulling it out to RSA
@@ -306,14 +372,11 @@ Key_from_ccn( struct ccn_pkey* key_ccn ) {
 	//  ccn_digest has a more convoluted API, with examples
 	// in ccn_client, but *for now* it boils down to the same thing.
 
-	// TODO:  incorporate pyOpenSSL to manipulate RSA keys?
-	//
-
 	PyObject* p;
 
 
     // type
-	p = PyString_FromString("RSA");		// TODO: support others?
+	p = PyString_FromString("RSA");
 	PyObject_SetAttrString(py_key, "type", p);
 	Py_INCREF(p);
 
@@ -410,7 +473,10 @@ _pyccn_ccn_get_default_key(PyObject* self, PyObject* args) {
 		};
 
 		// In order to get the default key, have to call ccn_chk_signing_params
-		// which seems to get the key and insert it in the hash table
+		// which seems to get the key and insert it in the hash table; otherwise
+		// the hashtable starts empty
+		// Could we just have an API call that returns the default signing key?
+		//
 		struct ccn_private* h = (struct ccn_private*) PyCObject_AsVoidPtr(PyObject_GetAttrString(py_ccn, "ccn_data"));
 	    struct ccn_signing_params name_sp = CCN_SIGNING_PARAMS_INIT;
 	    struct ccn_signing_params p = CCN_SIGNING_PARAMS_INIT;
@@ -442,9 +508,8 @@ _pyccn_ccn_get_default_key(PyObject* self, PyObject* args) {
 	}
 }
 
-// TODO: Revise to make a method of Key?
+// TODO: Revise Python library to make a method of Key?
 //
-
 static PyObject*
 _pyccn_generate_RSA_key(PyObject* self, PyObject* args) {
 	PyObject *py_key;
@@ -573,10 +638,8 @@ KeyLocator_from_ccn( struct ccn_charbuf* key_locator ) {
 	PyObject* py_keylocator = PyObject_CallObject(KeyLocatorType, NULL);
 
 	// 2) Parse c structure and fill python attributes
-	//    using PyObject_SetAttrString
 
 	// Based on ccn_locate_key in ccn_client
-
     int res=0;
     struct ccn_buf_decoder decoder;
     struct ccn_buf_decoder *d;
@@ -654,9 +717,6 @@ KeyLocator_from_ccn( struct ccn_charbuf* key_locator ) {
 	Py_INCREF(ccn_data);
 	PyObject_SetAttrString(py_keylocator, "ccn_data", ccn_data);
 
-
-
-
 	// 4) Return the created object
 	fprintf(stderr,"KeyLocator_from_ccn ends\n");
 	return py_keylocator;
@@ -688,7 +748,6 @@ void __ccn_exclusion_filter_destroy(void* p) {
 	if (p != NULL)
 		;
 }
-
 
 struct ccn_charbuf*
 ExclusionFilter_to_ccn(PyObject* py_ExclusionFilter) {
@@ -1149,13 +1208,8 @@ Signature_from_ccn( struct ccn_charbuf* signature ) {
 	PyObject* py_signature = PyObject_CallObject(SignatureType, NULL);
 
 	// 2) Parse c structure and fill python attributes
-	//    using PyObject_SetAttrString
-
 	PyObject* p;
 
-	//
-	//
-	//
 	// Neither DigestAlgorithm nor Witness are included in the packet
 	// from ccnput, so they are apparently both optional
 	//
@@ -1468,9 +1522,8 @@ _pyccn_SignedInfo_from_ccn(PyObject* self, PyObject* args) {
 
 // Can be called directly from c library
 //
-// Pointer to a tagged blob starting with CCN_DTAG_SigningParams
+// Pointer to a struct ccn_signing_params
 //
-
 void __ccn_signing_params_destroy(void* p) {
 	if (p != NULL) {
 		struct ccn_signing_params* sp = (struct ccn_signing_params*) p;
@@ -1568,7 +1621,7 @@ UpcallInfo_from_ccn( struct ccn_upcall_info*  ui) {
 	PyObject* py_upcall_info = PyObject_CallObject(UpcallInfoType, NULL);
 
 	//
-	// Build the python UpcallInfo here
+	// TODO: Build the python UpcallInfo here
 	//
 
 	// Set ccn_data to cobject, INCRef
@@ -1667,9 +1720,9 @@ _pyccn_ContentObject_to_ccn(PyObject* self, PyObject* args) {
 		struct ccn_pkey* private_key = Key_to_ccn_private( py_key );
 		// Note that we don't load this key into the keystore hashtable in the library
 		// because it makes this method require access to a ccn handle, and in fact,
-		// ccn_sign_content just calls ccn_encode_ContentObject anyway.
+		// ccn_sign_content just uses what's in signedinfo (after an error check by
+		// chk_signing_params and then calls ccn_encode_ContentObject anyway
 		//
-
 		// Encode the content object
 		result = ccn_encode_ContentObject( content_object, name, signed_info, content->buf, content->length, digest_alg, private_key);
 		fprintf(stderr, "ccn_encode_ContentObject res=%d\n", result);
@@ -1727,7 +1780,6 @@ ContentObject_from_ccn_parsed( struct ccn_charbuf* content_object,
 	Py_INCREF(py_content);
 
 	fprintf(stderr,"ContentObject_from_ccn_parsed Signature\n");
-	// TODO: Signature -- could use Interest parsing as an example
 
 	struct ccn_charbuf* signature = ccn_charbuf_create();
 	ccn_charbuf_append(signature,  &content_object->buf[parsed_content_object->offset[CCN_PCO_B_Signature]],
@@ -1749,7 +1801,7 @@ ContentObject_from_ccn_parsed( struct ccn_charbuf* content_object,
 	Py_INCREF(py_signedinfo);
 
 	fprintf(stderr,"ContentObject_from_ccn_parsed DigestAlgorithm\n");
-	PyObject* py_digestalgorithm = Py_None;  // TODO...
+	PyObject* py_digestalgorithm = Py_None;  // TODO...  Note this seems to default to nothing in the library...?
 	PyObject_SetAttrString(py_co, "digestAlgorithm", py_digestalgorithm);
 	Py_INCREF(py_digestalgorithm);
 
@@ -1825,6 +1877,15 @@ void __ccn_destroy(void* p) {
 }
 
 
+
+//
+// WRAPPERS FOR VARIOUS CCNx LIBRARY FUNCTIONS
+// SOME OF WHICH BECOME OBJECT METHODS IN THE
+// PYTHON LIBRARY - SEE THE PYTHON CODE FOR
+// CLARIFICATION.
+//
+//
+
 // *** Python method declarations
 //
 //
@@ -1839,7 +1900,6 @@ _pyccn_ccn_create(PyObject* self, PyObject* args) {
 	struct ccn* ccn_handle = ccn_create();
 	return PyCObject_FromVoidPtr((void*) ccn_handle, __ccn_destroy);  // Deprecated, use capsules after 2.7.1
 }
-
 
 
 
@@ -1892,7 +1952,7 @@ _pyccn_ccn_run(PyObject* self, PyObject* args) {
 		}
 		result = ccn_run((struct ccn*) PyCObject_AsVoidPtr(ccn_handle), timeoutms);
 	}
-	return Py_BuildValue("i", result);	// TODO: Slow
+	return PyInt_FromLong(result);
 }
 
 static PyObject* // int
@@ -2149,13 +2209,11 @@ _pyccn_ccn_compare_names(PyObject* self, PyObject* args) {
 
 
 
-
-
-// Declare for python
 //
-static PyMethodDef PyCCNMethods[] = {
+// DECLARATION OF PYTHON-ACCESSIBLE FUNCTIONS
+//
 
-		// TODO: Fill in the help functions
+static PyMethodDef PyCCNMethods[] = {
 
 		// ** Methods of CCN
 		//
@@ -2260,7 +2318,6 @@ static PyMethodDef PyCCNMethods[] = {
 
 		 {NULL, NULL, 0, NULL}        /* Sentinel */
 };
-
 
 
 PyMODINIT_FUNC
