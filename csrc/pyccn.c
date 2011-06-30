@@ -50,11 +50,11 @@
 //   and update.
 
 
-#include "Python.h"
-#include "ccn/ccn.h"
-#include "ccn/hashtb.h"
-#include "ccn/uri.h"
-#include "ccn/signing.h"
+#include <Python.h>
+#include <ccn/ccn.h>
+#include <ccn/hashtb.h>
+#include <ccn/uri.h>
+#include <ccn/signing.h>
 #include "pyccn.h"
 #include "key_utils.h"
 
