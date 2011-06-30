@@ -1,7 +1,5 @@
-
-
-#ifndef KEY_UTILS_H_
-#define KEY_UTILS_H_
+#ifndef _KEY_UTILS_H_
+#define _KEY_UTILS_H_
 
 // Load these here to make it easier on the app
 
@@ -12,8 +10,6 @@
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <openssl/ossl_typ.h>
-
-
 
 #include <ccn/keystore.h>
 
@@ -57,6 +53,4 @@ int ccn_keypair_from_rsa(RSA* private_key_rsa, struct ccn_pkey** private_key_ccn
 int generate_RSA_keypair(unsigned char** private_key_der, size_t *private_key_len,
 						 unsigned char** public_key_der, size_t *public_key_len);
 
-
-
-#endif /* KEY_UTILS_H_ */
+#endif /* _KEY_UTILS_H_ */

@@ -1,12 +1,11 @@
 /*
- * pyccn.hpp
+ * pyccn.h
  *
  *  Created on: May 29, 2011
  *      Author: jburke
  */
 
-#ifndef PYCCN_HPP_
-#define PYCCN_HPP_
+#ifndef _PYCCN_H_
+#define _PYCCN_H_
 
-
-#endif /* PYCCN_HPP_ */
+#endif /* _PYCCN_H_ */
