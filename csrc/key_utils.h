@@ -1,17 +1,17 @@
 #ifndef _KEY_UTILS_H_
-#define _KEY_UTILS_H_
+#  define _KEY_UTILS_H_
 
 // Load these here to make it easier on the app
 
 // On MacOS X, need to have the latest version from MacPorts
 // and add /opt/local/include as an include path
-#include <openssl/rsa.h>
-#include <openssl/pem.h>
-#include <openssl/evp.h>
-#include <openssl/sha.h>
-#include <openssl/ossl_typ.h>
+#  include <openssl/rsa.h>
+#  include <openssl/pem.h>
+#  include <openssl/evp.h>
+#  include <openssl/sha.h>
+#  include <openssl/ossl_typ.h>
 
-#include <ccn/keystore.h>
+#  include <ccn/keystore.h>
 
 // work with CCN_pkey structures directly
 //
@@ -19,6 +19,7 @@
 // This is a lot like ccn's keystore, but
 // that is an opaque type, so we're not supposed
 // to use it directly.
+
 struct keypair {
 	struct ccn_pkey* private_key;
 	struct ccn_pkey* public_key;
@@ -27,7 +28,7 @@ struct keypair {
 };
 
 int generate_key(int length, struct ccn_pkey** private_key_ccn, struct ccn_pkey** public_key_ccn,
-					unsigned char** public_key_digest, size_t *public_key_digest_len);
+		unsigned char** public_key_digest, size_t *public_key_digest_len);
 int generate_keypair(int length, struct keypair** KP);
 
 // We use "PEM" to make things "readable" for now
@@ -51,6 +52,6 @@ int get_ASN_public_key(unsigned char** public_key_der, int* public_key_der_len, 
 int create_public_key_digest(RSA* private_key_rsa, unsigned char** public_key_digest, size_t *public_key_digest_len);
 int ccn_keypair_from_rsa(RSA* private_key_rsa, struct ccn_pkey** private_key_ccn, struct ccn_pkey** public_key_ccn);
 int generate_RSA_keypair(unsigned char** private_key_der, size_t *private_key_len,
-						 unsigned char** public_key_der, size_t *public_key_len);
+		unsigned char** public_key_der, size_t *public_key_len);
 
 #endif /* _KEY_UTILS_H_ */
