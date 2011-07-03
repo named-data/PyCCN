@@ -13,7 +13,7 @@ LT_INIT
 
 # Checks for programs.
 AC_PROG_CC
-AM_PATH_PYTHON(,,AC_MSG_ERROR([Python is required to compile PyCCN]))
+AM_PATH_PYTHON([2.5],,AC_MSG_ERROR([Python is required to compile PyCCN]))
 
 # Checks for libraries.
 AX_CHECK_CCN(,AC_MSG_ERROR([CCNx is required to compile PyCCN]))
@@ -22,8 +22,6 @@ AX_CHECK_CCN(,AC_MSG_ERROR([CCNx is required to compile PyCCN]))
 AX_PYTHON_DEVEL
 
 # Checks for typedefs, structures, and compiler characteristics.
-#AC_TYPE_SIZE_T
-#AC_TYPE_SSIZE_T
 
 # Checks for library functions.
 
