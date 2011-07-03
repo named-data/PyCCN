@@ -16,7 +16,7 @@ AC_PROG_CC
 #AC_PROG_LIBTOOL
 
 # Checks for libraries.
-AX_CHECK_CCN(,AC_MSG_ERROR([CCNx is required]))
+AX_CHECK_CCN(,AC_MSG_ERROR([CCNx is required to compile PyCCN]))
 
 # Checks for header files.
 AX_PYTHON_DEVEL
