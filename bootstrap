@@ -2,11 +2,12 @@
 
 set -x
 
-aclocal -I m4
+mkdir build-aux
+
+aclocal -I build-aux -I m4
 autoconf
 autoheader
 
-mkdir build-aux
 libtoolize -i
 automake -a
 

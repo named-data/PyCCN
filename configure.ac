@@ -5,7 +5,7 @@ AC_PREREQ([2.68])
 AC_INIT([PyCCN], [0.1], [takeda@takeda.tk])
 
 AC_CONFIG_AUX_DIR([build-aux])
-AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_MACRO_DIR([build-aux])
 AC_CONFIG_SRCDIR([csrc/pyccn.c])
 
 AM_INIT_AUTOMAKE([foreign -Wall -Werror])

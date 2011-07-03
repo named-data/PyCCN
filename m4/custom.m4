@@ -22,7 +22,8 @@ AC_DEFUN([AX_CHECK_CCN], [
 		AC_MSG_CHECKING([for include/ccn/ccn.h in $ccndir])
 		if test -f "$ccndir/include/ccn/ccn.h"; then
 			CCN_INCLUDES="-I$ccndir/include"
-			CCN_LIBS="$ccndir/lib/libccn.a"
+			CCN_LDFLAGS="-L$ccndir/lib"
+			CCN_LIBS="-lccn"
 			AC_MSG_RESULT([yes])
 			break
 		else
@@ -35,9 +36,10 @@ AC_DEFUN([AX_CHECK_CCN], [
 	save_LIBS="$LIBS"
 	save_CPPFLAGS="$CPPFLAGS"
 	save_LDFLAGS="$LDFLAGS"
+
 	LIBS="$LIBS $CCN_LIBS $OPENSSL_LIBS"
 	CPPFLAGS="$CCN_INCLUDES $CPPFLAGS"
-	LDFLAGS="$OPENSSL_LDFLAGS $LDFLAGS"
+	LDFLAGS="$CCN_LDFLAGS $OPENSSL_LDFLAGS $LDFLAGS"
 
 	AC_LINK_IFELSE(
 		[AC_LANG_PROGRAM([#include <ccn/ccn.h>], [ccn_create()])],
@@ -54,5 +56,6 @@ AC_DEFUN([AX_CHECK_CCN], [
 	LDFLAGS="$save_LDFLAGS"
 
 	AC_SUBST([CCN_INCLUDES])
+	AC_SUBST([CCN_LDFLAGS])
 	AC_SUBST([CCN_LIBS])
 ])
