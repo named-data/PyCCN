@@ -13,7 +13,7 @@ LT_INIT
 
 # Checks for programs.
 AC_PROG_CC
-#AC_PROG_LIBTOOL
+AM_PATH_PYTHON(,,AC_MSG_ERROR([Python is required to compile PyCCN]))
 
 # Checks for libraries.
 AX_CHECK_CCN(,AC_MSG_ERROR([CCNx is required to compile PyCCN]))
@@ -28,6 +28,9 @@ AX_PYTHON_DEVEL
 # Checks for library functions.
 
 AC_CONFIG_HEADERS([config.h])
-AC_CONFIG_FILES([Makefile
-                 csrc/Makefile])
+AC_CONFIG_FILES([
+	Makefile
+	csrc/Makefile
+	python/Makefile
+	])
 AC_OUTPUT
