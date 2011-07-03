@@ -1,5 +1,6 @@
 #libdir=../lib
-lib_LTLIBRARIES = _pyccn.la
+pyccndir=$(pythondir)/pyccn
+pyccn_LTLIBRARIES = _pyccn.la
 noinst_HEADERS = pyccn.h key_utils.h
 
 _pyccn_la_SOURCES = pyccn.c key_utils.c
