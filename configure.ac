@@ -8,7 +8,7 @@ AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux])
 AC_CONFIG_SRCDIR([csrc/pyccn.c])
 
-AM_INIT_AUTOMAKE([foreign silent-rules color-tests -Wall -Werror])
+AM_INIT_AUTOMAKE([foreign silent-rules parallel-tests color-tests -Wall -Werror])
 AM_SILENT_RULES([yes])
 LT_INIT
 
