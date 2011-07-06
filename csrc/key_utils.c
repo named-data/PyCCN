@@ -1,4 +1,3 @@
-
 #include <ccn/ccn.h>
 #include <ccn/uri.h>
 #include <ccn/signing.h>
@@ -13,12 +12,62 @@
 #include <openssl/rand.h>
 #include <openssl/ossl_typ.h>
 
-#include "key_utils.h"
+#include <assert.h>
 
-int
+#include "key_utils.h"
+#include "misc.h"
+
+static char g_seed_file[200];
+static int g_seeded = 0;
+
+static void
+save_seed()
+{
+	assert(*g_seed_file);
+
+	if (!g_seeded)
+		return; /* so we won't pollute the seed file*/
+
+	RAND_write_file(g_seed_file);
+}
+
+static void
 seed_prng()
 {
-	return RAND_load_file("/dev/random", 2048);
+	const char *file;
+	int res;
+
+	if (*g_seed_file)
+		file = g_seed_file;
+	else
+		file = RAND_file_name(g_seed_file, sizeof(g_seed_file));
+
+	if (!file)
+		panic("Unable to obtain name for random seed file.");
+
+	if (RAND_load_file(file, -1)) {
+		g_seeded = 1;
+
+		/* for a good measure */
+		RAND_load_file("/dev/random", 8);
+
+		return;
+	}
+
+	/*
+	 * This is a special case, I hope it won't be normally used
+	 * please review if this is sufficient, I'm not using purely /dev/random
+	 * because some computers don't have enough enthropy
+	 */
+	res = RAND_load_file("/dev/urandom", 2048);
+	if (res < 2048)
+		panic("Unable to gather seed, /dev/urandom not available?");
+
+	res = RAND_load_file("/dev/random", 32);
+	if (res < 32)
+		panic("Unable to gather enough entropy, /dev/random not available?");
+
+	g_seeded = 1;
 }
 
 //
@@ -29,11 +78,18 @@ int
 generate_key(int length, struct ccn_pkey** private_key_ccn, struct ccn_pkey** public_key_ccn,
     unsigned char** public_key_digest, size_t *public_key_digest_len)
 {
-	seed_prng();
 	RSA *private_key_rsa;
+
+	seed_prng();
 	private_key_rsa = RSA_generate_key(length, 65537, NULL, NULL);
+	save_seed();
+
+	if (!private_key_rsa)
+		return -1;
+
 	ccn_keypair_from_rsa(private_key_rsa, private_key_ccn, public_key_ccn);
 	create_public_key_digest(private_key_rsa, public_key_digest, public_key_digest_len);
+
 	return 0;
 }
 
@@ -220,5 +276,4 @@ generate_RSA_keypair(unsigned char** private_key_der, size_t *private_key_len,
 	 */
 	return(0);
 }
-
 

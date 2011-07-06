@@ -9,5 +9,6 @@
 #  define	_MISC_H_
 
 void dump_charbuf(struct ccn_charbuf* c, FILE* fp);
+void panic(const char *message);
 
 #endif	/* _MISC_H_ */

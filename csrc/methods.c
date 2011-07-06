@@ -4,6 +4,7 @@
 
 #include "pyccn.h"
 #include "converters.h"
+#include "key_utils.h"
 
 // *** Python method declarations
 //

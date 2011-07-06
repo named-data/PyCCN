@@ -1,8 +1,10 @@
 // Utility function to print out character buffers and
 // escape non-printable ASCII.
 
-#include <stdio.h>
 #include <ccn/ccn.h>
+
+#include <stdlib.h>
+#include <stdio.h>
 
 void
 dump_charbuf(struct ccn_charbuf* c, FILE* fp)
@@ -14,4 +16,11 @@ dump_charbuf(struct ccn_charbuf* c, FILE* fp)
 		else
 			putc(c->buf[i], fp);
 	}
+}
+
+void
+panic(const char *message)
+{
+	fprintf(stderr, "PANIC: %s\n", message);
+	abort();
 }
