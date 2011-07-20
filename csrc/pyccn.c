@@ -172,7 +172,7 @@ init_pyccn(void)
 	}
 
 	if (!import_module(&g_module_CCN, "CCN"))
-		return; //XXX: How to unload a module?
+		return; //XXX: How to uninitialize methods?
 
 	if (!import_module(&g_module_Interest, "Interest"))
 		goto unload_ccn;

@@ -30,7 +30,7 @@ class Interest(object):
 # Bloom filters will be deprecated, so we do not support them.
 class ExclusionFilter(object):
 	def __init__(self):
-		self.data = None        # shoudl this be a list?
+		self.data = None        # should this be a list?
 		# pyccn
 		self.ccn_data_dirty = False
 		self.ccn_data = None  # backing charbuf

@@ -155,55 +155,57 @@ _pyccn_ccn_set_interest_filter(PyObject* self, PyObject* args)
 static PyObject* // int
 _pyccn_ccn_get(PyObject* self, PyObject* args)
 {
-	PyObject* CCN;
-	PyObject* name;
-	PyObject* templ;
-	PyObject* timeoutms;
-	PyObject* py_co = Py_None;
+	PyObject *CCN_obj, *Name_obj, *Interest_obj, *TimeoutMS_obj;
+	PyObject *py_co = Py_None;
 
 	int result = 0;
-	if (PyArg_ParseTuple(args, "OOOO", &CCN, &name, &templ, &timeoutms)) {
-		if (strcmp(CCN->ob_type->tp_name, "CCN") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a CCN as arg 1");
-			return NULL;
-		}
-		if (strcmp(name->ob_type->tp_name, "Name") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a Name as arg 2");
-			return NULL;
-		}
-		if (strcmp(templ->ob_type->tp_name, "Interest") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass an Interest as arg 3");
-			return NULL;
-		}
-		if (!(PyLong_Check(timeoutms) || PyInt_Check(timeoutms))) {
-			PyErr_SetString(PyExc_TypeError, "Must pass an int or long as arg 4");
-			return NULL;
-		}
+	if (!PyArg_ParseTuple(args, "OOOO", &CCN_obj, &Name_obj, &Interest_obj, &TimeoutMS_obj))
+		return Py_None;
 
-		struct ccn_charbuf* data = ccn_charbuf_create();
-		struct ccn_parsed_ContentObject* pco = calloc(sizeof(struct ccn_parsed_ContentObject), 1);
-		struct ccn_indexbuf* comps = ccn_indexbuf_create();
-		result = ccn_get(
-		    (struct ccn*) PyCObject_AsVoidPtr(PyObject_GetAttrString(CCN, "ccn_data")),
-		    (struct ccn_charbuf*) PyCObject_AsVoidPtr(PyObject_GetAttrString(name, "ccn_data")),
-		    (struct ccn_charbuf*) PyCObject_AsVoidPtr(PyObject_GetAttrString(templ, "ccn_data")),
-		    PyLong_AsLong(timeoutms), // will this work for int?
-		    data,
-		    pco, // TODO: pcobuf
-		    comps, // compsbuf
-		    0);
-		fprintf(stderr, "ccn_get result=%d\n", result);
-		if (result < 0) {
-			py_co = Py_None;
-		} else {
-			py_co = ContentObject_from_ccn_parsed(data, pco, comps);
-		}
-		free(pco); // TODO: freed by the destructor?
-		ccn_charbuf_destroy(&data);
-		ccn_indexbuf_destroy(&comps);
+	if (strcmp(CCN_obj->ob_type->tp_name, "CCN")) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a CCN as arg 1");
+		return NULL;
 	}
 
+	if (strcmp(Name_obj->ob_type->tp_name, "Name")) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a Name as arg 2");
+		return NULL;
+	}
+
+	if (strcmp(Interest_obj->ob_type->tp_name, "Interest")) {
+		PyErr_SetString(PyExc_TypeError, "Must pass an Interest as arg 3");
+		return NULL;
+	}
+
+	if (!PyLong_Check(TimeoutMS_obj) && !PyInt_Check(TimeoutMS_obj)) {
+		PyErr_SetString(PyExc_TypeError, "Must pass an int or long as arg 4");
+		return NULL;
+	}
+
+	struct ccn *ccn = PyCObject_AsVoidPtr(PyObject_GetAttrString(CCN_obj, "ccn_data"));
+	struct ccn_charbuf *name = PyCObject_AsVoidPtr(PyObject_GetAttrString(Name_obj, "ccn_data"));
+	struct ccn_charbuf *interest = PyCObject_AsVoidPtr(PyObject_GetAttrString(Interest_obj, "ccn_data"));
+	long timeout = PyLong_AsLong(TimeoutMS_obj);
+
+	struct ccn_charbuf* data = ccn_charbuf_create();
+	struct ccn_parsed_ContentObject* pco = calloc(sizeof(struct ccn_parsed_ContentObject), 1);
+	struct ccn_indexbuf* comps = ccn_indexbuf_create();
+
+	result = ccn_get(ccn, name, interest, timeout, data,
+	    pco, // TODO: pcobuf
+	    comps, // compsbuf
+	    0);
+
+	fprintf(stderr, "ccn_get result=%d\n", result);
+
+	py_co = result < 0 ? Py_None : ContentObject_from_ccn_parsed(data, pco, comps);
+
+	ccn_indexbuf_destroy(&comps);
+	free(pco); // TODO: freed by the destructor?
+	ccn_charbuf_destroy(&data);
+
 	Py_INCREF(py_co); //?
+
 	return py_co;
 }
 
@@ -221,6 +223,7 @@ _pyccn_ccn_put(PyObject* self, PyObject* args)
 		}
 		if (strcmp(py_content_object->ob_type->tp_name, "ContentObject") != 0) {
 			PyErr_SetString(PyExc_TypeError, "Must pass a content object as arg 2");
+
 			return NULL;
 		}
 		struct ccn_charbuf* content_object = (struct ccn_charbuf*) PyCObject_AsVoidPtr(PyObject_GetAttrString(py_content_object, "ccn_data"));
@@ -248,6 +251,7 @@ _pyccn_ccn_get_default_key(PyObject* self, PyObject* args)
 	if (PyArg_ParseTuple(args, "O", &py_ccn)) {
 		if (strcmp(py_ccn->ob_type->tp_name, "CCN") != 0) {
 			PyErr_SetString(PyExc_TypeError, "Must pass a CCN");
+
 			return NULL;
 		}
 
@@ -307,6 +311,7 @@ _pyccn_ccn_get_default_key(PyObject* self, PyObject* args)
 
 		return Key_from_ccn((struct ccn_pkey*) private_key);
 	} else {
+
 		return NULL;
 	}
 }
@@ -349,6 +354,7 @@ _pyccn_generate_RSA_key(PyObject* self, PyObject* args)
 	if (PyArg_ParseTuple(args, "Ol", &py_key, &keylen)) {
 		if (strcmp(py_key->ob_type->tp_name, "Key") != 0) {
 			PyErr_SetString(PyExc_TypeError, "Must pass a Key");
+
 			return NULL;
 		}
 		generate_key(keylen, &private_key, &public_key, &public_key_digest, &public_key_digest_len);
@@ -405,6 +411,7 @@ _pyccn_ccn_encode_content_object(PyObject* self, PyObject* args)
 	// PyObject* key) {
 	// Get everything, including ccn handle, and SignedInfo, from Content Object
 	// Update signature object in content object
+
 	return 0;
 }
 
@@ -412,6 +419,7 @@ static PyObject* // int
 _pyccn_ccn_verify_content(PyObject* self, PyObject* args)
 {
 	// PyObject* msg) {
+
 	return 0;
 }
 
@@ -419,6 +427,7 @@ static PyObject* // int
 _pyccn_ccn_content_matches_interest(PyObject* self, PyObject* args)
 {
 	// PyObject* interest) {
+
 	return 0;
 }
 
@@ -448,12 +457,14 @@ _pyccn_ccn_signed_info_create(PyObject* self, PyObject* args) {
 static PyObject* // int
 _pyccn_ccn_name_init(PyObject* self, PyObject* args)
 {
+
 	return 0;
 }
 
 static PyObject* // int
 _pyccn_ccn_name_append_nonce(PyObject* self, PyObject* args)
 {
+
 	return 0;
 }
 
@@ -461,6 +472,7 @@ static PyObject* // int
 _pyccn_ccn_compare_names(PyObject* self, PyObject* args)
 {
 	// PyObject* name) {
+
 	return 0;
 }
 
@@ -472,6 +484,7 @@ _pyccn_Name_to_ccn(PyObject* self, PyObject* args)
 	if (PyArg_ParseTuple(args, "O", &py_name)) {
 		if (strcmp(py_name->ob_type->tp_name, "Name") != 0) {
 			PyErr_SetString(PyExc_TypeError, "Must pass a Name");
+
 			return NULL;
 		}
 		name = Name_to_ccn(py_name);
@@ -494,6 +507,7 @@ _pyccn_Name_from_ccn(PyObject* self, PyObject* args)
 		return Name_from_ccn((struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_name));
 	}
 	Py_INCREF(Py_None);
+
 	return Py_None;
 }
 
@@ -506,6 +520,7 @@ _pyccn_Interest_to_ccn(PyObject* self, PyObject* args)
 	if (PyArg_ParseTuple(args, "O", &py_interest)) {
 		if (strcmp(py_interest->ob_type->tp_name, "Interest") != 0) {
 			PyErr_SetString(PyExc_TypeError, "Must pass an Interest");
+
 			return NULL;
 		}
 		//  Build an interest
@@ -545,6 +560,7 @@ _pyccn_Interest_from_ccn(PyObject* self, PyObject* args)
 		}
 	}
 	Py_INCREF(Py_None);
+
 	return Py_None;
 }
 
@@ -615,6 +631,7 @@ _pyccn_ContentObject_to_ccn(PyObject* self, PyObject* args)
 	// TODO: don't do parsed here.
 	PyObject* p = PyCObject_FromVoidPtr((void*) content_object, __ccn_content_object_destroy);
 	Py_INCREF(p); // ??
+
 	return p;
 }
 
@@ -643,6 +660,7 @@ _pyccn_ContentObject_from_ccn(PyObject* self, PyObject* args)
 		}
 	}
 	Py_INCREF(Py_None);
+
 	return Py_None;
 }
 
@@ -654,6 +672,7 @@ _pyccn_Key_to_ccn_public(PyObject* self, PyObject* args)
 	if (PyArg_ParseTuple(args, "O", &py_key)) {
 		if (strcmp(py_key->ob_type->tp_name, "Key") != 0) {
 			PyErr_SetString(PyExc_TypeError, "Must pass a Key");
+
 			return NULL;
 		}
 		key = Key_to_ccn_public(py_key);
@@ -669,6 +688,7 @@ _pyccn_Key_to_ccn_private(PyObject* self, PyObject* args)
 	if (PyArg_ParseTuple(args, "O", &py_key)) {
 		if (strcmp(py_key->ob_type->tp_name, "Key") != 0) {
 			PyErr_SetString(PyExc_TypeError, "Must pass a Key");
+
 			return NULL;
 		}
 		key = Key_to_ccn_private(py_key);
@@ -688,6 +708,7 @@ _pyccn_Key_from_ccn(PyObject* self, PyObject* args)
 		return Key_from_ccn((struct ccn_pkey*) PyCObject_AsVoidPtr(cobj_key));
 	}
 	Py_INCREF(Py_None);
+
 	return Py_None;
 }
 
@@ -699,6 +720,7 @@ _pyccn_KeyLocator_to_ccn(PyObject* self, PyObject* args)
 	if (PyArg_ParseTuple(args, "O", &py_key_locator)) {
 		if (strcmp(py_key_locator->ob_type->tp_name, "KeyLocator") != 0) {
 			PyErr_SetString(PyExc_TypeError, "Must pass a KeyLocator");
+
 			return NULL;
 		}
 		key_locator = KeyLocator_to_ccn(py_key_locator);
@@ -721,6 +743,7 @@ _pyccn_KeyLocator_from_ccn(PyObject* self, PyObject* args)
 		return KeyLocator_from_ccn((struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_key_locator));
 	}
 	Py_INCREF(Py_None);
+
 	return Py_None;
 }
 
@@ -732,6 +755,7 @@ _pyccn_Signature_to_ccn(PyObject* self, PyObject* args)
 	if (PyArg_ParseTuple(args, "O", &py_signature)) {
 		if (strcmp(py_signature->ob_type->tp_name, "Signature") != 0) {
 			PyErr_SetString(PyExc_TypeError, "Must pass a Signature");
+
 			return NULL;
 		}
 		signature = Signature_to_ccn(py_signature);
@@ -754,6 +778,7 @@ _pyccn_Signature_from_ccn(PyObject* self, PyObject* args)
 		return Signature_from_ccn((struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_signature));
 	}
 	Py_INCREF(Py_None);
+
 	return Py_None;
 }
 
@@ -765,6 +790,7 @@ _pyccn_SignedInfo_to_ccn(PyObject* self, PyObject* args)
 	if (PyArg_ParseTuple(args, "O", &py_signed_info)) {
 		if (strcmp(py_signed_info->ob_type->tp_name, "SignedInfo") != 0) {
 			PyErr_SetString(PyExc_TypeError, "Must pass a SignedInfo");
+
 			return NULL;
 		}
 		signed_info = SignedInfo_to_ccn(py_signed_info);
@@ -787,6 +813,7 @@ _pyccn_SignedInfo_from_ccn(PyObject* self, PyObject* args)
 		return SignedInfo_from_ccn((struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_signed_info));
 	}
 	Py_INCREF(Py_None);
+
 	return Py_None;
 }
 
@@ -805,6 +832,7 @@ _pyccn_SigningParams_from_ccn(PyObject* self, PyObject* args)
 		return SigningParams_from_ccn((struct ccn_signing_params*) PyCObject_AsVoidPtr(cobj_signing_params));
 	}
 	Py_INCREF(Py_None);
+
 	return Py_None;
 }
 
@@ -816,6 +844,7 @@ _pyccn_ExclusionFilter_to_ccn(PyObject* self, PyObject* args)
 	if (PyArg_ParseTuple(args, "O", &py_ExclusionFilter)) {
 		if (strcmp(py_ExclusionFilter->ob_type->tp_name, "ExclusionFilter") != 0) {
 			PyErr_SetString(PyExc_TypeError, "Must pass an ExclusionFilter");
+
 			return NULL;
 		}
 		ExclusionFilter = ExclusionFilter_to_ccn(py_ExclusionFilter);
@@ -835,6 +864,7 @@ _pyccn_ExclusionFilter_from_ccn(PyObject* self, PyObject* args)
 		return ExclusionFilter_from_ccn((struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_ExclusionFilter));
 	}
 	Py_INCREF(Py_None);
+
 	return Py_None;
 }
 
@@ -850,6 +880,7 @@ _pyccn_UpcallInfo_from_ccn(PyObject* self, PyObject* args)
 		return UpcallInfo_from_ccn((struct ccn_upcall_info*) PyCObject_AsVoidPtr(cobj_upcall_info));
 	}
 	Py_INCREF(Py_None);
+
 	return Py_None;
 }
 

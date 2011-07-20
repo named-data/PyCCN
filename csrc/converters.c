@@ -86,6 +86,7 @@ PyObject*
 Name_from_ccn(struct ccn_charbuf* name)
 {
 	fprintf(stderr, "Name_from_ccn start\n");
+
 	// Create name object
 	PyObject* py_name = PyObject_CallObject(g_type_Name, NULL);
 
@@ -158,6 +159,7 @@ __ccn_key_destroy(void* p)
 }
 
 #if 0
+
 static struct ccn_keystore*
 Key_to_ccn_keystore(PyObject* py_key)
 {
@@ -396,8 +398,8 @@ KeyLocator_from_ccn(struct ccn_charbuf* key_locator)
 			ccn_parse_required_tagged_BLOB(d, CCN_DTAG_Key, 1, -1);
 			stop = d->decoder.token_index;
 			res = ccn_ref_tagged_BLOB(CCN_DTAG_Key, d->buf,
-			    start, stop,
-			    &dkey, &dkey_size);
+				start, stop,
+				&dkey, &dkey_size);
 			if (res == 0) {
 				fprintf(stderr, "Parse CCN_DTAG_Key, len=%zd\n", dkey_size);
 				pubkey = ccn_d2i_pubkey(dkey, dkey_size); // free with ccn_pubkey_free()
@@ -483,7 +485,7 @@ ExclusionFilter_to_ccn(PyObject* py_ExclusionFilter)
 			// representation; if we want numeric encoding, use a
 			// byte array and do it explicitly.
 		} else if (PyFloat_Check(item) || PyLong_Check(item)
-		    || PyInt_Check(item)) {
+			|| PyInt_Check(item)) {
 			PyObject* p = PyObject_Str(item);
 			blob = PyString_AsString(p);
 			blobsize = strlen(blob); // More efficient way?
@@ -654,7 +656,7 @@ Interest_from_ccn_parsed(struct ccn_charbuf* interest, struct ccn_parsed_interes
 	l = CCN_PI_E_MinSuffixComponents - CCN_PI_B_MinSuffixComponents;
 	if (l > 0) {
 		i = ccn_fetch_tagged_nonNegativeInteger(CCN_DTAG_MinSuffixComponents, interest->buf,
-		    pi->offset[CCN_PI_B_MinSuffixComponents], pi->offset[CCN_PI_E_MinSuffixComponents]);
+			pi->offset[CCN_PI_B_MinSuffixComponents], pi->offset[CCN_PI_E_MinSuffixComponents]);
 		p = PyInt_FromLong(i);
 		PyObject_SetAttrString(py_interest, "minSuffixComponents", p);
 		Py_INCREF(p);
@@ -664,7 +666,7 @@ Interest_from_ccn_parsed(struct ccn_charbuf* interest, struct ccn_parsed_interes
 	l = CCN_PI_E_MaxSuffixComponents - CCN_PI_B_MaxSuffixComponents;
 	if (l > 0) {
 		i = ccn_fetch_tagged_nonNegativeInteger(CCN_DTAG_MaxSuffixComponents, interest->buf,
-		    pi->offset[CCN_PI_B_MaxSuffixComponents], pi->offset[CCN_PI_E_MaxSuffixComponents]);
+			pi->offset[CCN_PI_B_MaxSuffixComponents], pi->offset[CCN_PI_E_MaxSuffixComponents]);
 		p = PyInt_FromLong(i);
 		PyObject_SetAttrString(py_interest, "maxSuffixComponents", p);
 		Py_INCREF(p);
@@ -675,9 +677,9 @@ Interest_from_ccn_parsed(struct ccn_charbuf* interest, struct ccn_parsed_interes
 	l = CCN_PI_E_PublisherIDKeyDigest - CCN_PI_B_PublisherIDKeyDigest;
 	if (l > 0) {
 		i = ccn_ref_tagged_BLOB(CCN_DTAG_PublisherPublicKeyDigest, interest->buf,
-		    pi->offset[CCN_PI_B_PublisherIDKeyDigest],
-		    pi->offset[CCN_PI_E_PublisherIDKeyDigest],
-		    &blob, &blob_size);
+			pi->offset[CCN_PI_B_PublisherIDKeyDigest],
+			pi->offset[CCN_PI_E_PublisherIDKeyDigest],
+			&blob, &blob_size);
 		p = PyByteArray_FromStringAndSize((const char*) blob, blob_size);
 		PyObject_SetAttrString(py_interest, "publisherPublicKeyDigest", p);
 		Py_INCREF(p);
@@ -697,7 +699,7 @@ Interest_from_ccn_parsed(struct ccn_charbuf* interest, struct ccn_parsed_interes
 	l = CCN_PI_E_ChildSelector - CCN_PI_B_ChildSelector;
 	if (l > 0) {
 		i = ccn_fetch_tagged_nonNegativeInteger(CCN_DTAG_ChildSelector, interest->buf,
-		    pi->offset[CCN_PI_B_ChildSelector], pi->offset[CCN_PI_E_ChildSelector]);
+			pi->offset[CCN_PI_B_ChildSelector], pi->offset[CCN_PI_E_ChildSelector]);
 		p = PyInt_FromLong(i);
 		PyObject_SetAttrString(py_interest, "childSelector", p);
 		Py_INCREF(p);
@@ -707,7 +709,7 @@ Interest_from_ccn_parsed(struct ccn_charbuf* interest, struct ccn_parsed_interes
 	l = CCN_PI_E_AnswerOriginKind - CCN_PI_B_AnswerOriginKind;
 	if (l > 0) {
 		i = ccn_fetch_tagged_nonNegativeInteger(CCN_DTAG_AnswerOriginKind, interest->buf,
-		    pi->offset[CCN_PI_B_AnswerOriginKind], pi->offset[CCN_PI_E_AnswerOriginKind]);
+			pi->offset[CCN_PI_B_AnswerOriginKind], pi->offset[CCN_PI_E_AnswerOriginKind]);
 		p = PyInt_FromLong(i);
 		PyObject_SetAttrString(py_interest, "answerOriginKind", p);
 		Py_INCREF(p);
@@ -717,7 +719,7 @@ Interest_from_ccn_parsed(struct ccn_charbuf* interest, struct ccn_parsed_interes
 	l = CCN_PI_E_Scope - CCN_PI_B_Scope;
 	if (l > 0) {
 		i = ccn_fetch_tagged_nonNegativeInteger(CCN_DTAG_Scope, interest->buf,
-		    pi->offset[CCN_PI_B_Scope], pi->offset[CCN_PI_E_Scope]);
+			pi->offset[CCN_PI_B_Scope], pi->offset[CCN_PI_E_Scope]);
 		p = PyInt_FromLong(i);
 		PyObject_SetAttrString(py_interest, "scope", p);
 		Py_INCREF(p);
@@ -728,9 +730,9 @@ Interest_from_ccn_parsed(struct ccn_charbuf* interest, struct ccn_parsed_interes
 	if (l > 0) {
 		// From packet-ccn.c
 		i = ccn_ref_tagged_BLOB(CCN_DTAG_InterestLifetime, interest->buf,
-		    pi->offset[CCN_PI_B_InterestLifetime],
-		    pi->offset[CCN_PI_E_InterestLifetime],
-		    &blob, &blob_size);
+			pi->offset[CCN_PI_B_InterestLifetime],
+			pi->offset[CCN_PI_E_InterestLifetime],
+			&blob, &blob_size);
 		double lifetime = 0.0;
 		for (i = 0; i < blob_size; i++)
 			lifetime = lifetime * 256.0 + (double) blob[i];
@@ -744,9 +746,9 @@ Interest_from_ccn_parsed(struct ccn_charbuf* interest, struct ccn_parsed_interes
 	l = CCN_PI_E_Nonce - CCN_PI_B_Nonce;
 	if (l > 0) {
 		i = ccn_ref_tagged_BLOB(CCN_DTAG_Nonce, interest->buf,
-		    pi->offset[CCN_PI_B_Nonce],
-		    pi->offset[CCN_PI_E_Nonce],
-		    &blob, &blob_size);
+			pi->offset[CCN_PI_B_Nonce],
+			pi->offset[CCN_PI_E_Nonce],
+			&blob, &blob_size);
 		p = PyByteArray_FromStringAndSize((const char*) blob, blob_size);
 		PyObject_SetAttrString(py_interest, "nonce", p);
 		Py_INCREF(p);
@@ -850,8 +852,8 @@ Signature_from_ccn(struct ccn_charbuf* signature)
 	const unsigned char *ptr = NULL;
 	int i = 0;
 	d = ccn_buf_decoder_start(&decoder,
-	    signature->buf,
-	    signature->length);
+		signature->buf,
+		signature->length);
 	if (ccn_buf_match_dtag(d, CCN_DTAG_Signature)) {
 		fprintf(stderr, "Is a signature\n");
 		ccn_buf_advance(d);
@@ -954,7 +956,7 @@ SignedInfo_to_ccn(PyObject* py_signed_info)
 	}
 
 	result = ccn_signed_info_create(si, publisher_key_id, publisher_key_id_size,
-	    timestamp, type, freshness, finalblockid, key_locator);
+		timestamp, type, freshness, finalblockid, key_locator);
 	fprintf(stderr, "ccn_signed_info_create res=%d\n", result);
 	return si;
 }
@@ -996,8 +998,8 @@ SignedInfo_from_ccn(struct ccn_charbuf* signed_info)
 	const unsigned char *ptr = NULL;
 	int i = 0;
 	d = ccn_buf_decoder_start(&decoder,
-	    signed_info->buf,
-	    signed_info->length);
+		signed_info->buf,
+		signed_info->length);
 	if (ccn_buf_match_dtag(d, CCN_DTAG_SignedInfo)) {
 		ccn_buf_advance(d);
 		if (ccn_buf_match_dtag(d, CCN_DTAG_PublisherPublicKeyDigest))
@@ -1249,54 +1251,60 @@ __ccn_content_object_components_destroy(void* p)
 // may require signedinfo, signature as args
 
 PyObject*
-ContentObject_from_ccn_parsed(struct ccn_charbuf* content_object,
-    struct ccn_parsed_ContentObject* parsed_content_object,
-    struct ccn_indexbuf* components)
+ContentObject_from_ccn_parsed(struct ccn_charbuf *content_object,
+	struct ccn_parsed_ContentObject *parsed_content_object,
+	struct ccn_indexbuf *components)
 {
-
+	PyObject *py_ContentObject, *py_Name;
 
 	fprintf(stderr, "ContentObject_from_ccn_parsed content_object->length=%zd\n", content_object->length);
 
 	// Create object
-	PyObject* py_co = PyObject_CallObject(g_type_ContentObject, NULL);
+	py_ContentObject = PyObject_CallObject(g_type_ContentObject, NULL);
 
 	// Name
-	PyObject* py_name;
 	size_t namelen = parsed_content_object->offset[CCN_PCO_E_Name] - parsed_content_object->offset[CCN_PCO_B_Name];
 	fprintf(stderr, "ContentObject_from_ccn_parsed Name len=%zd\n", namelen);
 	if (namelen > 0) {
-		struct ccn_charbuf* name = ccn_charbuf_create();
-		ccn_charbuf_append(name, &content_object->buf[parsed_content_object->offset[CCN_PCO_B_Name]],
-		    (size_t) (parsed_content_object->offset[CCN_PCO_E_Name] - parsed_content_object->offset[CCN_PCO_B_Name]));
+		struct ccn_charbuf *name = ccn_charbuf_create();
+		size_t name_begin = parsed_content_object->offset[CCN_PCO_B_Name];
+		size_t name_end = parsed_content_object->offset[CCN_PCO_E_Name];
+
+		ccn_charbuf_append(name, &content_object->buf[name_begin], name_end - name_begin);
+
 		fprintf(stderr, "Name: ");
 		dump_charbuf(name, stderr);
 		fprintf(stderr, "\n");
-		py_name = Name_from_ccn(name);
+
+		py_Name = Name_from_ccn(name);
 		// ccn_charbuf_destroy(&name);		// ToDo:  Do we need this destructor?   This is called when the name is finally destroyed.
-	} else {
-		py_name = Py_None;
-	}
-	PyObject_SetAttrString(py_co, "name", py_name);
-	Py_INCREF(py_name);
+	} else
+		py_Name = Py_None;
+
+	PyObject_SetAttrString(py_ContentObject, "name", py_Name);
+	Py_DECREF(py_Name);
+/* I don't think this is needed
+	Py_INCREF(py_Name);
+*/
 
 	// Content
 	fprintf(stderr, "ContentObject_from_ccn_parsed Content\n");
 	const unsigned char* value;
 	size_t size;
 	ccn_content_get_value(content_object->buf, content_object->length,
-	    parsed_content_object, &value, &size);
+		parsed_content_object, &value, &size);
 	PyObject* py_content = PyByteArray_FromStringAndSize((char*) value, size);
-	PyObject_SetAttrString(py_co, "content", py_content);
+	PyObject_SetAttrString(py_ContentObject, "content", py_content);
 	Py_INCREF(py_content);
 
 	fprintf(stderr, "ContentObject_from_ccn_parsed Signature\n");
 
 	struct ccn_charbuf* signature = ccn_charbuf_create();
 	ccn_charbuf_append(signature, &content_object->buf[parsed_content_object->offset[CCN_PCO_B_Signature]],
-	    (size_t) (parsed_content_object->offset[CCN_PCO_E_Signature] - parsed_content_object->offset[CCN_PCO_B_Signature]));
+		(size_t) (parsed_content_object->offset[CCN_PCO_E_Signature] - parsed_content_object->offset[CCN_PCO_B_Signature]));
 
 	PyObject* py_signature = Signature_from_ccn(signature); // it will destroy?
-	PyObject_SetAttrString(py_co, "signature", py_signature);
+	PyObject_SetAttrString(py_ContentObject, "signature", py_signature);
 	Py_INCREF(py_signature);
 
 	fprintf(stderr, "ContentObject_from_ccn_parsed SignedInfo\n");
@@ -1304,37 +1312,36 @@ ContentObject_from_ccn_parsed(struct ccn_charbuf* content_object,
 
 	struct ccn_charbuf* signed_info = ccn_charbuf_create();
 	ccn_charbuf_append(signed_info, &content_object->buf[parsed_content_object->offset[CCN_PCO_B_SignedInfo]],
-	    (size_t) (parsed_content_object->offset[CCN_PCO_E_SignedInfo] - parsed_content_object->offset[CCN_PCO_B_SignedInfo]));
+		(size_t) (parsed_content_object->offset[CCN_PCO_E_SignedInfo] - parsed_content_object->offset[CCN_PCO_B_SignedInfo]));
 
 	PyObject* py_signedinfo = SignedInfo_from_ccn(signed_info); // it will destroy?
-	PyObject_SetAttrString(py_co, "signedInfo", py_signedinfo);
+	PyObject_SetAttrString(py_ContentObject, "signedInfo", py_signedinfo);
 	Py_INCREF(py_signedinfo);
 
 	fprintf(stderr, "ContentObject_from_ccn_parsed DigestAlgorithm\n");
 	PyObject* py_digestalgorithm = Py_None; // TODO...  Note this seems to default to nothing in the library...?
-	PyObject_SetAttrString(py_co, "digestAlgorithm", py_digestalgorithm);
+	PyObject_SetAttrString(py_ContentObject, "digestAlgorithm", py_digestalgorithm);
 	Py_INCREF(py_digestalgorithm);
 
 	// Set ccn_data to cobject, INCRef
 	fprintf(stderr, "ContentObject_from_ccn_parsed ccn_data\n");
 	PyObject* ccn_data = PyCObject_FromVoidPtr((void*) content_object, __ccn_content_object_destroy);
 	Py_INCREF(ccn_data);
-	PyObject_SetAttrString(py_co, "ccn_data", ccn_data);
+	PyObject_SetAttrString(py_ContentObject, "ccn_data", ccn_data);
 
 	fprintf(stderr, "ContentObject_from_ccn_parsed ccn_data_parsed\n");
 	PyObject* ccn_data_parsed = PyCObject_FromVoidPtr((void*) parsed_content_object, __ccn_parsed_content_object_destroy);
 	Py_INCREF(ccn_data_parsed);
-	PyObject_SetAttrString(py_co, "ccn_data_parsed", ccn_data_parsed);
+	PyObject_SetAttrString(py_ContentObject, "ccn_data_parsed", ccn_data_parsed);
 
 	fprintf(stderr, "ContentObject_from_ccn_parsed ccn_data_components\n");
 	PyObject* ccn_data_components = PyCObject_FromVoidPtr((void*) components, __ccn_content_object_components_destroy);
 	Py_INCREF(ccn_data_components);
-	PyObject_SetAttrString(py_co, "ccn_data_components", ccn_data_components);
+	PyObject_SetAttrString(py_ContentObject, "ccn_data_components", ccn_data_components);
 
 	fprintf(stderr, "ContentObject_from_ccn_parsed complete\n");
 
-	return py_co;
-
+	return py_ContentObject;
 }
 
 // Can be called directly from c library
