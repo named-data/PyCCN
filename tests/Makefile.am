@@ -2,7 +2,8 @@
 
 TESTS = \
 	importModule.py \
-	generateKey.py
+	generateKey.py \
+	defaultKey.py
 
 TEST_EXTENSIONS = .py
 PY_LOG_COMPILER = $(PYTHON)

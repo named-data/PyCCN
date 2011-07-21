@@ -20,8 +20,6 @@ extern PyObject* g_type_SignedInfo;
 extern PyObject* g_type_SigningParams;
 extern PyObject* g_type_UpcallInfo;
 
-extern PyObject* g_module_ContentObject;
-
 void __ccn_destroy(void* p);
 void __ccn_closure_destroy(void *p);
 

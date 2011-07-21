@@ -223,8 +223,9 @@ Key_to_ccn_public(PyObject* py_key)
 PyObject *
 Key_from_ccn(struct ccn_pkey* key_ccn)
 {
-
 	fprintf(stderr, "Key_from_ccn start\n");
+
+	assert(g_type_Key != NULL);
 
 	// 1) Create python object
 	PyObject* py_key = PyObject_CallObject(g_type_Key, NULL);
