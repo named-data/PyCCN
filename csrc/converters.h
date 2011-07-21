@@ -42,7 +42,6 @@ PyObject *ContentObject_from_ccn_parsed(struct ccn_charbuf* content_object,
 		struct ccn_parsed_ContentObject* parsed_content_object,
 		struct ccn_indexbuf* components);
 
-void __ccn_content_object_destroy(void* p);
 PyObject *ContentObject_from_ccn(struct ccn_charbuf* content_object);
 
 #endif	/* CONVERTERS_H */

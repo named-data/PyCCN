@@ -20,7 +20,6 @@ extern PyObject* g_type_SignedInfo;
 extern PyObject* g_type_SigningParams;
 extern PyObject* g_type_UpcallInfo;
 
-void __ccn_destroy(void* p);
 void __ccn_closure_destroy(void *p);
 
 enum ccn_upcall_res __ccn_upcall_handler(struct ccn_closure *selfp,

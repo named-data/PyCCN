@@ -25,10 +25,11 @@ co.sign(k)
 
 def push_data(co):
 	c.put(co)
-t = Timer(1.0, push_data, co)
+
+#t = Timer(1.0, push_data, co)
 
 i = Interest.Interest()
 
 co2 = c.get(n, i, 5000)
-t.start()
+#t.start()
 print co2

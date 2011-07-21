@@ -11,19 +11,15 @@
 #include "converters.h"
 #include "key_utils.h"
 #include "misc.h"
+#include "objects.h"
 
-//
 // IMPLEMENTATION OF OBJECT CONVERTERS,
 // TO AND FROM CCNx LIBRARY STRUCTURES OR
 // FROM THE WIRE FORMAT, IF THERE ARE NO
 // CORRESPONDING C STRUCTS.
-//
-//
 
 // ************
 // Name
-//
-//
 
 void
 __ccn_name_destroy(void* p)
@@ -1226,13 +1222,6 @@ UpcallInfo_from_ccn(struct ccn_upcall_info* ui)
 //
 //
 
-void
-__ccn_content_object_destroy(void* p)
-{
-	if (p != NULL)
-		ccn_charbuf_destroy(p);
-}
-
 static void
 __ccn_parsed_content_object_destroy(void* p)
 {
@@ -1284,9 +1273,9 @@ ContentObject_from_ccn_parsed(struct ccn_charbuf *content_object,
 
 	PyObject_SetAttrString(py_ContentObject, "name", py_Name);
 	Py_DECREF(py_Name);
-/* I don't think this is needed
-	Py_INCREF(py_Name);
-*/
+	/* I don't think this is needed
+		Py_INCREF(py_Name);
+	 */
 
 	// Content
 	fprintf(stderr, "ContentObject_from_ccn_parsed Content\n");
@@ -1326,7 +1315,7 @@ ContentObject_from_ccn_parsed(struct ccn_charbuf *content_object,
 
 	// Set ccn_data to cobject, INCRef
 	fprintf(stderr, "ContentObject_from_ccn_parsed ccn_data\n");
-	PyObject* ccn_data = PyCObject_FromVoidPtr((void*) content_object, __ccn_content_object_destroy);
+	PyObject *ccn_data = CCNObject_New(CONTENT_OBJECT, content_object);
 	Py_INCREF(ccn_data);
 	PyObject_SetAttrString(py_ContentObject, "ccn_data", ccn_data);
 

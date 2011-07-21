@@ -5,6 +5,7 @@
 #include "pyccn.h"
 #include "converters.h"
 #include "key_utils.h"
+#include "objects.h"
 
 // *** Python method declarations
 //
@@ -20,7 +21,8 @@ static PyObject* // CCN
 _pyccn_ccn_create(PyObject* self, PyObject* args)
 {
 	struct ccn* ccn_handle = ccn_create();
-	return PyCObject_FromVoidPtr((void*) ccn_handle, __ccn_destroy); // Deprecated, TODO: use capsules after 2.7.1
+
+	return CCNObject_New(HANDLE, ccn_handle);
 }
 
 // Second argument to ccn_connect not yet supported
@@ -32,15 +34,20 @@ _pyccn_ccn_create(PyObject* self, PyObject* args)
 static PyObject*
 _pyccn_ccn_connect(PyObject* self, PyObject* args)
 {
-	int result = -1;
-	PyObject* ccn_handle;
-	if (PyArg_ParseTuple(args, "O", &ccn_handle)) {
-		if (!PyCObject_Check(ccn_handle)) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a CObject containing a handle to ccn");
-			return NULL;
-		}
-		result = ccn_connect((struct ccn*) PyCObject_AsVoidPtr(ccn_handle), NULL);
+	int result;
+	PyObject *py_ccn_handle;
+
+	if (!PyArg_ParseTuple(args, "O", &py_ccn_handle))
+		return Py_BuildValue("i", -1); //TODO: throw an exceptions
+
+	if (!CCNObject_IsValid(HANDLE, py_ccn_handle)) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a CCN Handle");
+		return NULL;
 	}
+
+	struct ccn *handle = CCNObject_Get(HANDLE, py_ccn_handle);
+	result = ccn_connect(handle, NULL);
+
 	return Py_BuildValue("i", result);
 }
 
@@ -192,9 +199,9 @@ _pyccn_ccn_get(PyObject* self, PyObject* args)
 	struct ccn_indexbuf* comps = ccn_indexbuf_create();
 
 	result = ccn_get(ccn, name, interest, timeout, data,
-	    pco, // TODO: pcobuf
-	    comps, // compsbuf
-	    0);
+		pco, // TODO: pcobuf
+		comps, // compsbuf
+		0);
 
 	fprintf(stderr, "ccn_get result=%d\n", result);
 
@@ -212,26 +219,27 @@ _pyccn_ccn_get(PyObject* self, PyObject* args)
 static PyObject* // int
 _pyccn_ccn_put(PyObject* self, PyObject* args)
 {
-	int result = -1;
-	PyObject* py_ccn;
-	PyObject* py_content_object;
+	int result;
+	PyObject *py_ccn, *py_content_object;
 
-	if (PyArg_ParseTuple(args, "OO", &py_ccn, &py_content_object)) {
-		if (strcmp(py_ccn->ob_type->tp_name, "CCN") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a CCN as arg 1");
-			return NULL;
-		}
-		if (strcmp(py_content_object->ob_type->tp_name, "ContentObject") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a content object as arg 2");
+	if (!PyArg_ParseTuple(args, "OO", &py_ccn, &py_content_object))
+		return Py_BuildValue("i", -1);
 
-			return NULL;
-		}
-		struct ccn_charbuf* content_object = (struct ccn_charbuf*) PyCObject_AsVoidPtr(PyObject_GetAttrString(py_content_object, "ccn_data"));
-
-
-		result = ccn_put((struct ccn*) PyCObject_AsVoidPtr(PyObject_GetAttrString(py_ccn, "ccn_data")),
-		    content_object->buf, content_object->length);
+	if (strcmp(py_ccn->ob_type->tp_name, "CCN")) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a CCN as arg 1");
+		return NULL;
 	}
+	if (strcmp(py_content_object->ob_type->tp_name, "ContentObject")) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a content object as arg 2");
+		return NULL;
+	}
+
+	PyObject *ccn_data_Content_Object = PyObject_GetAttrString(py_content_object, "ccn_data");
+	struct ccn_charbuf *content_object = PyCObject_AsVoidPtr(ccn_data_Content_Object);
+
+	result = ccn_put((struct ccn*) PyCObject_AsVoidPtr(PyObject_GetAttrString(py_ccn, "ccn_data")),
+		content_object->buf, content_object->length);
+
 	return Py_BuildValue("i", result);
 }
 
@@ -533,8 +541,8 @@ _pyccn_Interest_to_ccn(PyObject* self, PyObject* args)
 
 	}
 	return Py_BuildValue("(OO)",
-	    PyCObject_FromVoidPtr((void*) interest, __ccn_interest_destroy),
-	    PyCObject_FromVoidPtr((void*) parsed_interest, __ccn_parsed_interest_destroy));
+		PyCObject_FromVoidPtr((void*) interest, __ccn_interest_destroy),
+		PyCObject_FromVoidPtr((void*) parsed_interest, __ccn_parsed_interest_destroy));
 }
 
 // From within python
@@ -552,11 +560,11 @@ _pyccn_Interest_from_ccn(PyObject* self, PyObject* args)
 		}
 		if (!PyCObject_Check(cobj_parsed_interest)) {
 			return Interest_from_ccn(
-			    (struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_interest));
+				(struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_interest));
 		} else {
 			return Interest_from_ccn_parsed(
-			    (struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_interest),
-			    (struct ccn_parsed_interest*) PyCObject_AsVoidPtr(cobj_parsed_interest));
+				(struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_interest),
+				(struct ccn_parsed_interest*) PyCObject_AsVoidPtr(cobj_parsed_interest));
 		}
 	}
 	Py_INCREF(Py_None);
@@ -571,6 +579,7 @@ _pyccn_ContentObject_to_ccn(PyObject* self, PyObject* args)
 	PyObject* py_key;
 	struct ccn_charbuf* content_object = ccn_charbuf_create();
 	int result = -1;
+
 	if (PyArg_ParseTuple(args, "OO", &py_content_object, &py_key)) {
 		if (strcmp(py_content_object->ob_type->tp_name, "ContentObject") != 0) {
 			PyErr_SetString(PyExc_TypeError, "Must pass a ContentObject as arg 1");
@@ -626,14 +635,11 @@ _pyccn_ContentObject_to_ccn(PyObject* self, PyObject* args)
 		ccn_charbuf_destroy(&signed_info);
 		ccn_charbuf_destroy(&content);
 		ccn_charbuf_destroy(&name);
-
 	}
-	// TODO: don't do parsed here.
-	PyObject* p = PyCObject_FromVoidPtr((void*) content_object, __ccn_content_object_destroy);
-	Py_INCREF(p); // ??
 
-	return p;
+	return CCNObject_New(CONTENT_OBJECT, content_object);
 }
+
 
 // From within python
 //
@@ -651,12 +657,12 @@ _pyccn_ContentObject_from_ccn(PyObject* self, PyObject* args)
 		}
 		if (!PyCObject_Check(cobj_content_object)) {
 			return ContentObject_from_ccn(
-			    (struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_content_object));
+				(struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_content_object));
 		} else {
 			return ContentObject_from_ccn_parsed(
-			    (struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_content_object),
-			    (struct ccn_parsed_ContentObject*) PyCObject_AsVoidPtr(cobj_parsed_content_object),
-			    (struct ccn_indexbuf*) PyCObject_AsVoidPtr(cobj_content_object_components));
+				(struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_content_object),
+				(struct ccn_parsed_ContentObject*) PyCObject_AsVoidPtr(cobj_parsed_content_object),
+				(struct ccn_indexbuf*) PyCObject_AsVoidPtr(cobj_content_object_components));
 		}
 	}
 	Py_INCREF(Py_None);

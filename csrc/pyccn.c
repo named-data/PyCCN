@@ -83,25 +83,12 @@ PyObject* g_type_UpcallInfo;
 
 // Pointers to the various modules themselves.
 //
-static PyObject* g_module_Name;
-static PyObject* g_module_CCN;
-static PyObject* g_module_Interest;
-PyObject* g_module_ContentObject;
-static PyObject* g_module_Closure;
-static PyObject* g_module_Key;
-
-
-// Called by destructor
-//
-
-void
-__ccn_destroy(void* p)
-{
-	if (p != NULL) {
-		ccn_disconnect((struct ccn*) p); // Ok to call this even if already disconn?
-		ccn_destroy((struct ccn**) &p);
-	}
-}
+static PyObject *g_module_Name;
+static PyObject *g_module_CCN;
+static PyObject *g_module_Interest;
+static PyObject *g_module_ContentObject;
+static PyObject *g_module_Closure;
+static PyObject *g_module_Key;
 
 //
 // WRAPPERS FOR VARIOUS CCNx LIBRARY FUNCTIONS
@@ -113,8 +100,8 @@ __ccn_destroy(void* p)
 
 enum ccn_upcall_res
 __ccn_upcall_handler(struct ccn_closure *selfp,
-    enum ccn_upcall_kind upcall_kind,
-    struct ccn_upcall_info *info)
+	enum ccn_upcall_kind upcall_kind,
+	struct ccn_upcall_info *info)
 {
 
 	PyObject* py_closure = (PyObject*) selfp->data;
@@ -139,19 +126,13 @@ __ccn_closure_destroy(void *p)
 		free(p);
 }
 
-
-
 static bool
-import_module(PyObject **module, char *name)
+import_module(PyObject **module, const char *name)
 {
-	PyObject *what;
-
 	assert(module);
 	assert(name);
 
-	what = PyString_FromString(name);
-	*module = PyImport_ImportModuleLevel("pyccn", NULL, NULL, what, 0);
-	Py_DECREF(what);
+	*module = PyImport_ImportModule(name);
 	if (*module)
 		return true;
 
@@ -165,52 +146,70 @@ init_pyccn(void)
 {
 	PyObject *module;
 
-	module = initialize_methods("_pyccn");
+	module = initialize_methods("pyccn._pyccn");
 	if (!module) {
 		fprintf(stderr, "Unable to initialize PyCCN module\n");
 		return;
 	}
 
-	if (!import_module(&g_module_CCN, "CCN"))
+	if (!import_module(&g_module_CCN, "pyccn.CCN"))
 		return; //XXX: How to uninitialize methods?
 
-	if (!import_module(&g_module_Interest, "Interest"))
+	if (!import_module(&g_module_Interest, "pyccn.Interest"))
 		goto unload_ccn;
 
-	if (!import_module(&g_module_ContentObject, "ContentObject"))
+	if (!import_module(&g_module_ContentObject, "pyccn.ContentObject"))
 		goto unload_contentobject;
 
-	if (!import_module(&g_module_Closure, "Closure"))
+	if (!import_module(&g_module_Closure, "pyccn.Closure"))
 		goto unload_closure;
 
-	if (!import_module(&g_module_Key, "Key"))
+	if (!import_module(&g_module_Key, "pyccn.Key"))
 		goto unload_key;
 
-	if (!import_module(&g_module_Name, "Name"))
+	if (!import_module(&g_module_Name, "pyccn.Name"))
 		goto unload_name;
 
-	PyObject* CCNDict = PyModule_GetDict(g_module_CCN);
-	PyObject* InterestDict = PyModule_GetDict(g_module_Interest);
-	PyObject* ContentObjectDict = PyModule_GetDict(g_module_ContentObject);
-	PyObject* ClosureDict = PyModule_GetDict(g_module_Closure);
-	PyObject* KeyDict = PyModule_GetDict(g_module_Key);
-	PyObject* NameDict = PyModule_GetDict(g_module_Name);
+/*
+	PyObject *CCNDict = PyModule_GetDict(g_module_CCN);
+*/
+	PyObject *InterestDict = PyModule_GetDict(g_module_Interest);
+	PyObject *ContentObjectDict = PyModule_GetDict(g_module_ContentObject);
+	PyObject *ClosureDict = PyModule_GetDict(g_module_Closure);
+	PyObject *KeyDict = PyModule_GetDict(g_module_Key);
+	PyObject *NameDict = PyModule_GetDict(g_module_Name);
 
 	// These are used to instantiate new objects in C code
+/* for some reason, this returns NULL
 	g_type_CCN = PyDict_GetItemString(CCNDict, "CCN");
+*/
+	g_type_CCN = g_module_CCN;
+	assert(g_type_CCN);
+
 	g_type_Interest = PyDict_GetItemString(InterestDict, "Interest");
+	assert(g_type_Interest);
 	g_type_ContentObject = PyDict_GetItemString(ContentObjectDict, "ContentObject");
+	assert(g_type_ContentObject);
 	g_type_Closure = PyDict_GetItemString(ClosureDict, "Closure");
+	assert(g_type_Closure);
 	g_type_Key = PyDict_GetItemString(KeyDict, "Key");
+	assert(g_type_Key);
 	g_type_Name = PyDict_GetItemString(NameDict, "Name");
+	assert(g_type_Name);
 
 	// Additional
 	g_type_KeyLocator = PyDict_GetItemString(KeyDict, "KeyLocator");
+	assert(g_type_KeyLocator);
 	g_type_ExclusionFilter = PyDict_GetItemString(InterestDict, "ExclusionFilter");
+	assert(g_type_ExclusionFilter);
 	g_type_Signature = PyDict_GetItemString(ContentObjectDict, "Signature");
+	assert(g_type_Signature);
 	g_type_SignedInfo = PyDict_GetItemString(ContentObjectDict, "SignedInfo");
+	assert(g_type_SignedInfo);
 	g_type_SigningParams = PyDict_GetItemString(ContentObjectDict, "SigningParams");
+	assert(g_type_SigningParams);
 	g_type_UpcallInfo = PyDict_GetItemString(ClosureDict, "UpcallInfo");
+	assert(g_type_UpcallInfo);
 
 	return;
 
