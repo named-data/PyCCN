@@ -37,7 +37,7 @@ _pyccn_ccn_connect(PyObject* self, PyObject* args)
 	int result;
 	PyObject *py_ccn_handle;
 
-	if (!PyArg_ParseTuple(args, "O", &py_ccn_handle))
+	if (!PyArg_ParseTuple(args, "O:_pyccn_ccn_connect", &py_ccn_handle))
 		return Py_BuildValue("i", -1); //TODO: throw an exceptions
 
 	if (!CCNObject_IsValid(HANDLE, py_ccn_handle)) {

@@ -64,39 +64,22 @@
 // Primary types for the Python libraries,
 // taken directly from the CCNx wire format
 //
-PyObject* g_type_Name;
-static PyObject* g_type_CCN;
-PyObject* g_type_Interest;
-PyObject* g_type_ContentObject;
-static PyObject* g_type_Closure;
-PyObject* g_type_Key;
+PyObject *g_type_Name;
+static PyObject *g_type_CCN;
+PyObject *g_type_Interest;
+PyObject *g_type_ContentObject;
+static PyObject *g_type_Closure;
+PyObject *g_type_Key;
 
 // Plus some secondary helper types, which
 // are declared as inner classes.
 //
-PyObject* g_type_ExclusionFilter;
-PyObject* g_type_KeyLocator;
-PyObject* g_type_Signature;
-PyObject* g_type_SignedInfo;
-PyObject* g_type_SigningParams;
-PyObject* g_type_UpcallInfo;
-
-// Pointers to the various modules themselves.
-//
-static PyObject *g_module_Name;
-static PyObject *g_module_CCN;
-static PyObject *g_module_Interest;
-static PyObject *g_module_ContentObject;
-static PyObject *g_module_Closure;
-static PyObject *g_module_Key;
-
-//
-// WRAPPERS FOR VARIOUS CCNx LIBRARY FUNCTIONS
-// SOME OF WHICH BECOME OBJECT METHODS IN THE
-// PYTHON LIBRARY - SEE THE PYTHON CODE FOR
-// CLARIFICATION.
-//
-//
+PyObject *g_type_ExclusionFilter;
+PyObject *g_type_KeyLocator;
+PyObject *g_type_Signature;
+PyObject *g_type_SignedInfo;
+PyObject *g_type_SigningParams;
+PyObject *g_type_UpcallInfo;
 
 enum ccn_upcall_res
 __ccn_upcall_handler(struct ccn_closure *selfp,
@@ -145,6 +128,8 @@ PyMODINIT_FUNC
 init_pyccn(void)
 {
 	PyObject *module;
+	PyObject *module_Name, *module_CCN, *module_Interest;
+	PyObject *module_ContentObject, *module_Closure, *module_Key;
 
 	module = initialize_methods("pyccn._pyccn");
 	if (!module) {
@@ -152,38 +137,38 @@ init_pyccn(void)
 		return;
 	}
 
-	if (!import_module(&g_module_CCN, "pyccn.CCN"))
+	if (!import_module(&module_CCN, "pyccn.CCN"))
 		return; //XXX: How to uninitialize methods?
 
-	if (!import_module(&g_module_Interest, "pyccn.Interest"))
+	if (!import_module(&module_Interest, "pyccn.Interest"))
 		goto unload_ccn;
 
-	if (!import_module(&g_module_ContentObject, "pyccn.ContentObject"))
+	if (!import_module(&module_ContentObject, "pyccn.ContentObject"))
 		goto unload_contentobject;
 
-	if (!import_module(&g_module_Closure, "pyccn.Closure"))
+	if (!import_module(&module_Closure, "pyccn.Closure"))
 		goto unload_closure;
 
-	if (!import_module(&g_module_Key, "pyccn.Key"))
+	if (!import_module(&module_Key, "pyccn.Key"))
 		goto unload_key;
 
-	if (!import_module(&g_module_Name, "pyccn.Name"))
+	if (!import_module(&module_Name, "pyccn.Name"))
 		goto unload_name;
 
-/*
-	PyObject *CCNDict = PyModule_GetDict(g_module_CCN);
-*/
-	PyObject *InterestDict = PyModule_GetDict(g_module_Interest);
-	PyObject *ContentObjectDict = PyModule_GetDict(g_module_ContentObject);
-	PyObject *ClosureDict = PyModule_GetDict(g_module_Closure);
-	PyObject *KeyDict = PyModule_GetDict(g_module_Key);
-	PyObject *NameDict = PyModule_GetDict(g_module_Name);
+	/*
+		PyObject *CCNDict = PyModule_GetDict(g_module_CCN);
+	 */
+	PyObject *InterestDict = PyModule_GetDict(module_Interest);
+	PyObject *ContentObjectDict = PyModule_GetDict(module_ContentObject);
+	PyObject *ClosureDict = PyModule_GetDict(module_Closure);
+	PyObject *KeyDict = PyModule_GetDict(module_Key);
+	PyObject *NameDict = PyModule_GetDict(module_Name);
 
 	// These are used to instantiate new objects in C code
-/* for some reason, this returns NULL
-	g_type_CCN = PyDict_GetItemString(CCNDict, "CCN");
-*/
-	g_type_CCN = g_module_CCN;
+	/* for some reason, this returns NULL
+		g_type_CCN = PyDict_GetItemString(CCNDict, "CCN");
+	 */
+	g_type_CCN = module_CCN;
 	assert(g_type_CCN);
 
 	g_type_Interest = PyDict_GetItemString(InterestDict, "Interest");
@@ -214,13 +199,13 @@ init_pyccn(void)
 	return;
 
 unload_name:
-	Py_DECREF(g_module_Name);
+	Py_DECREF(module_Name);
 unload_key:
-	Py_DECREF(g_module_Key);
+	Py_DECREF(module_Key);
 unload_closure:
-	Py_DECREF(g_module_Closure);
+	Py_DECREF(module_Closure);
 unload_contentobject:
-	Py_DECREF(g_module_ContentObject);
+	Py_DECREF(module_ContentObject);
 unload_ccn:
-	Py_DECREF(g_module_CCN);
+	Py_DECREF(module_CCN);
 }
