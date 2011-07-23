@@ -1,0 +1,43 @@
+REFERENCE COUNTS
+
+To understand how to take care of reference counts read this:
+http://docs.python.org/extending/extending.html#reference-counts
+
+The idea is that when you're writing a function you're not
+responsible for worrying about references of other functions.
+
+Any function that creates new object increases reference for you,
+in the documentation they are marked "New Reference". You're
+responsible to decrease the counter when you're no longer using it
+Some of the functions (generally ones that return existing objects;
+warning, Python has some exceptions) only borrow you their reference
+in that case if you plan to retain the object you need to increase
+it. Python as I mentioned has some exceptions, though they're
+generally marked in the documentation. Also, be careful because few
+functions steal a reference from you (they're marked as well).
+
+Any function that is called from Python borrows references (you
+shouldn't need to decrease reference count for arguments)
+and your return value is being consumed (i.e. the reference count
+shouldn't be 0 for returned values). This also applies to singletons
+such as Py_None, Py_True etc. You have convenience macros that do it
+automatically such as: Py_RETURN_NONE, Py_RETURN_TRUE etc.
+
+THREADING
+
+While Python supports threading, when your function is being called
+you don't have to worry about threads stepping over it. That's
+because Python has a main lock which is locked whenever extension
+function is being called. Sometimes though, your call performs an
+operation that blocks for extended period of time (ccn_run or
+ccn_Get for example) in that case you probably should wrap your
+blocking statement with
+Py_BEGIN_ALLOW_THREADS
+and
+Py_END_ALLOW_THREAS
+To let other Python threads to run. When you use those macros, be
+aware that your environment might change. For example references to
+objects that you're using. If you get an object with borrowed
+reference before the statements and you plan to use it after.
+You should increase its reference before enabling threads so you can
+be sure the object will still exist after.
