@@ -167,7 +167,7 @@ _pyccn_ccn_get(PyObject* self, PyObject* args)
 
 	int result = 0;
 	if (!PyArg_ParseTuple(args, "OOOO", &CCN_obj, &Name_obj, &Interest_obj, &TimeoutMS_obj))
-		return Py_None;
+		Py_RETURN_NONE;
 
 	if (strcmp(CCN_obj->ob_type->tp_name, "CCN")) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a CCN as arg 1");
@@ -198,20 +198,20 @@ _pyccn_ccn_get(PyObject* self, PyObject* args)
 	struct ccn_parsed_ContentObject* pco = calloc(sizeof(struct ccn_parsed_ContentObject), 1);
 	struct ccn_indexbuf* comps = ccn_indexbuf_create();
 
+	Py_BEGIN_ALLOW_THREADS
 	result = ccn_get(ccn, name, interest, timeout, data,
 		pco, // TODO: pcobuf
 		comps, // compsbuf
 		0);
+	Py_END_ALLOW_THREADS
 
 	fprintf(stderr, "ccn_get result=%d\n", result);
 
-	py_co = result < 0 ? Py_None : ContentObject_from_ccn_parsed(data, pco, comps);
+	py_co = result < 0 ? Py_INCREF(Py_None), Py_None : ContentObject_from_ccn_parsed(data, pco, comps);
 
 	ccn_indexbuf_destroy(&comps);
 	free(pco); // TODO: freed by the destructor?
 	ccn_charbuf_destroy(&data);
-
-	Py_INCREF(py_co); //?
 
 	return py_co;
 }
@@ -353,59 +353,58 @@ _pyccn_ccn_get_public_key(PyObject* self, PyObject* args) {
 static PyObject*
 _pyccn_generate_RSA_key(PyObject* self, PyObject* args)
 {
-	PyObject *py_key;
+	PyObject *py_key, *p;
 	long keylen = 0;
 	struct ccn_pkey *private_key, *public_key;
 	unsigned char* public_key_digest;
 	size_t public_key_digest_len;
-	int result = -1;
-	if (PyArg_ParseTuple(args, "Ol", &py_key, &keylen)) {
-		if (strcmp(py_key->ob_type->tp_name, "Key") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a Key");
+	int result;
 
-			return NULL;
-		}
-		generate_key(keylen, &private_key, &public_key, &public_key_digest, &public_key_digest_len);
+	if (!PyArg_ParseTuple(args, "Ol", &py_key, &keylen))
+		return Py_BuildValue("i", -1); //TODO: Throw an error
 
-		PyObject* p;
-		// privateKey
-		// Don't free these here, python will call destructor
-		p = PyCObject_FromVoidPtr(private_key, __ccn_key_destroy);
-		PyObject_SetAttrString(py_key, "ccn_data_private", p);
-		Py_INCREF(p);
-
-		// publicKey
-		// Don't free this here, python will call destructor
-		p = PyCObject_FromVoidPtr(public_key, __ccn_key_destroy);
-		PyObject_SetAttrString(py_key, "ccn_data_public", p);
-		Py_INCREF(p);
-
-		// type
-		p = PyString_FromString("RSA");
-		PyObject_SetAttrString(py_key, "type", p);
-		Py_INCREF(p);
-
-		// publicKeyID
-		p = PyByteArray_FromStringAndSize((char*) public_key_digest, public_key_digest_len);
-		PyObject_SetAttrString(py_key, "publicKeyID", p);
-		Py_INCREF(p);
-		free(public_key_digest);
-
-		// publicKeyIDsize
-		p = PyInt_FromLong(public_key_digest_len);
-		PyObject_SetAttrString(py_key, "publicKeyIDsize", p);
-		Py_INCREF(p);
-
-		// pubID
-		// TODO: pubID not implemented
-		p = Py_None;
-		PyObject_SetAttrString(py_key, "pubID", p);
-		Py_INCREF(p);
-
-
-		result = 0;
-
+	if (strcmp(py_key->ob_type->tp_name, "Key")) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a Key");
+		return NULL;
 	}
+
+	generate_key(keylen, &private_key, &public_key, &public_key_digest, &public_key_digest_len);
+
+	// privateKey
+	// Don't free these here, python will call destructor
+	p = CCNObject_New(PKEY, private_key);
+	PyObject_SetAttrString(py_key, "ccn_data_private", p);
+	Py_DECREF(p);
+
+	// publicKey
+	// Don't free this here, python will call destructor
+	p = CCNObject_New(PKEY, public_key);
+	PyObject_SetAttrString(py_key, "ccn_data_public", p);
+	Py_DECREF(p);
+
+	// type
+	p = PyString_FromString("RSA");
+	PyObject_SetAttrString(py_key, "type", p);
+	Py_DECREF(p);
+
+	// publicKeyID
+	p = PyByteArray_FromStringAndSize((char*) public_key_digest, public_key_digest_len);
+	PyObject_SetAttrString(py_key, "publicKeyID", p);
+	Py_DECREF(p);
+	free(public_key_digest);
+
+	// publicKeyIDsize
+	p = PyInt_FromLong(public_key_digest_len);
+	PyObject_SetAttrString(py_key, "publicKeyIDsize", p);
+	Py_DECREF(p);
+
+	// pubID
+	// TODO: pubID not implemented
+	p = Py_None;
+	PyObject_SetAttrString(py_key, "pubID", p);
+
+	result = 0;
+
 	return Py_BuildValue("i", result);
 }
 
@@ -575,67 +574,71 @@ _pyccn_Interest_from_ccn(PyObject* self, PyObject* args)
 static PyObject*
 _pyccn_ContentObject_to_ccn(PyObject* self, PyObject* args)
 {
-	PyObject* py_content_object;
-	PyObject* py_key;
-	struct ccn_charbuf* content_object = ccn_charbuf_create();
-	int result = -1;
+	PyObject *py_content_object, *py_key;
+	struct ccn_charbuf *content_object, *name;
+	int result;
 
-	if (PyArg_ParseTuple(args, "OO", &py_content_object, &py_key)) {
-		if (strcmp(py_content_object->ob_type->tp_name, "ContentObject") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a ContentObject as arg 1");
-			return NULL;
-		}
-		if (strcmp(py_key->ob_type->tp_name, "Key") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a key as arg 2 ");
-			return NULL;
-		}
-		// Build the ContentObject here.
+	if (!PyArg_ParseTuple(args, "OO:_pyccn_ContentObject_to_ccn", &py_content_object, &py_key))
+		return NULL;
 
-		// Name
-		struct ccn_charbuf* name = Name_to_ccn(PyObject_GetAttrString(py_content_object, "name"));
-
-		// Content
-		PyObject* py_content = PyObject_GetAttrString(py_content_object, "content");
-		struct ccn_charbuf* content = ccn_charbuf_create();
-		if (PyByteArray_Check(py_content)) {
-			Py_ssize_t n = PyByteArray_Size(py_content);
-			char* b = PyByteArray_AsString(py_content);
-			ccn_charbuf_append(content, b, n);
-		} else if (PyString_Check(py_content)) { // Unicode or UTF-8?
-			ccn_charbuf_append_string(content, PyString_AsString(py_content));
-		} else if (PyFloat_Check(py_content) || PyLong_Check(py_content) || PyInt_Check(py_content)) {
-			PyObject* s = PyObject_Str(py_content);
-			ccn_charbuf_append_string(content, PyString_AsString(s));
-			Py_DECREF(s);
-		} else {
-			// TODO: Throw error
-			fprintf(stderr, "Can't encode content, type unknown.\n");
-		}
-
-		// SignedInfo
-		struct ccn_charbuf* signed_info = SignedInfo_to_ccn(PyObject_GetAttrString(py_content_object, "signedInfo"));
-
-		// DigestAlgorithm
-		const char* digest_alg = NULL;
-		if (PyObject_GetAttrString(py_content_object, "digestAlgorithm") != Py_None) {
-			fprintf(stderr, "non-default digest algorithm not yet supported.\n");
-		}
-
-		// Key
-
-		struct ccn_pkey* private_key = Key_to_ccn_private(py_key);
-		// Note that we don't load this key into the keystore hashtable in the library
-		// because it makes this method require access to a ccn handle, and in fact,
-		// ccn_sign_content just uses what's in signedinfo (after an error check by
-		// chk_signing_params and then calls ccn_encode_ContentObject anyway
-		//
-		// Encode the content object
-		result = ccn_encode_ContentObject(content_object, name, signed_info, content->buf, content->length, digest_alg, private_key);
-		fprintf(stderr, "ccn_encode_ContentObject res=%d\n", result);
-		ccn_charbuf_destroy(&signed_info);
-		ccn_charbuf_destroy(&content);
-		ccn_charbuf_destroy(&name);
+	if (strcmp(py_content_object->ob_type->tp_name, "ContentObject")) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a ContentObject as arg 1");
+		return NULL;
 	}
+	if (strcmp(py_key->ob_type->tp_name, "Key")) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a Key as arg 2");
+		return NULL;
+	}
+
+	// Build the ContentObject here.
+	content_object = ccn_charbuf_create();
+
+	// Name
+	name = Name_to_ccn(PyObject_GetAttrString(py_content_object, "name"));
+
+	// Content
+	PyObject* py_content = PyObject_GetAttrString(py_content_object, "content");
+	struct ccn_charbuf* content = ccn_charbuf_create();
+	if (PyByteArray_Check(py_content)) {
+		Py_ssize_t n = PyByteArray_Size(py_content);
+		char* b = PyByteArray_AsString(py_content);
+		ccn_charbuf_append(content, b, n);
+	} else if (PyString_Check(py_content)) { // Unicode or UTF-8?
+		ccn_charbuf_append_string(content, PyString_AsString(py_content));
+	} else if (PyFloat_Check(py_content) || PyLong_Check(py_content) || PyInt_Check(py_content)) {
+		PyObject* s = PyObject_Str(py_content);
+		ccn_charbuf_append_string(content, PyString_AsString(s));
+		Py_DECREF(s);
+	} else {
+		// TODO: Throw error
+		fprintf(stderr, "Can't encode content, type unknown.\n");
+	}
+
+	// SignedInfo
+	struct ccn_charbuf* signed_info = SignedInfo_to_ccn(PyObject_GetAttrString(py_content_object, "signedInfo"));
+
+	// DigestAlgorithm
+	const char* digest_alg = NULL;
+	if (PyObject_GetAttrString(py_content_object, "digestAlgorithm") != Py_None) {
+		fprintf(stderr, "non-default digest algorithm not yet supported.\n");
+	}
+
+	// Key
+
+	struct ccn_pkey* private_key = Key_to_ccn_private(py_key);
+	// Note that we don't load this key into the keystore hashtable in the library
+	// because it makes this method require access to a ccn handle, and in fact,
+	// ccn_sign_content just uses what's in signedinfo (after an error check by
+	// chk_signing_params and then calls ccn_encode_ContentObject anyway
+	//
+	// Encode the content object
+	result = ccn_encode_ContentObject(content_object, name, signed_info, content->buf, content->length, digest_alg, private_key);
+	fprintf(stderr, "ccn_encode_ContentObject res=%d\n", result);
+	ccn_charbuf_destroy(&signed_info);
+	ccn_charbuf_destroy(&content);
+	ccn_charbuf_destroy(&name);
+
+	assert(content_object);
 
 	return CCNObject_New(CONTENT_OBJECT, content_object);
 }

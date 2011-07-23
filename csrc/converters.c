@@ -29,15 +29,18 @@ __ccn_name_destroy(void* p)
 }
 
 struct ccn_charbuf*
-Name_to_ccn(PyObject* py_name)
+Name_to_ccn(PyObject *py_name)
 {
 	struct ccn_charbuf* name;
+	PyObject *comps, *iterator, *item;
+
 	name = ccn_charbuf_create();
 	ccn_name_init(name);
 
-	PyObject* comps = PyObject_GetAttrString(py_name, "components");
-	PyObject *iterator = PyObject_GetIter(comps);
-	PyObject *item;
+	comps = PyObject_GetAttrString(py_name, "components");
+	Py_DECREF(py_name);
+	iterator = PyObject_GetIter(comps);
+	Py_DECREF(comps);
 
 	if (iterator == NULL) {
 		// TODO: Return error
@@ -49,7 +52,7 @@ Name_to_ccn(PyObject* py_name)
 	while ((item = PyIter_Next(iterator))) {
 		if (PyByteArray_Check(item)) {
 			Py_ssize_t n = PyByteArray_Size(item);
-			char* b = PyByteArray_AsString(item);
+			char *b = PyByteArray_AsString(item);
 			ccn_name_append(name, b, n);
 		} else if (PyString_Check(item)) { // Unicode or UTF-8?
 			ccn_name_append_str(name, PyString_AsString(item));
@@ -57,7 +60,7 @@ Name_to_ccn(PyObject* py_name)
 			// representation; if we want numeric encoding, use a
 			// byte array and do it explicitly.
 		} else if (PyFloat_Check(item) || PyLong_Check(item) || PyInt_Check(item)) {
-			PyObject* s = PyObject_Str(item);
+			PyObject *s = PyObject_Str(item);
 			ccn_name_append_str(name, PyString_AsString(s));
 			Py_DECREF(s);
 		} else {
@@ -70,6 +73,7 @@ Name_to_ccn(PyObject* py_name)
 	if (PyErr_Occurred()) {
 		// TODO: Propagate error
 	}
+
 	return name;
 }
 
@@ -197,11 +201,18 @@ Key_to_ccn_keystore(PyObject* py_key)
 }
 #endif
 
-struct ccn_pkey*
-Key_to_ccn_private(PyObject* py_key)
+struct ccn_pkey *
+Key_to_ccn_private(PyObject *py_key)
 {
-	// TODO: need to INCREF here?
-	return(struct ccn_pkey*) PyCObject_AsVoidPtr(PyObject_GetAttrString(py_key, "ccn_data_private"));
+	PyObject *capsule;
+	struct ccn_pkey *key;
+
+	capsule = PyObject_GetAttrString(py_key, "ccn_data_private");
+	assert(capsule);
+	key = CCNObject_Get(PKEY, capsule);
+	Py_DECREF(capsule);
+
+	return key;
 }
 
 struct ccn_pkey*

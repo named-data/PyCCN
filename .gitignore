@@ -1,4 +1,5 @@
 /autom4te.cache/
+/build/
 /build-aux/
 
 /aclocal.m4
@@ -23,3 +24,4 @@ Makefile
 *.la
 *.lo
 *.o
+/nbproject/private/
