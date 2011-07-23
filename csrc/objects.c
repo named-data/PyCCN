@@ -42,13 +42,13 @@ pyccn_Capsule_Destructor(PyObject *capsule)
 		ccn_charbuf_destroy(&p);
 	} else if (CCNObject_IsValid(HANDLE, capsule)) {
 		struct ccn *p = pointer;
-		ccn_disconnect(p); // XXX: Ok to call this even if already disconn?
+		ccn_disconnect(p);
 		ccn_destroy(&p);
 	} else if (CCNObject_IsValid(PKEY, capsule)) {
 		struct ccn_pkey *p = pointer;
 		ccn_pubkey_free(p); // what about private keys?
 	} else
-		panic("Unable to destroy unknown capsule");
+		panic("Unable to destroy the object: got an unknown capsule");
 }
 
 PyObject *

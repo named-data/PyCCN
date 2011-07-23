@@ -2,6 +2,8 @@
 
 TESTS = \
 	importModule.py \
+	ccnConnection.py \
+	ccnRun.py \
 	generateKey.py \
 	defaultKey.py
 

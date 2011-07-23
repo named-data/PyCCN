@@ -8,17 +8,19 @@
 #ifndef _PYCCN_H_
 #  define _PYCCN_H_
 
-extern PyObject* g_type_Name;
-extern PyObject* g_type_Interest;
-extern PyObject* g_type_ContentObject;
-extern PyObject* g_type_Key;
+extern PyObject *g_type_Name;
+extern PyObject *g_type_Interest;
+extern PyObject *g_type_ContentObject;
+extern PyObject *g_type_Key;
 
-extern PyObject* g_type_ExclusionFilter;
-extern PyObject* g_type_KeyLocator;
-extern PyObject* g_type_Signature;
-extern PyObject* g_type_SignedInfo;
-extern PyObject* g_type_SigningParams;
-extern PyObject* g_type_UpcallInfo;
+extern PyObject *g_type_ExclusionFilter;
+extern PyObject *g_type_KeyLocator;
+extern PyObject *g_type_Signature;
+extern PyObject *g_type_SignedInfo;
+extern PyObject *g_type_SigningParams;
+extern PyObject *g_type_UpcallInfo;
+
+extern PyObject *g_PyExc_CCNError;
 
 void __ccn_closure_destroy(void *p);
 
