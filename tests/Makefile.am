@@ -9,7 +9,7 @@ TESTS = \
 
 TEST_EXTENSIONS = .py
 PY_LOG_COMPILER = $(PYTHON)
-AM_PY_LOG_FLAGS = -t -3 -v
+AM_PY_LOG_FLAGS = -v
 
 #%.gdb: %
 #	gdb $(TESTS_ENVIRONMENT) $*
