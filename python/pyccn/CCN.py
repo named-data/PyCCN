@@ -28,7 +28,7 @@ class CCN(object):
 		pass
 
 	# Blocking!
-	def get(self, name, template, timeoutms):
+	def get(self, name, template = None, timeoutms = 3000):
 		return _pyccn._pyccn_ccn_get(self, name, template, timeoutms)
 
 	def put(self, contentObject):

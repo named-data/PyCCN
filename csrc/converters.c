@@ -28,23 +28,27 @@ __ccn_name_destroy(void* p)
 		ccn_charbuf_destroy((struct ccn_charbuf**) &p);
 }
 
-struct ccn_charbuf*
+struct ccn_charbuf *
 Name_to_ccn(PyObject *py_name)
 {
-	struct ccn_charbuf* name;
-	PyObject *comps, *iterator, *item;
-
-	name = ccn_charbuf_create();
-	ccn_name_init(name);
+	struct ccn_charbuf *name;
+	PyObject *comps, *iterator, *item = NULL;
+	int r;
 
 	comps = PyObject_GetAttrString(py_name, "components");
-	Py_DECREF(py_name);
+	if (!comps)
+		return NULL;
+
 	iterator = PyObject_GetIter(comps);
 	Py_DECREF(comps);
+	if (!iterator)
+		return NULL;
 
-	if (iterator == NULL) {
-		// TODO: Return error
-	}
+	name = ccn_charbuf_create();
+	JUMP_IF_NULL(name, out_of_mem);
+
+	r = ccn_name_init(name);
+	JUMP_IF_NEG(r, out_of_mem);
 
 	// Parse the list of components and
 	// convert them to C objects
@@ -53,28 +57,47 @@ Name_to_ccn(PyObject *py_name)
 		if (PyByteArray_Check(item)) {
 			Py_ssize_t n = PyByteArray_Size(item);
 			char *b = PyByteArray_AsString(item);
-			ccn_name_append(name, b, n);
+			JUMP_IF_NULL(b, error);
+
+			r = ccn_name_append(name, b, n);
+			JUMP_IF_NEG(r, out_of_mem);
 		} else if (PyString_Check(item)) { // Unicode or UTF-8?
-			ccn_name_append_str(name, PyString_AsString(item));
+			char *s = PyString_AsString(item);
+			JUMP_IF_NULL(s, error);
+
+			r = ccn_name_append_str(name, s);
+			JUMP_IF_NEG(r, out_of_mem);
+
 			// Note, we choose to convert numbers to their string
 			// representation; if we want numeric encoding, use a
 			// byte array and do it explicitly.
 		} else if (PyFloat_Check(item) || PyLong_Check(item) || PyInt_Check(item)) {
-			PyObject *s = PyObject_Str(item);
-			ccn_name_append_str(name, PyString_AsString(s));
-			Py_DECREF(s);
+			PyObject *str = PyObject_Str(item);
+			JUMP_IF_NULL(str, error);
+
+			char *s = PyString_AsString(str);
+			Py_DECREF(str);
+			JUMP_IF_NULL(s, error);
+
+			r = ccn_name_append_str(name, s);
+			JUMP_IF_NEG(r, out_of_mem);
 		} else {
-			// TODO: Throw exception
-			fprintf(stderr, "Can't encoded component, type unknown.\n");
+			PyErr_SetString(PyExc_TypeError, "Unknown value type in the list");
+			goto error;
 		}
-		Py_DECREF(item); // do we do this here?
+		Py_DECREF(item);
 	}
 	Py_DECREF(iterator);
-	if (PyErr_Occurred()) {
-		// TODO: Propagate error
-	}
 
 	return name;
+
+out_of_mem:
+	PyErr_SetNone(PyExc_MemoryError);
+error:
+	Py_XDECREF(item);
+	Py_XDECREF(iterator);
+	ccn_charbuf_destroy(&name);
+	return NULL;
 }
 
 
@@ -406,8 +429,8 @@ KeyLocator_from_ccn(struct ccn_charbuf* key_locator)
 			ccn_parse_required_tagged_BLOB(d, CCN_DTAG_Key, 1, -1);
 			stop = d->decoder.token_index;
 			res = ccn_ref_tagged_BLOB(CCN_DTAG_Key, d->buf,
-				start, stop,
-				&dkey, &dkey_size);
+					start, stop,
+					&dkey, &dkey_size);
 			if (res == 0) {
 				fprintf(stderr, "Parse CCN_DTAG_Key, len=%zd\n", dkey_size);
 				pubkey = ccn_d2i_pubkey(dkey, dkey_size); // free with ccn_pubkey_free()
@@ -493,7 +516,7 @@ ExclusionFilter_to_ccn(PyObject* py_ExclusionFilter)
 			// representation; if we want numeric encoding, use a
 			// byte array and do it explicitly.
 		} else if (PyFloat_Check(item) || PyLong_Check(item)
-			|| PyInt_Check(item)) {
+				|| PyInt_Check(item)) {
 			PyObject* p = PyObject_Str(item);
 			blob = PyString_AsString(p);
 			blobsize = strlen(blob); // More efficient way?
@@ -664,7 +687,7 @@ Interest_from_ccn_parsed(struct ccn_charbuf* interest, struct ccn_parsed_interes
 	l = CCN_PI_E_MinSuffixComponents - CCN_PI_B_MinSuffixComponents;
 	if (l > 0) {
 		i = ccn_fetch_tagged_nonNegativeInteger(CCN_DTAG_MinSuffixComponents, interest->buf,
-			pi->offset[CCN_PI_B_MinSuffixComponents], pi->offset[CCN_PI_E_MinSuffixComponents]);
+				pi->offset[CCN_PI_B_MinSuffixComponents], pi->offset[CCN_PI_E_MinSuffixComponents]);
 		p = PyInt_FromLong(i);
 		PyObject_SetAttrString(py_interest, "minSuffixComponents", p);
 		Py_INCREF(p);
@@ -674,7 +697,7 @@ Interest_from_ccn_parsed(struct ccn_charbuf* interest, struct ccn_parsed_interes
 	l = CCN_PI_E_MaxSuffixComponents - CCN_PI_B_MaxSuffixComponents;
 	if (l > 0) {
 		i = ccn_fetch_tagged_nonNegativeInteger(CCN_DTAG_MaxSuffixComponents, interest->buf,
-			pi->offset[CCN_PI_B_MaxSuffixComponents], pi->offset[CCN_PI_E_MaxSuffixComponents]);
+				pi->offset[CCN_PI_B_MaxSuffixComponents], pi->offset[CCN_PI_E_MaxSuffixComponents]);
 		p = PyInt_FromLong(i);
 		PyObject_SetAttrString(py_interest, "maxSuffixComponents", p);
 		Py_INCREF(p);
@@ -685,9 +708,9 @@ Interest_from_ccn_parsed(struct ccn_charbuf* interest, struct ccn_parsed_interes
 	l = CCN_PI_E_PublisherIDKeyDigest - CCN_PI_B_PublisherIDKeyDigest;
 	if (l > 0) {
 		i = ccn_ref_tagged_BLOB(CCN_DTAG_PublisherPublicKeyDigest, interest->buf,
-			pi->offset[CCN_PI_B_PublisherIDKeyDigest],
-			pi->offset[CCN_PI_E_PublisherIDKeyDigest],
-			&blob, &blob_size);
+				pi->offset[CCN_PI_B_PublisherIDKeyDigest],
+				pi->offset[CCN_PI_E_PublisherIDKeyDigest],
+				&blob, &blob_size);
 		p = PyByteArray_FromStringAndSize((const char*) blob, blob_size);
 		PyObject_SetAttrString(py_interest, "publisherPublicKeyDigest", p);
 		Py_INCREF(p);
@@ -707,7 +730,7 @@ Interest_from_ccn_parsed(struct ccn_charbuf* interest, struct ccn_parsed_interes
 	l = CCN_PI_E_ChildSelector - CCN_PI_B_ChildSelector;
 	if (l > 0) {
 		i = ccn_fetch_tagged_nonNegativeInteger(CCN_DTAG_ChildSelector, interest->buf,
-			pi->offset[CCN_PI_B_ChildSelector], pi->offset[CCN_PI_E_ChildSelector]);
+				pi->offset[CCN_PI_B_ChildSelector], pi->offset[CCN_PI_E_ChildSelector]);
 		p = PyInt_FromLong(i);
 		PyObject_SetAttrString(py_interest, "childSelector", p);
 		Py_INCREF(p);
@@ -717,7 +740,7 @@ Interest_from_ccn_parsed(struct ccn_charbuf* interest, struct ccn_parsed_interes
 	l = CCN_PI_E_AnswerOriginKind - CCN_PI_B_AnswerOriginKind;
 	if (l > 0) {
 		i = ccn_fetch_tagged_nonNegativeInteger(CCN_DTAG_AnswerOriginKind, interest->buf,
-			pi->offset[CCN_PI_B_AnswerOriginKind], pi->offset[CCN_PI_E_AnswerOriginKind]);
+				pi->offset[CCN_PI_B_AnswerOriginKind], pi->offset[CCN_PI_E_AnswerOriginKind]);
 		p = PyInt_FromLong(i);
 		PyObject_SetAttrString(py_interest, "answerOriginKind", p);
 		Py_INCREF(p);
@@ -727,7 +750,7 @@ Interest_from_ccn_parsed(struct ccn_charbuf* interest, struct ccn_parsed_interes
 	l = CCN_PI_E_Scope - CCN_PI_B_Scope;
 	if (l > 0) {
 		i = ccn_fetch_tagged_nonNegativeInteger(CCN_DTAG_Scope, interest->buf,
-			pi->offset[CCN_PI_B_Scope], pi->offset[CCN_PI_E_Scope]);
+				pi->offset[CCN_PI_B_Scope], pi->offset[CCN_PI_E_Scope]);
 		p = PyInt_FromLong(i);
 		PyObject_SetAttrString(py_interest, "scope", p);
 		Py_INCREF(p);
@@ -738,9 +761,9 @@ Interest_from_ccn_parsed(struct ccn_charbuf* interest, struct ccn_parsed_interes
 	if (l > 0) {
 		// From packet-ccn.c
 		i = ccn_ref_tagged_BLOB(CCN_DTAG_InterestLifetime, interest->buf,
-			pi->offset[CCN_PI_B_InterestLifetime],
-			pi->offset[CCN_PI_E_InterestLifetime],
-			&blob, &blob_size);
+				pi->offset[CCN_PI_B_InterestLifetime],
+				pi->offset[CCN_PI_E_InterestLifetime],
+				&blob, &blob_size);
 		double lifetime = 0.0;
 		for (i = 0; i < blob_size; i++)
 			lifetime = lifetime * 256.0 + (double) blob[i];
@@ -754,9 +777,9 @@ Interest_from_ccn_parsed(struct ccn_charbuf* interest, struct ccn_parsed_interes
 	l = CCN_PI_E_Nonce - CCN_PI_B_Nonce;
 	if (l > 0) {
 		i = ccn_ref_tagged_BLOB(CCN_DTAG_Nonce, interest->buf,
-			pi->offset[CCN_PI_B_Nonce],
-			pi->offset[CCN_PI_E_Nonce],
-			&blob, &blob_size);
+				pi->offset[CCN_PI_B_Nonce],
+				pi->offset[CCN_PI_E_Nonce],
+				&blob, &blob_size);
 		p = PyByteArray_FromStringAndSize((const char*) blob, blob_size);
 		PyObject_SetAttrString(py_interest, "nonce", p);
 		Py_INCREF(p);
@@ -860,8 +883,8 @@ Signature_from_ccn(struct ccn_charbuf* signature)
 	const unsigned char *ptr = NULL;
 	int i = 0;
 	d = ccn_buf_decoder_start(&decoder,
-		signature->buf,
-		signature->length);
+			signature->buf,
+			signature->length);
 	if (ccn_buf_match_dtag(d, CCN_DTAG_Signature)) {
 		fprintf(stderr, "Is a signature\n");
 		ccn_buf_advance(d);
@@ -964,7 +987,7 @@ SignedInfo_to_ccn(PyObject* py_signed_info)
 	}
 
 	result = ccn_signed_info_create(si, publisher_key_id, publisher_key_id_size,
-		timestamp, type, freshness, finalblockid, key_locator);
+			timestamp, type, freshness, finalblockid, key_locator);
 	fprintf(stderr, "ccn_signed_info_create res=%d\n", result);
 	return si;
 }
@@ -1006,8 +1029,8 @@ SignedInfo_from_ccn(struct ccn_charbuf* signed_info)
 	const unsigned char *ptr = NULL;
 	int i = 0;
 	d = ccn_buf_decoder_start(&decoder,
-		signed_info->buf,
-		signed_info->length);
+			signed_info->buf,
+			signed_info->length);
 	if (ccn_buf_match_dtag(d, CCN_DTAG_SignedInfo)) {
 		ccn_buf_advance(d);
 		if (ccn_buf_match_dtag(d, CCN_DTAG_PublisherPublicKeyDigest))
@@ -1253,8 +1276,8 @@ __ccn_content_object_components_destroy(void* p)
 
 PyObject*
 ContentObject_from_ccn_parsed(struct ccn_charbuf *content_object,
-	struct ccn_parsed_ContentObject *parsed_content_object,
-	struct ccn_indexbuf *components)
+		struct ccn_parsed_ContentObject *parsed_content_object,
+		struct ccn_indexbuf *components)
 {
 	PyObject *py_ContentObject, *py_Name;
 
@@ -1293,7 +1316,7 @@ ContentObject_from_ccn_parsed(struct ccn_charbuf *content_object,
 	const unsigned char* value;
 	size_t size;
 	ccn_content_get_value(content_object->buf, content_object->length,
-		parsed_content_object, &value, &size);
+			parsed_content_object, &value, &size);
 	PyObject* py_content = PyByteArray_FromStringAndSize((char*) value, size);
 	PyObject_SetAttrString(py_ContentObject, "content", py_content);
 	Py_INCREF(py_content);
@@ -1302,7 +1325,7 @@ ContentObject_from_ccn_parsed(struct ccn_charbuf *content_object,
 
 	struct ccn_charbuf* signature = ccn_charbuf_create();
 	ccn_charbuf_append(signature, &content_object->buf[parsed_content_object->offset[CCN_PCO_B_Signature]],
-		(size_t) (parsed_content_object->offset[CCN_PCO_E_Signature] - parsed_content_object->offset[CCN_PCO_B_Signature]));
+			(size_t) (parsed_content_object->offset[CCN_PCO_E_Signature] - parsed_content_object->offset[CCN_PCO_B_Signature]));
 
 	PyObject* py_signature = Signature_from_ccn(signature); // it will destroy?
 	PyObject_SetAttrString(py_ContentObject, "signature", py_signature);
@@ -1313,7 +1336,7 @@ ContentObject_from_ccn_parsed(struct ccn_charbuf *content_object,
 
 	struct ccn_charbuf* signed_info = ccn_charbuf_create();
 	ccn_charbuf_append(signed_info, &content_object->buf[parsed_content_object->offset[CCN_PCO_B_SignedInfo]],
-		(size_t) (parsed_content_object->offset[CCN_PCO_E_SignedInfo] - parsed_content_object->offset[CCN_PCO_B_SignedInfo]));
+			(size_t) (parsed_content_object->offset[CCN_PCO_E_SignedInfo] - parsed_content_object->offset[CCN_PCO_B_SignedInfo]));
 
 	PyObject* py_signedinfo = SignedInfo_from_ccn(signed_info); // it will destroy?
 	PyObject_SetAttrString(py_ContentObject, "signedInfo", py_signedinfo);

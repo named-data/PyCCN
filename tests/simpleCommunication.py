@@ -1,7 +1,10 @@
 from pyccn import CCN, Name, Interest, ContentObject, Key
-#from threading import Timer
+from threading import Timer
 
 c = CCN.CCN()
+n = Name.Name()
+n.setURI("/Foo/Foo")
+
 
 #k = Key.Key()
 #k.generateRSA(1024)

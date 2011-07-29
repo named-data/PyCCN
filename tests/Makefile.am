@@ -5,6 +5,7 @@ TESTS = \
 	ccnConnection.py \
 	ccnRun.py \
 	names.py \
+	get.py \
 	generateKey.py \
 	defaultKey.py
 
