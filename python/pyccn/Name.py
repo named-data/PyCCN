@@ -20,10 +20,20 @@ class Name(object):
 		self.components = components  # list of blobs
 		self.version = None      # need put/get handlers for attr
 		self.segment = None
+		self.separator = "/"
+		self.scheme = "ccnx:"
 
 		# pyccn
 		self.ccn_data_dirty = False
 		self.ccn_data = None  # backing charbuf
+
+	def setURI(self, uri):
+		self.ccn_data_dirty = True
+
+		if uri.startswith(self.scheme):
+			uri = uri[len(self.scheme):]
+
+		self.components = uri.strip(self.separator).split(self.separator)
 
 	# can we do this in python
 	def appendNonce(self):
@@ -32,7 +42,18 @@ class Name(object):
 	def appendNumeric(self):   # tagged numerics p4 of code
 		pass
 
-	def __iconcat__(self, c):
+	def __str__(self):
+		return self.separator + self.separator.join(self.components)
+
+	def __len__(self):
+		return len(self.components)
+
+	def __iadd__(self, component):
+		self.ccn_data_dirty = True
+		self.components.append(component)
+		return self
+
+	def __concat__(self, c):
 		self.components.append(c)
 		self.ccn_data_dirty = True
 
@@ -53,4 +74,3 @@ class Name(object):
 		# name_init()
 		# and so on...
 		pass
-

@@ -4,6 +4,7 @@ TESTS = \
 	importModule.py \
 	ccnConnection.py \
 	ccnRun.py \
+	names.py \
 	generateKey.py \
 	defaultKey.py
 
