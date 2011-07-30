@@ -8,20 +8,26 @@
 #ifndef _PYCCN_H_
 #  define _PYCCN_H_
 
-#define Py_DEBUG
-#define Py_TRACE_REFS
+#  if 1
+#    define Py_DEBUG
+#    define Py_TRACE_REFS
+#    define debug(...) fprintf(stderr, __VA_ARGS__)
+#  else
+#    define debug(...)
+#  endif
 
-#define JUMP_IF_NULL(variable, label) \
+#  define JUMP_IF_NULL(variable, label) \
 do { \
 	if (!variable) \
 		goto label; \
 } while(0)
 
-#define JUMP_IF_NEG(variable, label) \
+#  define JUMP_IF_NEG(variable, label) \
 do { \
 	if (variable < 0) \
 		goto label; \
 } while(0)
+
 
 extern PyObject *g_type_Name;
 extern PyObject *g_type_Interest;
@@ -36,6 +42,7 @@ extern PyObject *g_type_SigningParams;
 extern PyObject *g_type_UpcallInfo;
 
 extern PyObject *g_PyExc_CCNError;
+extern PyObject *g_PyExc_CCNNameError;
 
 void __ccn_closure_destroy(void *p);
 

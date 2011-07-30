@@ -83,6 +83,7 @@ PyObject *g_type_UpcallInfo;
 
 // Exceptions
 PyObject *g_PyExc_CCNError;
+PyObject *g_PyExc_CCNNameError;
 
 enum ccn_upcall_res
 __ccn_upcall_handler(struct ccn_closure *selfp,
@@ -140,10 +141,16 @@ init_pyccn(void)
 		return;
 	}
 
+	/* General CCN Exceptions */
 	g_PyExc_CCNError = PyErr_NewExceptionWithDoc("_pyccn.CCNError",
 		"Generic CCN Exception", NULL, NULL);
 	Py_INCREF(g_PyExc_CCNError);
 	PyModule_AddObject(module, "CCNError", g_PyExc_CCNError);
+
+	g_PyExc_CCNNameError = PyErr_NewExceptionWithDoc("_pyccn.CCNNameError",
+		"Name exception", g_PyExc_CCNError, NULL);
+	Py_INCREF(g_PyExc_CCNNameError);
+	PyModule_AddObject(module, "CCNNameError", g_PyExc_CCNNameError);
 
 	if (!import_module(&module_CCN, "pyccn.CCN"))
 		return; //XXX: How to uninitialize methods?

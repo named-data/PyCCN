@@ -11,12 +11,15 @@
 enum _pyccn_capsules {
 	HANDLE = 1,
 	CONTENT_OBJECT,
-	PKEY
+	PKEY,
+	NAME
 };
 
 PyObject *CCNObject_New(enum _pyccn_capsules type, void *pointer);
 int CCNObject_IsValid(enum _pyccn_capsules type, PyObject *capsule);
 void *CCNObject_Get(enum _pyccn_capsules type, PyObject *capsule);
+
+PyObject *CCNObject_New_Name(struct ccn_charbuf **name);
 
 #endif	/* OBJECTS_H */
 

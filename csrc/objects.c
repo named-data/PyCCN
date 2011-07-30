@@ -12,6 +12,8 @@ static inline const char *
 type2name(enum _pyccn_capsules type)
 {
 	switch (type) {
+	case NAME:
+		return "Name_ccn_data";
 	case HANDLE:
 		return "CCN_ccn_data";
 	case CONTENT_OBJECT:
@@ -38,6 +40,9 @@ pyccn_Capsule_Destructor(PyObject *capsule)
 	assert(pointer);
 
 	if (CCNObject_IsValid(CONTENT_OBJECT, capsule)) {
+		struct ccn_charbuf *p = pointer;
+		ccn_charbuf_destroy(&p);
+	} else if (CCNObject_IsValid(NAME, capsule)) {
 		struct ccn_charbuf *p = pointer;
 		ccn_charbuf_destroy(&p);
 	} else if (CCNObject_IsValid(HANDLE, capsule)) {
@@ -73,4 +78,26 @@ void *
 CCNObject_Get(enum _pyccn_capsules type, PyObject *capsule)
 {
 	return PyCapsule_GetPointer(capsule, type2name(type));
+}
+
+PyObject *
+CCNObject_New_Name(struct ccn_charbuf **name)
+{
+	struct ccn_charbuf *p;
+	PyObject *py_cname;
+
+	p = ccn_charbuf_create();
+	if (p < 0)
+		return PyErr_NoMemory();
+
+	py_cname = CCNObject_New(NAME, p);
+	if (!py_cname) {
+		ccn_charbuf_destroy(&p);
+		return NULL;
+	}
+
+	if (name)
+		*name = p;
+
+	return py_cname;
 }

@@ -10,7 +10,7 @@
 
 void __ccn_name_destroy(void* p);
 struct ccn_charbuf *Name_to_ccn(PyObject* py_name);
-PyObject *Name_from_ccn(struct ccn_charbuf* name);
+PyObject *Name_from_ccn(PyObject *py_ccn_name);
 PyObject *Name_from_ccn_tagged_bytearray(const unsigned char* buf, size_t size);
 
 void __ccn_key_destroy(void* p);
