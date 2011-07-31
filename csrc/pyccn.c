@@ -85,26 +85,6 @@ PyObject *g_type_UpcallInfo;
 PyObject *g_PyExc_CCNError;
 PyObject *g_PyExc_CCNNameError;
 
-enum ccn_upcall_res
-__ccn_upcall_handler(struct ccn_closure *selfp,
-	enum ccn_upcall_kind upcall_kind,
-	struct ccn_upcall_info *info)
-{
-
-	PyObject* py_closure = (PyObject*) selfp->data;
-	PyObject* upcall_method = PyObject_GetAttrString(py_closure, "upcall");
-	PyObject* py_upcall_info = UpcallInfo_from_ccn(info);
-	// Refs?
-
-
-	PyObject* arglist = Py_BuildValue("iO", upcall_kind, py_upcall_info);
-
-	fprintf(stderr, "Calling upcall\n");
-	PyObject* result = PyObject_CallObject(upcall_method, arglist);
-	Py_DECREF(arglist); // per docs.python.org
-
-	return(enum ccn_upcall_res) PyInt_AsLong(result);
-}
 
 void
 __ccn_closure_destroy(void *p)

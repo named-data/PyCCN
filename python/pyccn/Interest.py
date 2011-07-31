@@ -7,6 +7,7 @@
 #    //              in which shortest components go first.
 #
 
+import _pyccn
 import Name
 
 class Interest(object):
@@ -23,9 +24,21 @@ class Interest(object):
 		self.nonce = None
 		# pyccn
 		self.ccn = None # Reference to CCN object
-		self.ccn_data_dirty = False
+		self.ccn_data_dirty = True
 		self.ccn_data = None  # backing charbuf
 		self.ccn_data_parsed = None  # backing parsed interest
+
+	def __setattr__(self, name, value):
+		if name != "ccn_data_dirty":
+			self.ccn_data_dirty = True
+		object.__setattr__(self, name, value)
+
+	def __getattribute__(self, name):
+		if name == "ccn_data" or name == "ccn_data_parsed":
+			if object.__getattribute__(self, 'ccn_data_dirty'):
+				self.ccn_data, self.ccn_data_parsed = _pyccn._pyccn_Interest_to_ccn(self)
+				self.ccn_data_dirty = False
+		return object.__getattribute__(self, name)
 
 # Bloom filters will be deprecated, so we do not support them.
 class ExclusionFilter(object):
@@ -37,4 +50,3 @@ class ExclusionFilter(object):
 
 	def __get_ccn(self):
 		pass
-

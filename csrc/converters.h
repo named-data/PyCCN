@@ -8,7 +8,6 @@
 #ifndef CONVERTERS_H
 #  define	CONVERTERS_H
 
-void __ccn_name_destroy(void* p);
 struct ccn_charbuf *Name_to_ccn(PyObject* py_name);
 PyObject *Name_from_ccn(PyObject *py_ccn_name);
 PyObject *Name_from_ccn_tagged_bytearray(const unsigned char* buf, size_t size);

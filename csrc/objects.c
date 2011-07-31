@@ -77,7 +77,13 @@ CCNObject_IsValid(enum _pyccn_capsules type, PyObject *capsule)
 void *
 CCNObject_Get(enum _pyccn_capsules type, PyObject *capsule)
 {
-	return PyCapsule_GetPointer(capsule, type2name(type));
+	void *p;
+
+	assert(CCNObject_IsValid(type, capsule));
+	p = PyCapsule_GetPointer(capsule, type2name(type));
+	assert(p);
+
+	return p;
 }
 
 PyObject *

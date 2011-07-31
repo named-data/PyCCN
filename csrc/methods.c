@@ -7,6 +7,28 @@
 #include "key_utils.h"
 #include "objects.h"
 
+static enum ccn_upcall_res
+__ccn_upcall_handler(struct ccn_closure *selfp,
+	enum ccn_upcall_kind upcall_kind,
+	struct ccn_upcall_info *info)
+{
+
+	PyObject* py_closure = (PyObject*) selfp->data;
+	PyObject* upcall_method = PyObject_GetAttrString(py_closure, "upcall");
+	PyObject* py_upcall_info = UpcallInfo_from_ccn(info);
+	// Refs?
+
+
+	PyObject* arglist = Py_BuildValue("iO", upcall_kind, py_upcall_info);
+
+	fprintf(stderr, "Calling upcall\n");
+	PyObject* result = PyObject_CallObject(upcall_method, arglist);
+	Py_DECREF(arglist); // per docs.python.org
+
+	return(enum ccn_upcall_res) PyInt_AsLong(result);
+}
+
+
 // *** Python method declarations
 //
 //
@@ -239,7 +261,7 @@ _pyccn_ccn_get(PyObject *self, PyObject *args)
 	} else {
 		ccn_data = PyObject_GetAttrString(py_Name, "ccn_data");
 		JUMP_IF_NULL(ccn_data, error);
-		name = PyCObject_AsVoidPtr(ccn_data);
+		name = CCNObject_Get(NAME, ccn_data);
 		JUMP_IF_NULL(name, error);
 		Py_CLEAR(ccn_data);
 	}
@@ -289,31 +311,42 @@ error:
 	return NULL;
 }
 
-static PyObject* // int
-_pyccn_ccn_put(PyObject* self, PyObject* args)
+static PyObject * // int
+_pyccn_ccn_put(PyObject *self, PyObject *args)
 {
-	int result;
 	PyObject *py_ccn, *py_content_object;
+	PyObject *py_o;
+	struct ccn_charbuf *content_object;
+	struct ccn *handle;
+	int r;
 
 	if (!PyArg_ParseTuple(args, "OO", &py_ccn, &py_content_object))
-		return Py_BuildValue("i", -1);
+		return NULL;
 
 	if (strcmp(py_ccn->ob_type->tp_name, "CCN")) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a CCN as arg 1");
 		return NULL;
 	}
 	if (strcmp(py_content_object->ob_type->tp_name, "ContentObject")) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a content object as arg 2");
+		PyErr_SetString(PyExc_TypeError, "Must pass a ContentObject as arg 2");
 		return NULL;
 	}
 
-	PyObject *ccn_data_Content_Object = PyObject_GetAttrString(py_content_object, "ccn_data");
-	struct ccn_charbuf *content_object = PyCObject_AsVoidPtr(ccn_data_Content_Object);
+	py_o = PyObject_GetAttrString(py_ccn, "ccn_data");
+	assert(py_o);
+	handle = CCNObject_Get(HANDLE, py_o);
+	Py_DECREF(py_o);
+	assert(handle);
 
-	result = ccn_put((struct ccn*) PyCObject_AsVoidPtr(PyObject_GetAttrString(py_ccn, "ccn_data")),
-			content_object->buf, content_object->length);
+	py_o = PyObject_GetAttrString(py_content_object, "ccn_data");
+	assert(py_o);
+	content_object = CCNObject_Get(CONTENT_OBJECT, py_o);
+	Py_DECREF(py_o);
+	assert(content_object);
 
-	return Py_BuildValue("i", result);
+	r = ccn_put(handle, content_object->buf, content_object->length);
+
+	return Py_BuildValue("i", r);
 }
 
 // Keys
@@ -570,49 +603,43 @@ _pyccn_Name_to_ccn(PyObject *self, PyObject *py_name)
 
 	assert(name);
 
-	return PyCObject_FromVoidPtr((void*) name, __ccn_name_destroy);
+	return CCNObject_New(NAME, name);
 }
 
 // From within python
 //
 
-static PyObject*
-_pyccn_Name_from_ccn(PyObject* self, PyObject* args)
+static PyObject *
+_pyccn_Name_from_ccn(PyObject *self, PyObject *py_cname)
 {
-	PyObject* cobj_name;
-	if (PyArg_ParseTuple(args, "O", &cobj_name)) {
-		if (!PyCObject_Check(cobj_name)) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a CObject containing a struct ccn_charbuf*");
-			return NULL;
-		}
-		return Name_from_ccn((struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_name));
+	if (!CCNObject_IsValid(NAME, py_cname)) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a PyCapsule containing a"
+				" struct ccn_charbuf*");
+		return NULL;
 	}
-	Py_INCREF(Py_None);
 
-	return Py_None;
+	return Name_from_ccn(py_cname);
 }
 
-static PyObject*
-_pyccn_Interest_to_ccn(PyObject* self, PyObject* args)
+static PyObject *
+_pyccn_Interest_to_ccn(PyObject *self, PyObject *py_interest)
 {
-	PyObject* py_interest;
-	struct ccn_charbuf* interest;
-	struct ccn_parsed_interest* parsed_interest;
-	if (PyArg_ParseTuple(args, "O", &py_interest)) {
-		if (strcmp(py_interest->ob_type->tp_name, "Interest") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass an Interest");
+	struct ccn_charbuf *interest;
+	struct ccn_parsed_interest *parsed_interest;
+	int r;
 
-			return NULL;
-		}
-		//  Build an interest
-		interest = Interest_to_ccn(py_interest);
+	if (strcmp(py_interest->ob_type->tp_name, "Interest") != 0) {
+		PyErr_SetString(PyExc_TypeError, "Must pass an Interest");
 
-		parsed_interest = calloc(sizeof(struct ccn_parsed_interest), 1);
-		int result = 0;
-		result = ccn_parse_interest(interest->buf, interest->length, parsed_interest, NULL /* no comps */);
-		// TODO: Check result
-
+		return NULL;
 	}
+	//  Build an interest
+	interest = Interest_to_ccn(py_interest);
+
+	parsed_interest = calloc(1, sizeof(*parsed_interest));
+	r = ccn_parse_interest(interest->buf, interest->length, parsed_interest, NULL /* no comps */);
+	// TODO: Check result
+
 	return Py_BuildValue("(OO)",
 			PyCObject_FromVoidPtr((void*) interest, __ccn_interest_destroy),
 			PyCObject_FromVoidPtr((void*) parsed_interest, __ccn_parsed_interest_destroy));
@@ -990,8 +1017,7 @@ static PyMethodDef _module_methods[] = {
 		""},
 	{"_pyccn_ccn_get", _pyccn_ccn_get, METH_VARARGS,
 		""},
-	{"_pyccn_ccn_put", _pyccn_ccn_put, METH_VARARGS,
-		""},
+	{"_pyccn_ccn_put", _pyccn_ccn_put, METH_VARARGS, NULL},
 	{"_pyccn_ccn_get_default_key", _pyccn_ccn_get_default_key, METH_VARARGS,
 		""},
 #if 0
@@ -1031,8 +1057,7 @@ static PyMethodDef _module_methods[] = {
 	{"_pyccn_Name_to_ccn", _pyccn_Name_to_ccn, METH_O, NULL},
 	{"_pyccn_Name_from_ccn", _pyccn_Name_from_ccn, METH_VARARGS,
 		""},
-	{"_pyccn_Interest_to_ccn", _pyccn_Interest_to_ccn, METH_VARARGS,
-		""},
+	{"_pyccn_Interest_to_ccn", _pyccn_Interest_to_ccn, METH_O, NULL},
 	{"_pyccn_Interest_from_ccn", _pyccn_Interest_from_ccn, METH_VARARGS,
 		""},
 	{"_pyccn_ContentObject_to_ccn", _pyccn_ContentObject_to_ccn, METH_VARARGS,

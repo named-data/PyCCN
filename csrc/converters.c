@@ -21,13 +21,6 @@
 // ************
 // Name
 
-void
-__ccn_name_destroy(void* p)
-{
-	if (p != NULL)
-		ccn_charbuf_destroy((struct ccn_charbuf**) &p);
-}
-
 struct ccn_charbuf *
 Name_to_ccn(PyObject *py_name)
 {

@@ -3,6 +3,7 @@
  *
  *  Created on: May 29, 2011
  *      Author: jburke
+ *              Derek Kulinski
  */
 
 #ifndef _PYCCN_H_
@@ -45,9 +46,5 @@ extern PyObject *g_PyExc_CCNError;
 extern PyObject *g_PyExc_CCNNameError;
 
 void __ccn_closure_destroy(void *p);
-
-enum ccn_upcall_res __ccn_upcall_handler(struct ccn_closure *selfp,
-		enum ccn_upcall_kind upcall_kind,
-		struct ccn_upcall_info *info);
 
 #endif /* _PYCCN_H_ */
