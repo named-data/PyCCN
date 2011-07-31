@@ -10,8 +10,6 @@
 #  define _PYCCN_H_
 
 #  if 1
-#    define Py_DEBUG
-#    define Py_TRACE_REFS
 #    define debug(...) fprintf(stderr, __VA_ARGS__)
 #  else
 #    define debug(...)
@@ -33,6 +31,7 @@ do { \
 extern PyObject *g_type_Name;
 extern PyObject *g_type_Interest;
 extern PyObject *g_type_ContentObject;
+extern PyObject *g_type_Closure;
 extern PyObject *g_type_Key;
 
 extern PyObject *g_type_ExclusionFilter;
@@ -44,7 +43,5 @@ extern PyObject *g_type_UpcallInfo;
 
 extern PyObject *g_PyExc_CCNError;
 extern PyObject *g_PyExc_CCNNameError;
-
-void __ccn_closure_destroy(void *p);
 
 #endif /* _PYCCN_H_ */

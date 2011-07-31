@@ -68,7 +68,7 @@ PyObject *g_type_Name;
 static PyObject *g_type_CCN;
 PyObject *g_type_Interest;
 PyObject *g_type_ContentObject;
-static PyObject *g_type_Closure;
+PyObject *g_type_Closure;
 PyObject *g_type_Key;
 
 // Plus some secondary helper types, which
@@ -85,14 +85,6 @@ PyObject *g_type_UpcallInfo;
 PyObject *g_PyExc_CCNError;
 PyObject *g_PyExc_CCNNameError;
 
-
-void
-__ccn_closure_destroy(void *p)
-{
-	if (p != NULL)
-		free(p);
-}
-
 static bool
 import_module(PyObject **module, const char *name)
 {
@@ -108,6 +100,14 @@ import_module(PyObject **module, const char *name)
 	return false;
 }
 
+#define NEW_EXCEPTION(NAME, DESC, BASE) \
+do { \
+	g_PyExc_ ## NAME = \
+		PyErr_NewExceptionWithDoc("_pyccn." #NAME, DESC, BASE, NULL); \
+	Py_INCREF(g_PyExc_ ## NAME); /* PyModule_AddObject steals reference */ \
+	PyModule_AddObject(module, #NAME, g_PyExc_ ## NAME); \
+} while(0)
+
 PyMODINIT_FUNC
 init_pyccn(void)
 {
@@ -121,16 +121,8 @@ init_pyccn(void)
 		return;
 	}
 
-	/* General CCN Exceptions */
-	g_PyExc_CCNError = PyErr_NewExceptionWithDoc("_pyccn.CCNError",
-		"Generic CCN Exception", NULL, NULL);
-	Py_INCREF(g_PyExc_CCNError);
-	PyModule_AddObject(module, "CCNError", g_PyExc_CCNError);
-
-	g_PyExc_CCNNameError = PyErr_NewExceptionWithDoc("_pyccn.CCNNameError",
-		"Name exception", g_PyExc_CCNError, NULL);
-	Py_INCREF(g_PyExc_CCNNameError);
-	PyModule_AddObject(module, "CCNNameError", g_PyExc_CCNNameError);
+	NEW_EXCEPTION(CCNError, "General CCN Exception", NULL);
+	NEW_EXCEPTION(CCNNameError, "CCN Name Exception", g_PyExc_CCNError);
 
 	if (!import_module(&module_CCN, "pyccn.CCN"))
 		return; //XXX: How to uninitialize methods?
@@ -150,22 +142,18 @@ init_pyccn(void)
 	if (!import_module(&module_Name, "pyccn.Name"))
 		goto unload_name;
 
-	/*
-		PyObject *CCNDict = PyModule_GetDict(g_module_CCN);
-	 */
-	PyObject *InterestDict = PyModule_GetDict(module_Interest);
-	PyObject *ContentObjectDict = PyModule_GetDict(module_ContentObject);
-	PyObject *ClosureDict = PyModule_GetDict(module_Closure);
-	PyObject *KeyDict = PyModule_GetDict(module_Key);
-	PyObject *NameDict = PyModule_GetDict(module_Name);
+	PyObject *CCNDict, *InterestDict, *ContentObjectDict, *ClosureDict,
+			*KeyDict, *NameDict;
+	CCNDict = PyModule_GetDict(module_CCN);
+	InterestDict = PyModule_GetDict(module_Interest);
+	ContentObjectDict = PyModule_GetDict(module_ContentObject);
+	ClosureDict = PyModule_GetDict(module_Closure);
+	KeyDict = PyModule_GetDict(module_Key);
+	NameDict = PyModule_GetDict(module_Name);
 
 	// These are used to instantiate new objects in C code
-	/* for some reason, this returns NULL
-		g_type_CCN = PyDict_GetItemString(CCNDict, "CCN");
-	 */
-	g_type_CCN = module_CCN;
+	g_type_CCN = PyDict_GetItemString(CCNDict, "CCN");
 	assert(g_type_CCN);
-
 	g_type_Interest = PyDict_GetItemString(InterestDict, "Interest");
 	assert(g_type_Interest);
 	g_type_ContentObject = PyDict_GetItemString(ContentObjectDict, "ContentObject");

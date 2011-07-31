@@ -10,5 +10,6 @@
 
 void dump_charbuf(struct ccn_charbuf* c, FILE* fp);
 void panic(const char *message);
+void print_object(const PyObject *object);
 
 #endif	/* _MISC_H_ */

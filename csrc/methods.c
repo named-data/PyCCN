@@ -5,29 +5,8 @@
 #include "pyccn.h"
 #include "converters.h"
 #include "key_utils.h"
+#include "misc.h"
 #include "objects.h"
-
-static enum ccn_upcall_res
-__ccn_upcall_handler(struct ccn_closure *selfp,
-	enum ccn_upcall_kind upcall_kind,
-	struct ccn_upcall_info *info)
-{
-
-	PyObject* py_closure = (PyObject*) selfp->data;
-	PyObject* upcall_method = PyObject_GetAttrString(py_closure, "upcall");
-	PyObject* py_upcall_info = UpcallInfo_from_ccn(info);
-	// Refs?
-
-
-	PyObject* arglist = Py_BuildValue("iO", upcall_kind, py_upcall_info);
-
-	fprintf(stderr, "Calling upcall\n");
-	PyObject* result = PyObject_CallObject(upcall_method, arglist);
-	Py_DECREF(arglist); // per docs.python.org
-
-	return(enum ccn_upcall_res) PyInt_AsLong(result);
-}
-
 
 // *** Python method declarations
 //
@@ -174,50 +153,147 @@ _pyccn_ccn_set_run_timeout(PyObject* self, PyObject* args)
 	return Py_BuildValue("i", r);
 }
 
+static enum ccn_upcall_res
+__ccn_upcall_handler(struct ccn_closure *selfp,
+		enum ccn_upcall_kind upcall_kind,
+		struct ccn_upcall_info *info)
+{
+	PyObject *upcall_method = NULL, *py_upcall_info = NULL;
+	PyObject *py_selfp, *py_closure, *arglist, *result;
+
+	debug("upcall_handler dispatched\n");
+
+	assert(selfp);
+	assert(selfp->data);
+
+	/* equivalent of selfp, wrapped into PyCapsule */
+	py_selfp = selfp->data;
+	py_closure = PyCapsule_GetContext(py_selfp);
+	assert(py_closure);
+
+	upcall_method = PyObject_GetAttrString(py_closure, "upcall");
+	if (!upcall_method)
+		goto error;
+
+	debug("Generating UpcallInfo\n");
+	py_upcall_info = UpcallInfo_from_ccn(info);
+	if (!py_upcall_info)
+		goto error;
+	debug("Done generating UpcallInfo\n");
+
+	arglist = Py_BuildValue("iO", upcall_kind, py_upcall_info);
+	Py_CLEAR(py_upcall_info);
+
+	fprintf(stderr, "Calling upcall\n");
+
+	result = PyObject_CallObject(upcall_method, arglist);
+	Py_CLEAR(upcall_method);
+	Py_DECREF(arglist);
+	if (!result)
+		goto error;
+
+	Py_DECREF(py_selfp);
+	long r = PyInt_AsLong(result);
+
+	return r;
+
+error:
+	Py_DECREF(py_selfp);
+	Py_XDECREF(py_upcall_info);
+	Py_XDECREF(upcall_method);
+	//XXX: What to do with the exceptions thrown?
+	return CCN_UPCALL_RESULT_ERR;
+}
+
 // Registering callbacks
 
-static PyObject* // int
+static PyObject *
 _pyccn_ccn_express_interest(PyObject* self, PyObject* args)
 {
-	int result = -1;
-	PyObject *py_ccn, *py_name, *py_closure, *py_templ; // Args
-	if (PyArg_ParseTuple(args, "OOOO", &py_ccn, &py_name, &py_closure, &py_templ)) {
-		if (strcmp(py_ccn->ob_type->tp_name, "CCN") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a ccn as arg 1");
-			return NULL;
-		}
-		if (strcmp(py_name->ob_type->tp_name, "Name") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a Name as arg 2");
-			return NULL;
-		}
-		if (strcmp(py_closure->ob_type->tp_name, "Closure") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a Closure as arg 3");
-			return NULL;
-		}
-		if (strcmp(py_templ->ob_type->tp_name, "Interest") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass an Interest as arg 4");
-			return NULL;
-		}
+	PyObject *py_o, *py_ccn, *py_name, *py_closure, *py_templ;
+	int r;
+	struct ccn *handle;
+	struct ccn_charbuf *name, *templ;
+	struct ccn_closure *cl;
 
-		// Dereference the CCN handle, name, and template
-		struct ccn* ccn = (struct ccn*) PyCObject_AsVoidPtr(PyObject_GetAttrString(py_ccn, "ccn_data"));
-		struct ccn_charbuf* name = (struct ccn_charbuf*) PyCObject_AsVoidPtr(PyObject_GetAttrString(py_name, "ccn_data"));
-		struct ccn_charbuf* templ = (struct ccn_charbuf*) PyCObject_AsVoidPtr(PyObject_GetAttrString(py_templ, "ccn_data"));
+	if (!PyArg_ParseTuple(args, "OOOO", &py_ccn, &py_name, &py_closure, &py_templ))
+		return NULL;
 
-		// Build the closure
-		struct ccn_closure *cl = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
-		cl->p = &__ccn_upcall_handler;
-		cl->data = py_closure;
-		Py_INCREF(py_closure);
-
-		// And push it into the supplied closure object
-		PyObject* cobj_closure = PyCObject_FromVoidPtr((void*) cl, __ccn_closure_destroy);
-		PyObject_SetAttrString(py_closure, "ccn_data", cobj_closure);
-		Py_INCREF(cobj_closure); // TODO: Need this?
-
-		result = ccn_express_interest(ccn, name, cl, templ);
+	if (strcmp(py_ccn->ob_type->tp_name, "CCN") != 0) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a ccn as arg 1");
+		return NULL;
 	}
-	return Py_BuildValue("i", result);
+	if (strcmp(py_name->ob_type->tp_name, "Name") != 0) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a Name as arg 2");
+		return NULL;
+	}
+
+	/* I think we should use this to do type checks -- Derek */
+	if (!PyObject_IsInstance(py_closure, g_type_Closure)) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a Closure as arg 3");
+		return NULL;
+	}
+
+	if (strcmp(py_templ->ob_type->tp_name, "Interest") != 0) {
+		PyErr_SetString(PyExc_TypeError, "Must pass an Interest as arg 4");
+		return NULL;
+	}
+
+	// Dereference the CCN handle, name, and template
+
+	py_o = PyObject_GetAttrString(py_ccn, "ccn_data");
+	if (!py_o)
+		return NULL;
+	handle = CCNObject_Get(HANDLE, py_o);
+	Py_DECREF(py_o);
+
+	py_o = PyObject_GetAttrString(py_name, "ccn_data");
+	if (!py_o)
+		return NULL;
+	name = CCNObject_Get(NAME, py_o);
+	Py_DECREF(py_o);
+
+	py_o = PyObject_GetAttrString(py_templ, "ccn_data");
+	if (!py_o)
+		return NULL;
+	Py_DECREF(py_o);
+	templ = PyCObject_AsVoidPtr(py_o); //XXX: change to capsules
+
+	// Build the closure
+	py_o = CCNObject_New_Closure(&cl);
+	Py_INCREF(py_closure);
+	r = PyCapsule_SetContext(py_o, py_closure);
+	assert(r == 0);
+
+	cl->p = &__ccn_upcall_handler;
+	cl->data = py_o;
+
+	/* I don't think Closure needs this, the information is only valid
+	 * for time the interest is issued, it would also complicate things
+	 * if the same closure would be used multiple times -- Derek
+	 */
+#if 0
+	PyObject_SetAttrString(py_closure, "ccn_data", py_o);
+	PyObject_GC_Track(py_o); //Add object to cyclic garbage collector
+	PyObject_GC_Track(py_closure);
+#endif
+
+	r = ccn_express_interest(handle, name, cl, templ);
+	if (r < 0) {
+		int err = ccn_geterror(handle);
+
+		Py_DECREF(py_o);
+		PyErr_Format(PyExc_IOError, "Unable to issue an interest: %s [%d]",
+				strerror(err), err);
+		return NULL;
+	}
+
+	/*
+	 * We aren't decreasing reference to py_o, because we're expecting
+	 * to ccn call our hook where we will do it
+	 */
+
+	Py_RETURN_NONE;
 }
 
 static PyObject* // int

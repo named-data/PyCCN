@@ -1,3 +1,5 @@
+#include <Python.h>
+
 #include <ccn/ccn.h>
 #include <ccn/uri.h>
 #include <ccn/signing.h>

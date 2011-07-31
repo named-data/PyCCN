@@ -2,6 +2,10 @@
 
 class Closure(object):
 	def __init__(self):
+		#I don't think storing CCN's closure is needed
+		#and it creates a reference loop, as of now both
+		#of those variables are never set -- Derek
+		#
 		# Use instance variables to return data to callback
 		self.ccn_data = None  # this holds the ccn_closure
 		self.ccn_data_dirty = False
@@ -17,4 +21,3 @@ class UpcallInfo(object):
 		self.Interest = None  # Interest object
 		self.matchedComps = None  # int
 		self.ContentObject = None  # Content object
-

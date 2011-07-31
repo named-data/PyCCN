@@ -6,6 +6,7 @@ TESTS = \
 	ccnRun.py \
 	names.py \
 	get.py \
+	expressInterest.py \
 	generateKey.py \
 	defaultKey.py
 

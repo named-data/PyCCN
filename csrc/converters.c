@@ -1237,11 +1237,14 @@ __ccn_upcall_info_destroy(void *p)
 }
 // Can be called directly from c library
 
-PyObject*
-UpcallInfo_from_ccn(struct ccn_upcall_info* ui)
+PyObject *
+UpcallInfo_from_ccn(struct ccn_upcall_info *ui)
 {
+	PyObject *py_upcall_info, *ccn_data;
+
 	// Create name object
-	PyObject* py_upcall_info = PyObject_CallObject(g_type_UpcallInfo, NULL);
+	assert(g_type_UpcallInfo);
+	py_upcall_info = PyObject_CallObject(g_type_UpcallInfo, NULL);
 
 	//
 	// TODO: Build the python UpcallInfo here
@@ -1249,9 +1252,9 @@ UpcallInfo_from_ccn(struct ccn_upcall_info* ui)
 
 	// Set ccn_data to cobject, INCRef
 	// We don't have a destructor here is this object does not exist outside of the callback (for now)
-	PyObject* ccn_data = PyCObject_FromVoidPtr((void*) ui, __ccn_upcall_info_destroy);
-	Py_INCREF(ccn_data);
+	ccn_data = PyCObject_FromVoidPtr(ui, __ccn_upcall_info_destroy);
 	PyObject_SetAttrString(py_upcall_info, "ccn_data", ccn_data);
+	Py_DECREF(ccn_data);
 
 	return py_upcall_info;
 }

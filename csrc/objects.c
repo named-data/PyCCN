@@ -18,6 +18,8 @@ type2name(enum _pyccn_capsules type)
 		return "CCN_ccn_data";
 	case CONTENT_OBJECT:
 		return "ContentObject_ccn_data";
+	case CLOSURE:
+		return "Closure_ccn_data";
 	case PKEY:
 		return "PKEY_ccn_data";
 	default:
@@ -45,6 +47,16 @@ pyccn_Capsule_Destructor(PyObject *capsule)
 	} else if (CCNObject_IsValid(NAME, capsule)) {
 		struct ccn_charbuf *p = pointer;
 		ccn_charbuf_destroy(&p);
+	} else if (CCNObject_IsValid(CLOSURE, capsule)) {
+		PyObject *context;
+		struct ccn_closure *p = pointer;
+
+		context = PyCapsule_GetContext(capsule);
+		assert(context);
+		Py_DECREF(context); /* No longer referencing Closure object */
+		/* If we store something else, than ourselves, it probably is a bug */
+		assert(capsule == p->data);
+		free(p);
 	} else if (CCNObject_IsValid(HANDLE, capsule)) {
 		struct ccn *p = pointer;
 		ccn_disconnect(p);
@@ -106,4 +118,26 @@ CCNObject_New_Name(struct ccn_charbuf **name)
 		*name = p;
 
 	return py_cname;
+}
+
+PyObject *
+CCNObject_New_Closure(struct ccn_closure **closure)
+{
+	struct ccn_closure *p;
+	PyObject *result;
+
+	p = calloc(1, sizeof(*p));
+	if (!p)
+		return PyErr_NoMemory();
+
+	result = CCNObject_New(CLOSURE, p);
+	if (!result) {
+		free(p);
+		return NULL;
+	}
+
+	if (closure)
+		*closure = p;
+
+	return result;
 }
