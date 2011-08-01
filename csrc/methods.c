@@ -127,6 +127,7 @@ _pyccn_ccn_run(PyObject* self, PyObject* args)
 	/* disable threads */
 	assert(_pyccn_thread_state);
 	PyEval_RestoreThread(_pyccn_thread_state);
+	_pyccn_thread_state = NULL;
 
 /*
 	CCNObject_Purge_Closures();
