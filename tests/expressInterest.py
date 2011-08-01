@@ -24,5 +24,6 @@ res = c.expressInterest(n, closure, i)
 print res
 
 #causes crashes
-c.run(100)
+c.run(10)
 print "Ha!"
+assert(worked)

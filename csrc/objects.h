@@ -8,6 +8,11 @@
 #ifndef OBJECTS_H
 #  define	OBJECTS_H
 
+struct completed_closure {
+	PyObject *closure;
+	struct completed_closure *next;
+};
+
 enum _pyccn_capsules {
 	HANDLE = 1,
 	CONTENT_OBJECT,
@@ -22,6 +27,8 @@ void *CCNObject_Get(enum _pyccn_capsules type, PyObject *capsule);
 
 PyObject *CCNObject_New_Name(struct ccn_charbuf **name);
 PyObject *CCNObject_New_Closure(struct ccn_closure **closure);
+void CCNObject_Complete_Closure(PyObject *py_closure);
+void CCNObject_Purge_Closures();
 
 #endif	/* OBJECTS_H */
 

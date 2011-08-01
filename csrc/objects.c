@@ -5,8 +5,11 @@
 
 #include <stdlib.h>
 
+#include "pyccn.h"
 #include "misc.h"
 #include "objects.h"
+
+static struct completed_closure *g_completed_closures;
 
 static inline const char *
 type2name(enum _pyccn_capsules type)
@@ -48,14 +51,16 @@ pyccn_Capsule_Destructor(PyObject *capsule)
 		struct ccn_charbuf *p = pointer;
 		ccn_charbuf_destroy(&p);
 	} else if (CCNObject_IsValid(CLOSURE, capsule)) {
-		PyObject *context;
+		PyObject *py_closure;
 		struct ccn_closure *p = pointer;
 
-		context = PyCapsule_GetContext(capsule);
-		assert(context);
-		Py_DECREF(context); /* No longer referencing Closure object */
+		py_closure = PyCapsule_GetContext(capsule);
+		assert(py_closure);
+		Py_DECREF(py_closure); /* No longer referencing Closure object */
+
 		/* If we store something else, than ourselves, it probably is a bug */
 		assert(capsule == p->data);
+
 		free(p);
 	} else if (CCNObject_IsValid(HANDLE, capsule)) {
 		struct ccn *p = pointer;
@@ -140,4 +145,33 @@ CCNObject_New_Closure(struct ccn_closure **closure)
 		*closure = p;
 
 	return result;
+}
+
+void
+CCNObject_Complete_Closure(PyObject *py_closure)
+{
+	struct completed_closure *p;
+
+	debug("Adding called closure to be purged\n");
+
+	assert(py_closure);
+	p = malloc(sizeof(*p));
+	p->closure = py_closure;
+	p->next = g_completed_closures;
+	g_completed_closures = p;
+}
+
+void
+CCNObject_Purge_Closures()
+{
+	struct completed_closure *p;
+
+	debug("Purging old closures\n");
+
+	while (g_completed_closures) {
+		p = g_completed_closures;
+		Py_DECREF(p->closure);
+		g_completed_closures = p->next;
+		free(p);
+	}
 }

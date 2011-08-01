@@ -27,6 +27,7 @@ do { \
 		goto label; \
 } while(0)
 
+extern PyThreadState *_pyccn_thread_state;
 
 extern PyObject *g_type_Name;
 extern PyObject *g_type_Interest;

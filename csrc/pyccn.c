@@ -61,6 +61,8 @@
 #include "methods.h"
 #include "misc.h"
 
+PyThreadState *_pyccn_thread_state = NULL;
+
 // Primary types for the Python libraries,
 // taken directly from the CCNx wire format
 //

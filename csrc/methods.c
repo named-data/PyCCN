@@ -113,9 +113,24 @@ _pyccn_ccn_run(PyObject* self, PyObject* args)
 	}
 	handle = CCNObject_Get(HANDLE, py_handle);
 
-	Py_BEGIN_ALLOW_THREADS;
+	if (_pyccn_thread_state) {
+		PyErr_SetString(g_PyExc_CCNError, "You're allowed to run ccn_run only"
+				" once");
+		return NULL;
+	}
+
+	/* Enable threads */
+	_pyccn_thread_state = PyEval_SaveThread();
+
 	r = ccn_run(handle, timeoutms);
-	Py_END_ALLOW_THREADS;
+
+	/* disable threads */
+	assert(_pyccn_thread_state);
+	PyEval_RestoreThread(_pyccn_thread_state);
+
+/*
+	CCNObject_Purge_Closures();
+*/
 
 	if (r < 0) {
 		int err = ccn_geterror(handle);
@@ -153,7 +168,7 @@ _pyccn_ccn_set_run_timeout(PyObject* self, PyObject* args)
 	return Py_BuildValue("i", r);
 }
 
-static enum ccn_upcall_res
+enum ccn_upcall_res
 __ccn_upcall_handler(struct ccn_closure *selfp,
 		enum ccn_upcall_kind upcall_kind,
 		struct ccn_upcall_info *info)
@@ -165,6 +180,9 @@ __ccn_upcall_handler(struct ccn_closure *selfp,
 
 	assert(selfp);
 	assert(selfp->data);
+
+	assert(_pyccn_thread_state);
+	PyEval_RestoreThread(_pyccn_thread_state);
 
 	/* equivalent of selfp, wrapped into PyCapsule */
 	py_selfp = selfp->data;
@@ -192,16 +210,26 @@ __ccn_upcall_handler(struct ccn_closure *selfp,
 	if (!result)
 		goto error;
 
-	Py_DECREF(py_selfp);
-	long r = PyInt_AsLong(result);
+	if (upcall_kind == CCN_UPCALL_FINAL)
+		Py_DECREF(py_selfp);
+	/*
+		CCNObject_Complete_Closure(py_selfp);
+	 */
 
+	long r = PyInt_AsLong(result);
+	_pyccn_thread_state = PyEval_SaveThread();
 	return r;
 
 error:
-	Py_DECREF(py_selfp);
+	/*
+		CCNObject_Complete_Closure(py_selfp);
+	 */
+	if (upcall_kind == CCN_UPCALL_FINAL)
+		Py_DECREF(py_selfp);
 	Py_XDECREF(py_upcall_info);
 	Py_XDECREF(upcall_method);
 	//XXX: What to do with the exceptions thrown?
+	_pyccn_thread_state = PyEval_SaveThread();
 	return CCN_UPCALL_RESULT_ERR;
 }
 
@@ -216,7 +244,8 @@ _pyccn_ccn_express_interest(PyObject* self, PyObject* args)
 	struct ccn_charbuf *name, *templ;
 	struct ccn_closure *cl;
 
-	if (!PyArg_ParseTuple(args, "OOOO", &py_ccn, &py_name, &py_closure, &py_templ))
+	if (!PyArg_ParseTuple(args, "OOOO", &py_ccn, &py_name, &py_closure,
+			&py_templ))
 		return NULL;
 
 	if (strcmp(py_ccn->ob_type->tp_name, "CCN") != 0) {
@@ -261,12 +290,11 @@ _pyccn_ccn_express_interest(PyObject* self, PyObject* args)
 
 	// Build the closure
 	py_o = CCNObject_New_Closure(&cl);
+	cl->p = __ccn_upcall_handler;
+	cl->data = py_o;
 	Py_INCREF(py_closure);
 	r = PyCapsule_SetContext(py_o, py_closure);
 	assert(r == 0);
-
-	cl->p = &__ccn_upcall_handler;
-	cl->data = py_o;
 
 	/* I don't think Closure needs this, the information is only valid
 	 * for time the interest is issued, it would also complicate things
