@@ -8,7 +8,8 @@ TESTS = \
 	get.py \
 	expressInterest.py \
 	generateKey.py \
-	defaultKey.py
+	defaultKey.py \
+	signing.py
 
 TEST_EXTENSIONS = .py
 PY_LOG_COMPILER = $(PYTHON)

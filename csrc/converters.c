@@ -242,13 +242,6 @@ Key_to_ccn_private(PyObject *py_key)
 	return key;
 }
 
-struct ccn_pkey*
-Key_to_ccn_public(PyObject* py_key)
-{
-	// TODO: need to INCREF here?
-	return(struct ccn_pkey*) PyCObject_AsVoidPtr(PyObject_GetAttrString(py_key, "ccn_data_public"));
-}
-
 // Can be called directly from c library
 // Note that this isn't the wire format, so we
 // do a potentially redundant step here and regenerate the DER format
@@ -314,9 +307,9 @@ Key_from_ccn(struct ccn_pkey* key_ccn)
 
 	// publicKey
 	// Don't free this here, python will call destructor
-	p = PyCObject_FromVoidPtr(public_key_ccn, __ccn_key_destroy);
+	p = CCNObject_New(PKEY, public_key_ccn);
 	PyObject_SetAttrString(py_key, "ccn_data_public", p);
-	Py_INCREF(p);
+	Py_DECREF(p);
 
 	// 4) Return the created object
 
@@ -338,36 +331,139 @@ __ccn_key_locator_destroy(void* p)
 		ccn_charbuf_destroy((struct ccn_charbuf**) &p);
 }
 
-struct ccn_charbuf*
-KeyLocator_to_ccn(PyObject* py_key_locator)
+static int
+KeyLocator_name_to_ccn(struct ccn_charbuf *keylocator, PyObject *py_key_locator)
 {
-	PyObject* py_keyName = PyObject_GetAttrString(py_key_locator, "keyName");
-	PyObject* py_key = PyObject_GetAttrString(py_key_locator, "key");
-	PyObject* py_cert = PyObject_GetAttrString(py_key_locator, "cert");
-	int res = -1;
-	struct ccn_charbuf *keylocator = ccn_charbuf_create();
-	ccn_charbuf_append_tt(keylocator, CCN_DTAG_KeyLocator, CCN_DTAG);
-	if (py_keyName != Py_None) {
-		ccn_charbuf_append_tt(keylocator, CCN_DTAG_KeyName, CCN_DTAG);
-		struct ccn_charbuf* name = Name_to_ccn(py_keyName);
-		ccnb_append_tagged_blob(keylocator, CCN_DTAG_Name, name->buf, name->length); // check
-		ccn_charbuf_destroy(&name);
-		ccn_charbuf_append_closer(keylocator); /* </KeyName> */
-	} else if (py_key != Py_None) {
-		ccn_charbuf_append_tt(keylocator, CCN_DTAG_Key, CCN_DTAG);
-		struct ccn_pkey* key = Key_to_ccn_public(py_key);
-		;
-		res = ccn_append_pubkey_blob(keylocator, key);
-		free(key);
-		ccn_charbuf_append_closer(keylocator); /* </Key> */
-	} else if (py_cert != Py_None) {
-		ccn_charbuf_append_tt(keylocator, CCN_DTAG_Certificate, CCN_DTAG);
-		// TODO: How to handle certificate?  ** Not supported here
-		ccn_charbuf_append_closer(keylocator); /* </Certificate> */
+	PyObject *py_keyName;
+	struct ccn_charbuf *name = NULL;
+	int r;
+
+	if (!PyObject_HasAttrString(py_key_locator, "keyName"))
+		return 1;
+
+	py_keyName = PyObject_GetAttrString(py_key_locator, "keyName");
+	if (!py_keyName)
+		return -1;
+
+	if (py_keyName == Py_None) {
+		Py_DECREF(py_keyName);
+		return 1;
 	}
-	ccn_charbuf_append_closer(keylocator); /* </KeyLocator> */
+
+	name = Name_to_ccn(py_keyName);
+	Py_DECREF(py_keyName);
+	JUMP_IF_NULL(name, error);
+
+	r = ccn_charbuf_append_tt(keylocator, CCN_DTAG_KeyName, CCN_DTAG);
+	JUMP_IF_NEG(r, error);
+
+	r = ccnb_append_tagged_blob(keylocator, CCN_DTAG_Name, name->buf, name->length); // check
+	JUMP_IF_NEG(r, error);
+
+	r = ccn_charbuf_append_closer(keylocator); /* </KeyName> */
+	JUMP_IF_NEG(r, error);
+
+	ccn_charbuf_destroy(&name);
+	return 0;
+
+error:
+	ccn_charbuf_destroy(&name);
+	PyErr_NoMemory();
+	return -1;
+}
+
+static int
+KeyLocator_key_to_ccn(struct ccn_charbuf *keylocator, PyObject *py_key_locator)
+{
+	PyObject *py_key, *py_o;
+	struct ccn_pkey *key;
+	int r;
+
+	if (!PyObject_HasAttrString(py_key_locator, "key"))
+		return 1;
+
+	py_key = PyObject_GetAttrString(py_key_locator, "key");
+	if (!py_key)
+		return -1;
+
+	if (py_key == Py_None) {
+		Py_DECREF(py_key);
+		return 1;
+	}
+
+	py_o = PyObject_GetAttrString(py_key, "ccn_data_public");
+	Py_DECREF(py_key);
+	if (!py_o)
+		return -1;
+
+	key = CCNObject_Get(PKEY, py_o);
+
+	r = ccn_charbuf_append_tt(keylocator, CCN_DTAG_Key, CCN_DTAG);
+	JUMP_IF_NEG_MEM(r, error);
+
+	r = ccn_append_pubkey_blob(keylocator, key);
+	JUMP_IF_NEG_MEM(r, error);
+
+	r = ccn_charbuf_append_closer(keylocator); /* </Key> */
+	JUMP_IF_NEG_MEM(r, error);
+
+	r = 0;
+
+error:
+	Py_DECREF(py_o);
+	return r;
+}
+
+struct ccn_charbuf *
+KeyLocator_to_ccn(PyObject *py_key_locator)
+{
+	struct ccn_charbuf *keylocator;
+	int r;
+
+	keylocator = ccn_charbuf_create();
+
+	/* try name key locator */
+	r = ccn_charbuf_append_tt(keylocator, CCN_DTAG_KeyLocator, CCN_DTAG);
+	JUMP_IF_NEG_MEM(r, error);
+
+	r = KeyLocator_name_to_ccn(keylocator, py_key_locator);
+	JUMP_IF_NEG(r, error);
+	if (!r)
+		goto finish;
+
+	ccn_charbuf_reset(keylocator);
+
+	/* try key keylocator */
+	r = ccn_charbuf_append_tt(keylocator, CCN_DTAG_KeyLocator, CCN_DTAG);
+	JUMP_IF_NEG_MEM(r, error);
+
+	r = KeyLocator_key_to_ccn(keylocator, py_key_locator);
+	JUMP_IF_NEG(r, error);
+	if (!r)
+		goto finish;
+
+	ccn_charbuf_reset(keylocator);
+
+	/* try certificates */
+
+#if 0
+	ccn_charbuf_append_tt(keylocator, CCN_DTAG_Certificate, CCN_DTAG);
+	// TODO: How to handle certificate?  ** Not supported here
+	ccn_charbuf_append_closer(keylocator); /* </Certificate> */
+#endif
+
+	PyErr_SetString(PyExc_NotImplementedError, "Certificate key locator is not"
+			" implemented");
+	goto error;
+
+finish:
+	r = ccn_charbuf_append_closer(keylocator); /* </KeyLocator> */
+	JUMP_IF_NEG_MEM(r, error);
 
 	return keylocator;
+error:
+	ccn_charbuf_destroy(&keylocator);
+	return NULL;
 }
 
 // Can be called directly from c library
@@ -1343,7 +1439,7 @@ Content_from_ccn_parsed(struct ccn_charbuf *content_object,
 	debug("ContentObject_from_ccn_parsed Content\n");
 
 	r = ccn_content_get_value(content_object->buf, content_object->length,
-			parsed_content_object, (const unsigned char **)&value, &size);
+			parsed_content_object, (const unsigned char **) &value, &size);
 	if (r < 0) {
 		PyErr_Format(g_PyExc_CCNNameError, "ccn_content_get_value() returned"
 				" %d", r);

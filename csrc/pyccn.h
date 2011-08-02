@@ -27,7 +27,15 @@ do { \
 		goto label; \
 } while(0)
 
-extern PyThreadState *_pyccn_thread_state;
+#  define JUMP_IF_NEG_MEM(variable, label) \
+do { \
+	if (variable < 0) { \
+		PyErr_NoMemory(); \
+		goto label; \
+	} \
+} while (0)
+
+extern PyThreadState * _pyccn_thread_state;
 
 extern PyObject *g_type_Name;
 extern PyObject *g_type_Interest;

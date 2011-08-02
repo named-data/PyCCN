@@ -14,7 +14,6 @@ PyObject *Name_from_ccn_tagged_bytearray(const unsigned char* buf, size_t size);
 
 void __ccn_key_destroy(void* p);
 struct ccn_pkey *Key_to_ccn_private(PyObject* py_key);
-struct ccn_pkey *Key_to_ccn_public(PyObject* py_key);
 PyObject *Key_from_ccn(struct ccn_pkey* key_ccn);
 void __ccn_key_locator_destroy(void* p);
 struct ccn_charbuf *KeyLocator_to_ccn(PyObject* py_key_locator);

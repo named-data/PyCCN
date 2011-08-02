@@ -129,9 +129,9 @@ _pyccn_ccn_run(PyObject* self, PyObject* args)
 	PyEval_RestoreThread(_pyccn_thread_state);
 	_pyccn_thread_state = NULL;
 
-/*
-	CCNObject_Purge_Closures();
-*/
+	/*
+		CCNObject_Purge_Closures();
+	 */
 
 	if (r < 0) {
 		int err = ccn_geterror(handle);
@@ -777,14 +777,70 @@ _pyccn_Interest_from_ccn(PyObject* self, PyObject* args)
 	return Py_None;
 }
 
-static PyObject*
-_pyccn_ContentObject_to_ccn(PyObject* self, PyObject* args)
+static struct ccn_charbuf *
+Content_from_ContentObject(PyObject *py_content_object)
+{
+	PyObject *py_content;
+	struct ccn_charbuf *content;
+	int r;
+
+	py_content = PyObject_GetAttrString(py_content_object, "content");
+	if (!py_content)
+		return NULL;
+
+	content = ccn_charbuf_create();
+
+	if (PyByteArray_Check(py_content)) {
+		Py_ssize_t n = PyByteArray_Size(py_content);
+		char *b = PyByteArray_AsString(py_content);
+		r = ccn_charbuf_append(content, b, n);
+		JUMP_IF_NEG(r, out_of_mem);
+	} else if (PyString_Check(py_content)) { // Unicode or UTF-8?
+		char *b = PyString_AsString(py_content);
+		assert(b);
+		r = ccn_charbuf_append_string(content, b);
+		JUMP_IF_NEG(r, out_of_mem);
+	} else if (PyFloat_Check(py_content) || PyLong_Check(py_content)
+			|| PyInt_Check(py_content)) {
+		PyObject *s;
+		char *b;
+
+		s = PyObject_Str(py_content);
+		JUMP_IF_NULL(s, error);
+		b = PyString_AsString(s);
+		assert(b);
+		r = ccn_charbuf_append_string(content, b);
+		Py_DECREF(s);
+		JUMP_IF_NEG(r, out_of_mem);
+	} else {
+		PyErr_SetString(PyExc_TypeError, "Can't encode content, type unknown.");
+		goto error;
+	}
+	Py_DECREF(py_content);
+
+	return content;
+
+out_of_mem:
+	PyErr_SetNone(PyExc_MemoryError);
+error:
+	ccn_charbuf_destroy(&content);
+	Py_DECREF(py_content);
+	return NULL;
+}
+
+static PyObject *
+_pyccn_ContentObject_to_ccn(PyObject *self, PyObject *args)
 {
 	PyObject *py_content_object, *py_key;
-	struct ccn_charbuf *content_object, *name;
-	int result;
+	PyObject *py_o = NULL;
+	PyObject *ret = NULL;
+	struct ccn_charbuf *name = NULL, *content = NULL, *signed_info = NULL;
+	struct ccn_charbuf *content_object = NULL;
+	struct ccn_pkey *private_key;
+	const char *digest_alg = NULL;
+	int r;
 
-	if (!PyArg_ParseTuple(args, "OO:_pyccn_ContentObject_to_ccn", &py_content_object, &py_key))
+	if (!PyArg_ParseTuple(args, "OO", &py_content_object, &py_key))
 		return NULL;
 
 	if (strcmp(py_content_object->ob_type->tp_name, "ContentObject")) {
@@ -796,57 +852,71 @@ _pyccn_ContentObject_to_ccn(PyObject* self, PyObject* args)
 		return NULL;
 	}
 
-	// Build the ContentObject here.
-	content_object = ccn_charbuf_create();
-
 	// Name
-	name = Name_to_ccn(PyObject_GetAttrString(py_content_object, "name"));
+	py_o = PyObject_GetAttrString(py_content_object, "name");
+	if (!py_o)
+		return NULL;
+	name = Name_to_ccn(py_o);
+	Py_CLEAR(py_o);
+	if (!name)
+		return NULL;
 
-	// Content
-	PyObject* py_content = PyObject_GetAttrString(py_content_object, "content");
-	struct ccn_charbuf* content = ccn_charbuf_create();
-	if (PyByteArray_Check(py_content)) {
-		Py_ssize_t n = PyByteArray_Size(py_content);
-		char* b = PyByteArray_AsString(py_content);
-		ccn_charbuf_append(content, b, n);
-	} else if (PyString_Check(py_content)) { // Unicode or UTF-8?
-		ccn_charbuf_append_string(content, PyString_AsString(py_content));
-	} else if (PyFloat_Check(py_content) || PyLong_Check(py_content) || PyInt_Check(py_content)) {
-		PyObject* s = PyObject_Str(py_content);
-		ccn_charbuf_append_string(content, PyString_AsString(s));
-		Py_DECREF(s);
-	} else {
-		// TODO: Throw error
-		fprintf(stderr, "Can't encode content, type unknown.\n");
-	}
+	// Content (the actual data)
+	content = Content_from_ContentObject(py_content_object);
+	JUMP_IF_NULL(content, error_content);
 
 	// SignedInfo
-	struct ccn_charbuf* signed_info = SignedInfo_to_ccn(PyObject_GetAttrString(py_content_object, "signedInfo"));
+	py_o = PyObject_GetAttrString(py_content_object, "signedInfo");
+	JUMP_IF_NULL(py_o, error_signedinfo);
+	signed_info = SignedInfo_to_ccn(py_o);
+	Py_CLEAR(py_o);
+	JUMP_IF_NULL(signed_info, error_signedinfo);
 
 	// DigestAlgorithm
-	const char* digest_alg = NULL;
-	if (PyObject_GetAttrString(py_content_object, "digestAlgorithm") != Py_None) {
-		fprintf(stderr, "non-default digest algorithm not yet supported.\n");
+	py_o = PyObject_GetAttrString(py_content_object, "digestAlgorithm");
+	if (py_o != Py_None) {
+		PyErr_SetString(PyExc_NotImplementedError, "non-default digest"
+				" algorithm not yet supported");
+		goto error_signedinfo;
 	}
+	Py_CLEAR(py_o);
 
 	// Key
+	private_key = Key_to_ccn_private(py_key); //this borrows reference, don't free
 
-	struct ccn_pkey* private_key = Key_to_ccn_private(py_key);
 	// Note that we don't load this key into the keystore hashtable in the library
 	// because it makes this method require access to a ccn handle, and in fact,
 	// ccn_sign_content just uses what's in signedinfo (after an error check by
 	// chk_signing_params and then calls ccn_encode_ContentObject anyway
 	//
 	// Encode the content object
-	result = ccn_encode_ContentObject(content_object, name, signed_info, content->buf, content->length, digest_alg, private_key);
-	fprintf(stderr, "ccn_encode_ContentObject res=%d\n", result);
+
+	// Build the ContentObject here.
+	content_object = ccn_charbuf_create();
+	if (!content_object) {
+		PyErr_NoMemory();
+		goto error_content_object;
+	}
+
+	r = ccn_encode_ContentObject(content_object, name, signed_info,
+			content->buf, content->length, digest_alg, private_key);
+	debug("ccn_encode_ContentObject res=%d\n", r);
+	if (r < 0) {
+		ccn_charbuf_destroy(&content_object);
+		PyErr_SetString(g_PyExc_CCNError, "Unable to encode ContentObject");
+		goto error_content_object;
+	}
+
+	ret = CCNObject_New(CONTENT_OBJECT, content_object);
+
+error_content_object:
 	ccn_charbuf_destroy(&signed_info);
+error_signedinfo:
 	ccn_charbuf_destroy(&content);
+error_content:
 	ccn_charbuf_destroy(&name);
-
-	assert(content_object);
-
-	return CCNObject_New(CONTENT_OBJECT, content_object);
+	Py_XDECREF(py_o);
+	return ret;
 }
 
 
@@ -879,20 +949,16 @@ _pyccn_ContentObject_from_ccn(PyObject* self, PyObject* args)
 	return Py_None;
 }
 
-static PyObject*
-_pyccn_Key_to_ccn_public(PyObject* self, PyObject* args)
+static PyObject *
+_pyccn_Key_to_ccn_public(PyObject *self, PyObject *py_key)
 {
-	PyObject* py_key;
-	struct ccn_pkey* key;
-	if (PyArg_ParseTuple(args, "O", &py_key)) {
-		if (strcmp(py_key->ob_type->tp_name, "Key") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a Key");
+	if (strcmp(py_key->ob_type->tp_name, "Key") != 0) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a Key");
 
-			return NULL;
-		}
-		key = Key_to_ccn_public(py_key);
+		return NULL;
 	}
-	return PyCObject_FromVoidPtr((void*) key, __ccn_key_destroy);
+
+	return PyObject_GetAttrString(py_key, "ccn_data_public");
 }
 
 static PyObject*
@@ -1169,8 +1235,7 @@ static PyMethodDef _module_methods[] = {
 		""},
 	{"_pyccn_ContentObject_from_ccn", _pyccn_ContentObject_from_ccn, METH_VARARGS,
 		""},
-	{"_pyccn_Key_to_ccn_public", _pyccn_Key_to_ccn_public, METH_VARARGS,
-		""},
+	{"_pyccn_Key_to_ccn_public", _pyccn_Key_to_ccn_public, METH_O, NULL},
 	{"_pyccn_Key_to_ccn_private", _pyccn_Key_to_ccn_private, METH_VARARGS,
 		""},
 	{"_pyccn_Key_from_ccn", _pyccn_Key_from_ccn, METH_VARARGS,

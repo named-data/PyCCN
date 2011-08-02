@@ -17,15 +17,19 @@ import _pyccn
 #
 class Name(object):
 	def __init__(self, components=list()):
-		self.components = components  # list of blobs
 		self.version = None      # need put/get handlers for attr
 		self.segment = None
 		self.separator = "/"
 		self.scheme = "ccnx:"
 
 		# pyccn
-		self.ccn_data_dirty = False
+		self.ccn_data_dirty = True
 		self.ccn_data = None  # backing charbuf
+
+		if type(components) is str:
+			self.setURI(components)
+		else:
+			self.components = components  # list of blobs
 
 	def setURI(self, uri):
 		self.ccn_data_dirty = True
