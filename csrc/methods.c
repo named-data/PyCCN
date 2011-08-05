@@ -2,6 +2,7 @@
 #include <ccn/ccn.h>
 #include <ccn/hashtb.h>
 #include <ccn/reg_mgmt.h>
+#include <ccn/signing.h>
 
 #include "pyccn.h"
 #include "converters.h"
@@ -942,69 +943,42 @@ _pyccn_Interest_from_ccn(PyObject* self, PyObject* args)
 	return Py_None;
 }
 
-static struct ccn_charbuf *
-Content_from_ContentObject(PyObject *py_content_object)
+static PyObject *
+_pyccn_content_to_bytearray(PyObject *self, PyObject *arg)
 {
-	PyObject *py_content;
-	struct ccn_charbuf *content;
-	int r;
+	PyObject *result;
 
-	py_content = PyObject_GetAttrString(py_content_object, "content");
-	if (!py_content)
-		return NULL;
-
-	content = ccn_charbuf_create();
-
-	if (PyByteArray_Check(py_content)) {
-		Py_ssize_t n = PyByteArray_Size(py_content);
-		char *b = PyByteArray_AsString(py_content);
-		r = ccn_charbuf_append(content, b, n);
-		JUMP_IF_NEG(r, out_of_mem);
-	} else if (PyString_Check(py_content)) { // Unicode or UTF-8?
-		char *b = PyString_AsString(py_content);
-		assert(b);
-		r = ccn_charbuf_append_string(content, b);
-		JUMP_IF_NEG(r, out_of_mem);
-	} else if (PyFloat_Check(py_content) || PyLong_Check(py_content)
-			|| PyInt_Check(py_content)) {
+	if (arg == Py_None)
+		result = (Py_INCREF(Py_None), Py_None);
+	else if (PyFloat_Check(arg) || PyLong_Check(arg) || PyInt_Check(arg)) {
 		PyObject *s;
-		char *b;
 
-		s = PyObject_Str(py_content);
-		JUMP_IF_NULL(s, error);
-		b = PyString_AsString(s);
-		assert(b);
-		r = ccn_charbuf_append_string(content, b);
+		s = PyObject_Str(arg);
+		if (!s)
+			return NULL;
+
+		result = PyByteArray_FromObject(s);
 		Py_DECREF(s);
-		JUMP_IF_NEG(r, out_of_mem);
-	} else {
-		PyErr_SetString(PyExc_TypeError, "Can't encode content, type unknown.");
-		goto error;
-	}
-	Py_DECREF(py_content);
+	} else
+		result = PyByteArray_FromObject(arg);
 
-	return content;
-
-out_of_mem:
-	PyErr_SetNone(PyExc_MemoryError);
-error:
-	ccn_charbuf_destroy(&content);
-	Py_DECREF(py_content);
-	return NULL;
+	return result;
 }
 
 static PyObject *
 _pyccn_ContentObject_to_ccn(PyObject *self, PyObject *args)
 {
-	PyObject *py_content_object, *py_key, *py_o = NULL, *ret = NULL;
-	PyObject *py_name;
-	struct ccn_charbuf *name = NULL, *content = NULL, *signed_info = NULL;
-	struct ccn_charbuf *content_object = NULL;
+	PyObject *py_content_object, *py_name, *py_content, *py_signed_info,
+			*py_key;
+	PyObject *py_o = NULL, *ret = NULL;
+	struct ccn_charbuf *name, *signed_info, *content_object = NULL;
 	struct ccn_pkey *private_key;
 	const char *digest_alg = NULL;
-	int r;
+	char *content;
+	int content_len, r;
 
-	if (!PyArg_ParseTuple(args, "OOO", &py_content_object, &py_name, &py_key))
+	if (!PyArg_ParseTuple(args, "OOOOO", &py_content_object, &py_name,
+			&py_content, &py_signed_info, &py_key))
 		return NULL;
 
 	if (strcmp(py_content_object->ob_type->tp_name, "ContentObject")) {
@@ -1015,47 +989,42 @@ _pyccn_ContentObject_to_ccn(PyObject *self, PyObject *args)
 	if (!CCNObject_IsValid(NAME, py_name)) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a CCN Name as arg 2");
 		return NULL;
+	} else
+		name = CCNObject_Get(NAME, py_name);
+
+	if (py_content != Py_None && !PyByteArray_Check(py_content)) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a ByteArray as arg 3");
+		return NULL;
+	} else if (py_content == Py_None) {
+		content = NULL;
+		content_len = 0;
+	} else {
+		content = PyByteArray_AS_STRING(py_content);
+		content_len = PyByteArray_GET_SIZE(py_content);
 	}
+
+	if (!CCNObject_IsValid(SIGNED_INFO, py_signed_info)) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a CCN SignedInfo as arg 4");
+		return NULL;
+	} else
+		signed_info = CCNObject_Get(SIGNED_INFO, py_signed_info);
 
 	if (strcmp(py_key->ob_type->tp_name, "Key")) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a Key as arg 3");
+		PyErr_SetString(PyExc_TypeError, "Must pass a Key as arg 4");
 		return NULL;
 	}
-
-	// Name
-	name = CCNObject_Get(NAME, py_name);
-	/*
-		py_o = PyObject_GetAttrString(py_content_object, "name");
-		if (!py_o)
-			return NULL;
-		name = Name_to_ccn(py_o);
-		Py_CLEAR(py_o);
-		if (!name)
-			return NULL;
-	 */
-
-	// Content (the actual data)
-	content = Content_from_ContentObject(py_content_object);
-	JUMP_IF_NULL(content, error_content);
-
-	// SignedInfo
-	py_o = PyObject_GetAttrString(py_content_object, "signedInfo");
-	JUMP_IF_NULL(py_o, error_signedinfo);
-	signed_info = SignedInfo_to_ccn(py_o);
-	Py_CLEAR(py_o);
-	JUMP_IF_NULL(signed_info, error_signedinfo);
 
 	// DigestAlgorithm
 	py_o = PyObject_GetAttrString(py_content_object, "digestAlgorithm");
 	if (py_o != Py_None) {
 		PyErr_SetString(PyExc_NotImplementedError, "non-default digest"
 				" algorithm not yet supported");
-		goto error_signedinfo;
+		goto error;
 	}
 	Py_CLEAR(py_o);
 
 	// Key
-	private_key = Key_to_ccn_private(py_key); //this borrows reference, don't free
+	private_key = Key_to_ccn_private(py_key);
 
 	// Note that we don't load this key into the keystore hashtable in the library
 	// because it makes this method require access to a ccn handle, and in fact,
@@ -1066,30 +1035,21 @@ _pyccn_ContentObject_to_ccn(PyObject *self, PyObject *args)
 
 	// Build the ContentObject here.
 	content_object = ccn_charbuf_create();
-	if (!content_object) {
-		PyErr_NoMemory();
-		goto error_content_object;
-	}
+	JUMP_IF_NULL_MEM(content_object, error);
 
-	r = ccn_encode_ContentObject(content_object, name, signed_info,
-			content->buf, content->length, digest_alg, private_key);
+	r = ccn_encode_ContentObject(content_object, name, signed_info, content,
+			content_len, digest_alg, private_key);
+
 	debug("ccn_encode_ContentObject res=%d\n", r);
 	if (r < 0) {
 		ccn_charbuf_destroy(&content_object);
 		PyErr_SetString(g_PyExc_CCNError, "Unable to encode ContentObject");
-		goto error_content_object;
+		goto error;
 	}
 
 	ret = CCNObject_New(CONTENT_OBJECT, content_object);
 
-error_content_object:
-	ccn_charbuf_destroy(&signed_info);
-error_signedinfo:
-	ccn_charbuf_destroy(&content);
-error_content:
-	/*
-		ccn_charbuf_destroy(&name);
-	 */
+error:
 	Py_XDECREF(py_o);
 	return ret;
 }
@@ -1164,20 +1124,149 @@ _pyccn_Key_from_ccn(PyObject* self, PyObject* args)
 	return Py_None;
 }
 
-static PyObject*
-_pyccn_KeyLocator_to_ccn(PyObject* self, PyObject* args)
+static int
+KeyLocator_name_to_ccn(struct ccn_charbuf *keylocator, PyObject *py_key_locator)
 {
-	PyObject* py_key_locator;
-	struct ccn_charbuf* key_locator;
-	if (PyArg_ParseTuple(args, "O", &py_key_locator)) {
-		if (strcmp(py_key_locator->ob_type->tp_name, "KeyLocator") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a KeyLocator");
+	PyObject *py_keyName;
+	struct ccn_charbuf *name = NULL;
+	int r;
 
-			return NULL;
-		}
-		key_locator = KeyLocator_to_ccn(py_key_locator);
+	if (!PyObject_HasAttrString(py_key_locator, "keyName"))
+		return 1;
+
+	py_keyName = PyObject_GetAttrString(py_key_locator, "keyName");
+	if (!py_keyName)
+		return -1;
+
+	if (py_keyName == Py_None) {
+		Py_DECREF(py_keyName);
+		return 1;
 	}
-	return PyCObject_FromVoidPtr((void*) key_locator, __ccn_key_locator_destroy);
+
+	name = Name_to_ccn(py_keyName);
+	Py_DECREF(py_keyName);
+	JUMP_IF_NULL(name, error);
+
+	r = ccn_charbuf_append_tt(keylocator, CCN_DTAG_KeyName, CCN_DTAG);
+	JUMP_IF_NEG(r, error);
+
+	r = ccnb_append_tagged_blob(keylocator, CCN_DTAG_Name, name->buf, name->length); // check
+	JUMP_IF_NEG(r, error);
+
+	r = ccn_charbuf_append_closer(keylocator); /* </KeyName> */
+	JUMP_IF_NEG(r, error);
+
+	ccn_charbuf_destroy(&name);
+	return 0;
+
+error:
+	ccn_charbuf_destroy(&name);
+	PyErr_NoMemory();
+	return -1;
+}
+
+static int
+KeyLocator_key_to_ccn(struct ccn_charbuf *keylocator, PyObject *py_key_locator)
+{
+	PyObject *py_key, *py_o;
+	struct ccn_pkey *key;
+	int r;
+
+	if (!PyObject_HasAttrString(py_key_locator, "key"))
+		return 1;
+
+	py_key = PyObject_GetAttrString(py_key_locator, "key");
+	if (!py_key)
+		return -1;
+
+	if (py_key == Py_None) {
+		Py_DECREF(py_key);
+		return 1;
+	}
+
+	py_o = PyObject_GetAttrString(py_key, "ccn_data_public");
+	Py_DECREF(py_key);
+	if (!py_o)
+		return -1;
+
+	key = CCNObject_Get(PKEY, py_o);
+
+	r = ccn_charbuf_append_tt(keylocator, CCN_DTAG_Key, CCN_DTAG);
+	JUMP_IF_NEG_MEM(r, error);
+
+	r = ccn_append_pubkey_blob(keylocator, key);
+	JUMP_IF_NEG_MEM(r, error);
+
+	r = ccn_charbuf_append_closer(keylocator); /* </Key> */
+	JUMP_IF_NEG_MEM(r, error);
+
+	r = 0;
+
+error:
+	Py_DECREF(py_o);
+	return r;
+}
+
+static PyObject *
+_pyccn_KeyLocator_to_ccn(PyObject *self, PyObject *args)
+{
+	PyObject *py_key_locator;
+	struct ccn_charbuf *keylocator;
+	int r;
+
+	if (!PyArg_ParseTuple(args, "O", &py_key_locator))
+		return NULL;
+
+	if (strcmp(py_key_locator->ob_type->tp_name, "KeyLocator") != 0) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a KeyLocator");
+
+		return NULL;
+	}
+
+	keylocator = ccn_charbuf_create();
+
+	/* try name key locator */
+	r = ccn_charbuf_append_tt(keylocator, CCN_DTAG_KeyLocator, CCN_DTAG);
+	JUMP_IF_NEG_MEM(r, error);
+
+	r = KeyLocator_name_to_ccn(keylocator, py_key_locator);
+	JUMP_IF_NEG(r, error);
+	if (!r)
+		goto finish;
+
+	ccn_charbuf_reset(keylocator);
+
+	/* try key keylocator */
+	r = ccn_charbuf_append_tt(keylocator, CCN_DTAG_KeyLocator, CCN_DTAG);
+	JUMP_IF_NEG_MEM(r, error);
+
+	r = KeyLocator_key_to_ccn(keylocator, py_key_locator);
+	JUMP_IF_NEG(r, error);
+	if (!r)
+		goto finish;
+
+	ccn_charbuf_reset(keylocator);
+
+	/* try certificates */
+
+#if 0
+	ccn_charbuf_append_tt(keylocator, CCN_DTAG_Certificate, CCN_DTAG);
+	// TODO: How to handle certificate?  ** Not supported here
+	ccn_charbuf_append_closer(keylocator); /* </Certificate> */
+#endif
+
+	PyErr_SetString(PyExc_NotImplementedError, "Certificate key locator is not"
+			" implemented");
+	goto error;
+
+finish:
+	r = ccn_charbuf_append_closer(keylocator); /* </KeyLocator> */
+	JUMP_IF_NEG_MEM(r, error);
+
+	return CCNObject_New(KEY_LOCATOR, keylocator);
+error:
+	ccn_charbuf_destroy(&keylocator);
+	return NULL;
 }
 
 // From within python
@@ -1234,20 +1323,70 @@ _pyccn_Signature_from_ccn(PyObject* self, PyObject* args)
 	return Py_None;
 }
 
-static PyObject*
-_pyccn_SignedInfo_to_ccn(PyObject* self, PyObject* args)
+static PyObject *
+_pyccn_SignedInfo_to_ccn(PyObject *self, PyObject *args, PyObject *kwds)
 {
-	PyObject* py_signed_info;
-	struct ccn_charbuf* signed_info;
-	if (PyArg_ParseTuple(args, "O", &py_signed_info)) {
-		if (strcmp(py_signed_info->ob_type->tp_name, "SignedInfo") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a SignedInfo");
+	static char *kwlist[] = {"pubkey_digest", "type", "timestamp",
+		"freshness", "final_block_id", "key_locator", NULL};
 
-			return NULL;
-		}
-		signed_info = SignedInfo_to_ccn(py_signed_info);
+	PyObject *py_pubkey_digest, *py_timestamp = NULL, *py_final_block = NULL,
+			*py_key_locator = NULL;
+	struct ccn_charbuf *si;
+	int r;
+	size_t publisher_key_id_size;
+	const void *publisher_key_id;
+	int type, freshness = -1;
+	struct ccn_charbuf *timestamp, *finalblockid, *key_locator;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "Oi|OiOO", kwlist,
+			&py_pubkey_digest, &type, &py_timestamp, &freshness,
+			&py_final_block, &py_key_locator))
+		return NULL;
+
+	if (!PyByteArray_Check(py_pubkey_digest)) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a ByteArray as pubkey_digest");
+		return NULL;
+	} else {
+		publisher_key_id_size = PyByteArray_GET_SIZE(py_pubkey_digest);
+		publisher_key_id = PyByteArray_AS_STRING(py_pubkey_digest);
 	}
-	return PyCObject_FromVoidPtr((void*) signed_info, __ccn_signed_info_destroy);
+
+	if (py_timestamp && py_timestamp != Py_None) {
+		PyErr_SetString(PyExc_NotImplementedError, "Timestamp is not implemented yet");
+		return NULL;
+	} else
+		timestamp = NULL;
+
+	if (py_final_block && py_final_block != Py_None) {
+		PyErr_SetString(PyExc_NotImplementedError, "Final Block ID is not implemented yet");
+		return NULL;
+	} else
+		finalblockid = NULL;
+
+	if (!py_key_locator || py_key_locator == Py_None)
+		key_locator = NULL;
+	else if (CCNObject_IsValid(KEY_LOCATOR, py_key_locator))
+		key_locator = CCNObject_Get(KEY_LOCATOR, py_key_locator);
+	else {
+		PyErr_SetString(PyExc_TypeError, "key_locator needs to be a CCN KeyLocator object");
+		return NULL;
+	}
+
+	si = ccn_charbuf_create();
+	if (!si)
+		return PyErr_NoMemory();
+
+	r = ccn_signed_info_create(si, publisher_key_id, publisher_key_id_size,
+			timestamp, type, freshness, finalblockid, key_locator);
+	fprintf(stderr, "ccn_signed_info_create res=%d\n", r);
+
+	if (r < 0) {
+		ccn_charbuf_destroy(&si);
+		PyErr_SetString(g_PyExc_CCNError, "Error while creating SignedInfo");
+		return NULL;
+	}
+
+	return CCNObject_New(SIGNED_INFO, si);
 }
 
 // From within python
@@ -1368,6 +1507,7 @@ static PyMethodDef _module_methods[] = {
 
 	// ** Methods of ContentObject
 	//
+	{"content_to_bytearray", _pyccn_content_to_bytearray, METH_O, NULL},
 #if 0
 	{"_pyccn_ccn_encode_content_object", _pyccn_ccn_encode_content_object, METH_VARARGS,
 		""},
@@ -1413,8 +1553,7 @@ static PyMethodDef _module_methods[] = {
 		""},
 	{"_pyccn_Signature_from_ccn", _pyccn_Signature_from_ccn, METH_VARARGS,
 		""},
-	{"_pyccn_SignedInfo_to_ccn", _pyccn_SignedInfo_to_ccn, METH_VARARGS,
-		""},
+	{"_pyccn_SignedInfo_to_ccn", _pyccn_SignedInfo_to_ccn, METH_VARARGS | METH_KEYWORDS, NULL},
 	{"_pyccn_SignedInfo_from_ccn", _pyccn_SignedInfo_from_ccn, METH_VARARGS,
 		""},
 #if 0

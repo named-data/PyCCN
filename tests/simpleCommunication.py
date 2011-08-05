@@ -4,15 +4,15 @@ from pyccn import CCN, Name, Interest, ContentObject, Key, Closure
 k = Key.Key()
 k.generateRSA(1024)
 
-#kl = Key.KeyLocator()
-#kl.key = k
+kl = Key.KeyLocator()
+kl.key = k
 
 n = Name.Name()
 n.setURI("/forty/two")
 
 class MyClosure(Closure.Closure):
 	def upcall(self, kind, upcallInfo):
-		global c, n, k
+		global c, n, k, kl
 
 		print "O hai!"
 
@@ -24,9 +24,13 @@ class MyClosure(Closure.Closure):
 		si.publisherPublicKeyDigest = k.publicKeyID
 		si.type = 0x0C04C0
 		si.freshnessSeconds = -1
+		si.keyLocator = kl
 
 		co.signedInfo = si
+
+		print "signing"
 		co.sign(k)
+		print "outputting"
 
 		print c.put(co)
 

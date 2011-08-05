@@ -9,7 +9,9 @@
 #include "misc.h"
 #include "objects.h"
 
+/*
 static struct completed_closure *g_completed_closures;
+*/
 
 static inline const char *
 type2name(enum _pyccn_capsules type)
@@ -21,10 +23,14 @@ type2name(enum _pyccn_capsules type)
 		return "CCN_ccn_data";
 	case CONTENT_OBJECT:
 		return "ContentObject_ccn_data";
+	case SIGNED_INFO:
+		return "SignedInfo_ccn_data";
 	case CLOSURE:
 		return "Closure_ccn_data";
 	case PKEY:
 		return "PKEY_ccn_data";
+	case KEY_LOCATOR:
+		return "KeyLocator_ccn_data";
 	default:
 		panic("Unknown type");
 	}
@@ -48,6 +54,12 @@ pyccn_Capsule_Destructor(PyObject *capsule)
 		struct ccn_charbuf *p = pointer;
 		ccn_charbuf_destroy(&p);
 	} else if (CCNObject_IsValid(NAME, capsule)) {
+		struct ccn_charbuf *p = pointer;
+		ccn_charbuf_destroy(&p);
+	} else if (CCNObject_IsValid(SIGNED_INFO, capsule)) {
+		struct ccn_charbuf *p = pointer;
+		ccn_charbuf_destroy(&p);
+	} else if (CCNObject_IsValid(KEY_LOCATOR, capsule)) {
 		struct ccn_charbuf *p = pointer;
 		ccn_charbuf_destroy(&p);
 	} else if (CCNObject_IsValid(CLOSURE, capsule)) {
@@ -147,6 +159,7 @@ CCNObject_New_Closure(struct ccn_closure **closure)
 	return result;
 }
 
+#if 0
 void
 CCNObject_Complete_Closure(PyObject *py_closure)
 {
@@ -175,3 +188,4 @@ CCNObject_Purge_Closures()
 		free(p);
 	}
 }
+#endif

@@ -30,7 +30,6 @@ void __ccn_signature_destroy(void* p);
 struct ccn_charbuf *Signature_to_ccn(PyObject* py_signature);
 PyObject *Signature_from_ccn(struct ccn_charbuf* signature);
 void __ccn_signed_info_destroy(void* p);
-struct ccn_charbuf* SignedInfo_to_ccn(PyObject* py_signed_info);
 PyObject *SignedInfo_from_ccn(struct ccn_charbuf* signed_info);
 PyObject *SigningParams_from_ccn(struct ccn_signing_params* signing_params);
 

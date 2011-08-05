@@ -18,7 +18,9 @@ enum _pyccn_capsules {
 	CONTENT_OBJECT,
 	PKEY,
 	NAME,
-	CLOSURE
+	CLOSURE,
+	SIGNED_INFO,
+	KEY_LOCATOR
 };
 
 PyObject *CCNObject_New(enum _pyccn_capsules type, void *pointer);

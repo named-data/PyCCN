@@ -27,7 +27,8 @@ class ContentObject(object):
 	# thus there is no access to the ccn library keystore.
 	#
 	def sign(self, key):
-		self.ccn_data = _pyccn._pyccn_ContentObject_to_ccn(self, self.name.ccn_data, key)
+		self.ccn_data = _pyccn._pyccn_ContentObject_to_ccn(self,
+			self.name.ccn_data, self.content, self.signedInfo.ccn_data, key)
 		self.ccn_data_dirty = False
 
 	def verify(self):
@@ -39,9 +40,13 @@ class ContentObject(object):
 		pass
 
 	def __setattr__(self, name, value):
-		if name=='name' or name=='content' or name=='signedInfo' or name=='digestAlgorithm':
+		if name == 'name' or name == 'content' or name == 'signedInfo' or name == 'digestAlgorithm':
 			self.ccn_data_dirty=True
-		object.__setattr__(self, name, value)
+
+		if name == 'content':
+			object.__setattr__(self, name, _pyccn.content_to_bytearray(value))
+		else:
+			object.__setattr__(self, name, value)
 
 	def __getattribute__(self, name):
 		if name == "ccn_data":
@@ -85,18 +90,19 @@ class SignedInfo(object):
 		self.finalBlockID = None
 		self.keyLocator = None
 		# pyccn
-		self.ccn_data_dirty = False
+		self.ccn_data_dirty = True
 		self.ccn_data = None  # backing charbuf
 
 	def __setattr__(self, name, value):
 		if name != "ccn_data" and name != "ccn_data_dirty":
-			self.ccn_data_dirty=True
+			self.ccn_data_dirty = True
 		object.__setattr__(self, name, value)
 
 	def __getattribute__(self, name):
-		if name=="ccn_data":
+		if name == "ccn_data":
 			if object.__getattribute__(self, 'ccn_data_dirty'):
-				self.ccn_data = _pyccn._pyccn_SignedInfo_to_ccn(self)
+				key_locator = self.keyLocator.ccn_data if self.keyLocator else None
+				self.ccn_data = _pyccn._pyccn_SignedInfo_to_ccn(self.publisherPublicKeyDigest, self.type, key_locator=key_locator)
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)
 

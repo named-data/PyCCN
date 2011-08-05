@@ -8,7 +8,7 @@ class Key(object):
 		self.publicKeyIDsize = 32
 		self.pubid = None   # should load all keys into ccn's handle and hold their ID?
 		# pyccn
-		self.ccn_data_dirty = False
+		self.ccn_data_dirty = True
 		self.ccn_data_public = None  # backing pkey
 		self.ccn_data_private = None # backing pkey
 
@@ -39,12 +39,12 @@ class KeyLocator(object):
 		self.certificate = None
 		self.keyName = None
 		# pyccn
-		self.ccn_data_dirty = False
+		self.ccn_data_dirty = True
 		self.ccn_data = None  # backing charbuf
 
 	def __setattr__(self, name, value):
 		if name != "ccn_data" and name != "ccn_data_dirty":
-			self.ccn_data_dirty=True
+			self.ccn_data_dirty = True
 		object.__setattr__(self, name, value)
 
 	def __getattribute__(self, name):
@@ -53,4 +53,3 @@ class KeyLocator(object):
 				self.ccn_data = _pyccn._pyccn_KeyLocator_to_ccn(self)
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)
-

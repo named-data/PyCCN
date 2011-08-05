@@ -9,6 +9,7 @@ TESTS = \
 	expressInterest.py \
 	generateKey.py \
 	defaultKey.py \
+	ContentObject.py \
 	signing.py
 
 TEST_EXTENSIONS = .py
