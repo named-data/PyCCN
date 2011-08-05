@@ -62,14 +62,14 @@ class Name(object):
 		self.ccn_data_dirty = True
 
 	def __setattr__(self, name, value):
-		if name=='components' or name=='version' or name=='segment' or name=='ccn_data':
+		if name == 'components' or name == 'version' or name == 'segment' or name == 'ccn_data':
 			self.ccn_data_dirty=True
 		object.__setattr__(self, name, value)
 
 	def __getattribute__(self, name):
-		if name=="ccn_data":
+		if name == "ccn_data":
 			if object.__getattribute__(self, 'ccn_data_dirty'):
-				self.ccn_data = _pyccn._pyccn_Name_to_ccn(self)
+				self.ccn_data = _pyccn._pyccn_Name_to_ccn(self.components)
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)
 

@@ -1,4 +1,16 @@
-from pyccn import CCN, Name
+from pyccn import _pyccn, CCN, Name
+import sys
+
+comps = ['this', 'is', 'some', 'potential', 'name']
+print comps
+
+ccn_name = _pyccn._pyccn_Name_to_ccn(comps)
+comps2 = _pyccn._pyccn_Name_from_ccn(ccn_name)
+print comps2
+
+for comp1, comp2 in zip(map(lambda x: bytearray(x), comps), comps2):
+	if comp1 != comp2:
+		raise AssertionError("Got a different output: '%s' != '%s'" % (comp1, comp2))
 
 n = Name.Name(['hello', 'world'])
 

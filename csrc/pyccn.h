@@ -21,6 +21,14 @@ do { \
 		goto label; \
 } while(0)
 
+#  define JUMP_IF_NULL_MEM(variable, label) \
+do { \
+	if (!variable) { \
+		PyErr_NoMemory(); \
+		goto label; \
+	} \
+} while(0)
+
 #  define JUMP_IF_NEG(variable, label) \
 do { \
 	if (variable < 0) \

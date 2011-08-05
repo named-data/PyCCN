@@ -27,7 +27,7 @@ class ContentObject(object):
 	# thus there is no access to the ccn library keystore.
 	#
 	def sign(self, key):
-		self.ccn_data = _pyccn._pyccn_ContentObject_to_ccn(self, key)
+		self.ccn_data = _pyccn._pyccn_ContentObject_to_ccn(self, self.name.ccn_data, key)
 		self.ccn_data_dirty = False
 
 	def verify(self):
