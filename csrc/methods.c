@@ -1,6 +1,7 @@
 #include <Python.h>
 #include <ccn/ccn.h>
 #include <ccn/hashtb.h>
+#include <ccn/reg_mgmt.h>
 
 #include "pyccn.h"
 #include "converters.h"
@@ -40,14 +41,10 @@ _pyccn_ccn_create(PyObject* self, PyObject* args)
 //
 
 static PyObject *
-_pyccn_ccn_connect(PyObject* self, PyObject* args)
+_pyccn_ccn_connect(PyObject *self, PyObject *py_ccn_handle)
 {
-	PyObject *py_ccn_handle;
 	struct ccn *handle;
 	int r;
-
-	if (!PyArg_ParseTuple(args, "O:_pyccn_ccn_connect", &py_ccn_handle))
-		return NULL;
 
 	if (!CCNObject_IsValid(HANDLE, py_ccn_handle)) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a CCN Handle");
@@ -70,14 +67,10 @@ _pyccn_ccn_connect(PyObject* self, PyObject* args)
 //
 
 static PyObject *
-_pyccn_ccn_disconnect(PyObject* self, PyObject* args)
+_pyccn_ccn_disconnect(PyObject *self, PyObject *py_ccn_handle)
 {
-	PyObject *py_ccn_handle;
 	struct ccn *handle;
 	int r;
-
-	if (!PyArg_ParseTuple(args, "O:_pyccn_ccn_disconnect", &py_ccn_handle))
-		return NULL;
 
 	if (!CCNObject_IsValid(HANDLE, py_ccn_handle)) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a CCN Handle");
@@ -103,8 +96,7 @@ _pyccn_ccn_run(PyObject* self, PyObject* args)
 	int timeoutms = -1;
 	struct ccn *handle;
 
-	if (!PyArg_ParseTuple(args, "O|i:_pyccn_ccn_run",
-			&py_handle, &timeoutms))
+	if (!PyArg_ParseTuple(args, "O|i:_pyccn_ccn_run", &py_handle, &timeoutms))
 		return NULL;
 
 	if (!CCNObject_IsValid(HANDLE, py_handle)) {
@@ -154,8 +146,8 @@ _pyccn_ccn_set_run_timeout(PyObject* self, PyObject* args)
 	int timeoutms = 0;
 	struct ccn *handle;
 
-	if (!PyArg_ParseTuple(args, "O|i:_pyccn_ccn_set_run_timeout",
-			&py_handle, &timeoutms))
+	if (!PyArg_ParseTuple(args, "O|i:_pyccn_ccn_set_run_timeout", &py_handle,
+			&timeoutms))
 		return NULL;
 
 	if (!CCNObject_IsValid(HANDLE, py_handle)) {
@@ -177,10 +169,14 @@ __ccn_upcall_handler(struct ccn_closure *selfp,
 	PyObject *upcall_method = NULL, *py_upcall_info = NULL;
 	PyObject *py_selfp, *py_closure, *arglist, *result;
 
-	debug("upcall_handler dispatched\n");
+	debug("upcall_handler dispatched kind %d\n", upcall_kind);
 
 	assert(selfp);
 	assert(selfp->data);
+
+	//XXX: What to do when ccn_run is not called?
+	if (!_pyccn_thread_state)
+		return CCN_UPCALL_RESULT_ERR;
 
 	assert(_pyccn_thread_state);
 	PyEval_RestoreThread(_pyccn_thread_state);
@@ -237,7 +233,7 @@ error:
 // Registering callbacks
 
 static PyObject *
-_pyccn_ccn_express_interest(PyObject* self, PyObject* args)
+_pyccn_ccn_express_interest(PyObject *self, PyObject *args)
 {
 	PyObject *py_o, *py_ccn, *py_name, *py_closure, *py_templ;
 	int r;
@@ -325,16 +321,73 @@ _pyccn_ccn_express_interest(PyObject* self, PyObject* args)
 	Py_RETURN_NONE;
 }
 
-static PyObject* // int
-_pyccn_ccn_set_interest_filter(PyObject* self, PyObject* args)
+static PyObject *
+_pyccn_ccn_set_interest_filter(PyObject *self, PyObject *args)
 {
-	// PyObject* name, PyObject* closure) {
-	return 0;
+	PyObject *py_ccn, *py_name, *py_closure, *py_o;
+	int forw_flags = CCN_FORW_ACTIVE | CCN_FORW_CHILD_INHERIT;
+	struct ccn *handle;
+	struct ccn_charbuf *name;
+	struct ccn_closure *closure;
+	int r;
+
+	if (!PyArg_ParseTuple(args, "OOO|i", &py_ccn, &py_name, &py_closure,
+			&forw_flags))
+		return NULL;
+
+	if (!CCNObject_IsValid(HANDLE, py_ccn)) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a CCN handle as arg 1");
+		return NULL;
+	}
+
+	if (!CCNObject_IsValid(NAME, py_name)) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a CCN Name as arg 1");
+		return NULL;
+	}
+
+	if (!PyObject_IsInstance(py_closure, g_type_Closure)) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a CCN Closure as arg 3");
+		return NULL;
+	}
+
+	handle = CCNObject_Get(HANDLE, py_ccn);
+	name = CCNObject_Get(NAME, py_name);
+
+	/*
+	 * This code it might be confusing so here is what it does:
+	 * 1. we allocate a closure structure and wrap it into PyCapsule, so we can
+	 *    easily do garbage collection. Decreasing reference count will
+	 *    deallocate everything
+	 * 2. set our closure handler
+	 * 3. set pointer to our capsule (that way when callback is triggered we
+	 *    have access to Python closure object)
+	 * 4. increase reference count for Closure object to make sure someone
+	 *    won't free it
+	 * 5. we add pointer for our closure class (so we can call correct method)
+	 */
+	py_o = CCNObject_New_Closure(&closure);
+	closure->p = __ccn_upcall_handler;
+	closure->data = py_o;
+	Py_INCREF(py_closure);
+	r = PyCapsule_SetContext(py_o, py_closure);
+	assert(r == 0);
+
+	r = ccn_set_interest_filter_with_flags(handle, name, closure, forw_flags);
+	if (r < 0) {
+		int err = ccn_geterror(handle);
+
+		Py_DECREF(py_o);
+		PyErr_Format(PyExc_IOError, "Unable to set and interest filter: %s [%d]",
+				strerror(err), err);
+		return NULL;
+	}
+
+	return Py_BuildValue("i", r);
 }
 
 // Simple get/put
 
-static PyObject * // int
+static PyObject *
 _pyccn_ccn_get(PyObject *self, PyObject *args)
 {
 	PyObject *py_CCN, *py_Name, *py_Interest = Py_None;
@@ -831,9 +884,7 @@ error:
 static PyObject *
 _pyccn_ContentObject_to_ccn(PyObject *self, PyObject *args)
 {
-	PyObject *py_content_object, *py_key;
-	PyObject *py_o = NULL;
-	PyObject *ret = NULL;
+	PyObject *py_content_object, *py_key, *py_o = NULL, *ret = NULL;
 	struct ccn_charbuf *name = NULL, *content = NULL, *signed_info = NULL;
 	struct ccn_charbuf *content_object = NULL;
 	struct ccn_pkey *private_key;
@@ -961,20 +1012,16 @@ _pyccn_Key_to_ccn_public(PyObject *self, PyObject *py_key)
 	return PyObject_GetAttrString(py_key, "ccn_data_public");
 }
 
-static PyObject*
-_pyccn_Key_to_ccn_private(PyObject* self, PyObject* args)
+static PyObject *
+_pyccn_Key_to_ccn_private(PyObject *self, PyObject *py_key)
 {
-	PyObject* py_key;
-	struct ccn_pkey* key;
-	if (PyArg_ParseTuple(args, "O", &py_key)) {
-		if (strcmp(py_key->ob_type->tp_name, "Key") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a Key");
+	if (strcmp(py_key->ob_type->tp_name, "Key") != 0) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a Key");
 
-			return NULL;
-		}
-		key = Key_to_ccn_private(py_key);
+		return NULL;
 	}
-	return PyCObject_FromVoidPtr((void*) key, __ccn_key_destroy);
+
+	return PyObject_GetAttrString(py_key, "ccn_data_private");
 }
 
 static PyObject*
@@ -1172,22 +1219,15 @@ static PyMethodDef _module_methods[] = {
 
 	// ** Methods of CCN
 	//
-	{"_pyccn_ccn_create", _pyccn_ccn_create, METH_VARARGS,
-		""},
-	{"_pyccn_ccn_connect", _pyccn_ccn_connect, METH_VARARGS,
-		""},
-	{"_pyccn_ccn_disconnect", _pyccn_ccn_disconnect, METH_VARARGS,
-		""},
-	{"_pyccn_ccn_run", _pyccn_ccn_run, METH_VARARGS,
-		""},
-	{"_pyccn_ccn_set_run_timeout", _pyccn_ccn_set_run_timeout, METH_VARARGS,
-		""},
-	{"_pyccn_ccn_express_interest", _pyccn_ccn_express_interest, METH_VARARGS,
-		""},
+	{"_pyccn_ccn_create", _pyccn_ccn_create, METH_NOARGS, NULL},
+	{"_pyccn_ccn_connect", _pyccn_ccn_connect, METH_O, NULL},
+	{"_pyccn_ccn_disconnect", _pyccn_ccn_disconnect, METH_O, NULL},
+	{"_pyccn_ccn_run", _pyccn_ccn_run, METH_VARARGS, NULL},
+	{"_pyccn_ccn_set_run_timeout", _pyccn_ccn_set_run_timeout, METH_VARARGS, NULL},
+	{"_pyccn_ccn_express_interest", _pyccn_ccn_express_interest, METH_VARARGS, NULL},
 	{"_pyccn_ccn_set_interest_filter", _pyccn_ccn_set_interest_filter, METH_VARARGS,
 		""},
-	{"_pyccn_ccn_get", _pyccn_ccn_get, METH_VARARGS,
-		""},
+	{"_pyccn_ccn_get", _pyccn_ccn_get, METH_VARARGS, NULL},
 	{"_pyccn_ccn_put", _pyccn_ccn_put, METH_VARARGS, NULL},
 	{"_pyccn_ccn_get_default_key", _pyccn_ccn_get_default_key, METH_VARARGS,
 		""},
@@ -1236,8 +1276,7 @@ static PyMethodDef _module_methods[] = {
 	{"_pyccn_ContentObject_from_ccn", _pyccn_ContentObject_from_ccn, METH_VARARGS,
 		""},
 	{"_pyccn_Key_to_ccn_public", _pyccn_Key_to_ccn_public, METH_O, NULL},
-	{"_pyccn_Key_to_ccn_private", _pyccn_Key_to_ccn_private, METH_VARARGS,
-		""},
+	{"_pyccn_Key_to_ccn_private", _pyccn_Key_to_ccn_private, METH_O, NULL},
 	{"_pyccn_Key_from_ccn", _pyccn_Key_from_ccn, METH_VARARGS,
 		""},
 	{"_pyccn_KeyLocator_to_ccn", _pyccn_KeyLocator_to_ccn, METH_VARARGS,

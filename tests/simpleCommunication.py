@@ -1,30 +1,39 @@
-from pyccn import CCN, Name, Interest, ContentObject, Key
-from threading import Timer
+from pyccn import CCN, Name, Interest, ContentObject, Key, Closure
+#from threading import Timer
 
 k = Key.Key()
 k.generateRSA(1024)
 
-kl = Key.KeyLocator()
-kl.key = k
+#kl = Key.KeyLocator()
+#kl.key = k
 
 n = Name.Name()
-n.setURI("/foo/foo")
+n.setURI("/forty/two")
 
-co = ContentObject.ContentObject()
-co.name = n
-co.content = "Frou"
+class MyClosure(Closure.Closure):
+	def upcall(self, kind, upcallInfo):
+		global c, n, k
 
-si = ContentObject.SignedInfo()
-si.publisherPublicKeyDigest = k.publicKeyID
-si.type = 0x0C04C0
-si.freshnessSeconds = -1
+		print "O hai!"
 
-co.signedInfo = si
-co.sign(k)
+		co = ContentObject.ContentObject()
+		co.name = n
+		co.content = "Frou"
 
+		si = ContentObject.SignedInfo()
+		si.publisherPublicKeyDigest = k.publicKeyID
+		si.type = 0x0C04C0
+		si.freshnessSeconds = -1
+
+		co.signedInfo = si
+		co.sign(k)
+
+		print c.put(co)
+
+closure = MyClosure()
 c = CCN.CCN()
-
-print c.put(co)
+c.setInterestFilter(n, closure)
+c.run(10000)
 
 #def push_data(co):
 #	c.put(co)

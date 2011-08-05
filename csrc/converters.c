@@ -178,13 +178,6 @@ Name_from_ccn_tagged_bytearray(const unsigned char *buf, size_t size)
 //
 //
 
-void
-__ccn_key_destroy(void* p)
-{
-	if (p != NULL)
-		ccn_pubkey_free(p); // what about private keys?
-}
-
 #if 0
 
 static struct ccn_keystore*
@@ -301,7 +294,7 @@ Key_from_ccn(struct ccn_pkey* key_ccn)
 	//    and ensure proper destructor is set up for the c object.
 	// privateKey
 	// Don't free these here, python will call destructor
-	p = PyCObject_FromVoidPtr(private_key_ccn, __ccn_key_destroy);
+	p = CCNObject_New(PKEY, private_key_ccn);
 	PyObject_SetAttrString(py_key, "ccn_data_private", p);
 	Py_INCREF(p);
 

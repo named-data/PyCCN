@@ -38,6 +38,7 @@ do { \
 extern PyThreadState * _pyccn_thread_state;
 
 extern PyObject *g_type_Name;
+extern PyObject *g_type_CCN;
 extern PyObject *g_type_Interest;
 extern PyObject *g_type_ContentObject;
 extern PyObject *g_type_Closure;

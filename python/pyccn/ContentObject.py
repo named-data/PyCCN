@@ -16,7 +16,7 @@ class ContentObject(object):
 
 		# pyccn
 		self.ccn = None # Reference to CCN object
-		self.ccn_data_dirty = False
+		self.ccn_data_dirty = True
 		self.ccn_data = None  # backing charbuf
 		self.ccn_data_parsed = None  # PCO
 		self.ccn_data_components = None  # PCO
@@ -44,7 +44,7 @@ class ContentObject(object):
 		object.__setattr__(self, name, value)
 
 	def __getattribute__(self, name):
-		if name=="ccn_data":
+		if name == "ccn_data":
 			if object.__getattribute__(self, 'ccn_data_dirty'):
 				print "Call sign() to finalize before accessing ccn_data for a ContentObject"
 		return object.__getattribute__(self, name)
@@ -158,4 +158,3 @@ class SigningParams(object):
 	def __get_ccn(self):
 		pass
 		# Call ccn_signed_info_create
-

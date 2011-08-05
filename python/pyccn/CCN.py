@@ -23,9 +23,11 @@ class CCN(object):
 	def expressInterest(self, name, closure, template=None):
 		return _pyccn._pyccn_ccn_express_interest(self, name, closure, template)
 
-	def setInterestFilter(self, name, closure):
-		# res = ccn_set_interest_filter
-		pass
+	def setInterestFilter(self, name, closure, flags = None):
+		if flags is None:
+			return _pyccn._pyccn_ccn_set_interest_filter(self.ccn_data, name.ccn_data, closure)
+		else:
+			return _pyccn._pyccn_ccn_set_interest_filter(self.ccn_data, name.ccn_data, closure, flags)
 
 	# Blocking!
 	def get(self, name, template = None, timeoutms = 3000):

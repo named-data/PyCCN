@@ -67,7 +67,7 @@ PyThreadState *_pyccn_thread_state = NULL;
 // taken directly from the CCNx wire format
 //
 PyObject *g_type_Name;
-static PyObject *g_type_CCN;
+PyObject *g_type_CCN;
 PyObject *g_type_Interest;
 PyObject *g_type_ContentObject;
 PyObject *g_type_Closure;
