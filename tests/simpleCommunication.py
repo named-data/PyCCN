@@ -5,16 +5,15 @@ k = Key.Key()
 k.generateRSA(1024)
 
 kl = Key.KeyLocator()
+#kl.keyName = Name.Name("/this/is/key")
 kl.key = k
 
 n = Name.Name()
 n.setURI("/forty/two")
 
-class MyClosure(Closure.Closure):
+class SenderClosure(Closure.Closure):
 	def upcall(self, kind, upcallInfo):
 		global c, n, k, kl
-
-		print "O hai!"
 
 		co = ContentObject.ContentObject()
 		co.name = n
@@ -28,26 +27,37 @@ class MyClosure(Closure.Closure):
 
 		co.signedInfo = si
 
-		print "signing"
 		co.sign(k)
-		print "outputting"
-
 		print c.put(co)
 
-closure = MyClosure()
+class ReceiverClosure(Closure.Closure):
+	def upcall(self, kind, upcallInfo):
+		global c
+
+		print "#Receiver# Got response %d" % kind
+		if (kind == 4):
+			raise AssertionError("Got timeout")
+
+		c.setRunTimeout(1)
+
+senderclosure = SenderClosure()
+receiverclosure = ReceiverClosure()
+
 c = CCN.CCN()
-c.setInterestFilter(n, closure)
-c.run(10000)
 
-#def push_data(co):
-#	c.put(co)
-#push_data(co)
+#Looks like the CCNx API doesn't deliver messages
+#that we sent to ourselves, so we just push it
+#c.setInterestFilter(n, senderclosure)
+senderclosure.upcall(1, None)
 
-#t = Timer(1.0, push_data, co)
-
-#i = Interest.Interest()
+i = Interest.Interest()
+c.expressInterest(n, receiverclosure, i)
 
 #co2 = c.get(n, i, 5000)
+#print co2
+
+c.run(5000)
+
 #t.start()
 #print co2
 

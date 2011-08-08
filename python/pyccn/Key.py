@@ -8,7 +8,7 @@ class Key(object):
 		self.publicKeyIDsize = 32
 		self.pubid = None   # should load all keys into ccn's handle and hold their ID?
 		# pyccn
-		self.ccn_data_dirty = True
+		self.ccn_data_dirty = False
 		self.ccn_data_public = None  # backing pkey
 		self.ccn_data_private = None # backing pkey
 
@@ -35,6 +35,7 @@ class Key(object):
 class KeyLocator(object):
 	def __init__(self):
 		#whichever one is not none will be used
+		#if multiple set, checking order is: keyName, key, certificate
 		self.key = None
 		self.certificate = None
 		self.keyName = None
@@ -50,6 +51,17 @@ class KeyLocator(object):
 	def __getattribute__(self, name):
 		if name=="ccn_data":
 			if object.__getattribute__(self, 'ccn_data_dirty'):
-				self.ccn_data = _pyccn._pyccn_KeyLocator_to_ccn(self)
+				if object.__getattribute__(self, 'keyName'):
+					self.ccn_data = _pyccn._pyccn_KeyLocator_to_ccn(
+						name=self.keyName.ccn_data)
+				elif object.__getattribute__(self, 'key'):
+					self.ccn_data = _pyccn._pyccn_KeyLocator_to_ccn(
+						key=self.key.ccn_data_public)
+				elif object.__getattribute__(self, 'certificate'):
+					#same but with cert= arg
+					raise NotImplementedError("certificate support is not implemented")
+				else:
+					raise TypeError("No name, key nor certificate defined")
+
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)

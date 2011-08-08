@@ -61,5 +61,6 @@ extern PyObject *g_type_UpcallInfo;
 
 extern PyObject *g_PyExc_CCNError;
 extern PyObject *g_PyExc_CCNNameError;
+extern PyObject *g_PyExc_CCNKeyLocatorError;
 
 #endif /* _PYCCN_H_ */

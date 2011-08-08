@@ -245,7 +245,7 @@ Key_from_ccn(struct ccn_pkey* key_ccn)
 {
 	fprintf(stderr, "Key_from_ccn start\n");
 
-	assert(g_type_Key != NULL);
+	assert(g_type_Key);
 
 	// 1) Create python object
 	PyObject* py_key = PyObject_CallObject(g_type_Key, NULL);
@@ -316,13 +316,6 @@ Key_from_ccn(struct ccn_pkey* key_ccn)
 // KeyLocator
 //
 //
-
-void
-__ccn_key_locator_destroy(void* p)
-{
-	if (p != NULL)
-		ccn_charbuf_destroy((struct ccn_charbuf**) &p);
-}
 
 // Can be called directly from c library
 //
@@ -414,7 +407,7 @@ KeyLocator_from_ccn(struct ccn_charbuf* key_locator)
 	}
 	// 3) Set ccn_data to a cobject pointing to the c struct
 	//    and ensure proper destructor is set up for the c object.
-	PyObject* ccn_data = PyCObject_FromVoidPtr((void*) key_locator, __ccn_key_locator_destroy);
+	PyObject* ccn_data = CCNObject_New(KEY_LOCATOR, key_locator);
 	Py_INCREF(ccn_data);
 	PyObject_SetAttrString(py_keylocator, "ccn_data", ccn_data);
 

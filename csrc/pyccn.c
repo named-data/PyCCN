@@ -86,6 +86,7 @@ PyObject *g_type_UpcallInfo;
 // Exceptions
 PyObject *g_PyExc_CCNError;
 PyObject *g_PyExc_CCNNameError;
+PyObject *g_PyExc_CCNKeyLocatorError;
 
 static bool
 import_module(PyObject **module, const char *name)
@@ -125,6 +126,8 @@ init_pyccn(void)
 
 	NEW_EXCEPTION(CCNError, "General CCN Exception", NULL);
 	NEW_EXCEPTION(CCNNameError, "CCN Name Exception", g_PyExc_CCNError);
+	NEW_EXCEPTION(CCNKeyLocatorError, "CCN KeyLocator Exception",
+			g_PyExc_CCNError);
 
 	if (!import_module(&module_CCN, "pyccn.CCN"))
 		return; //XXX: How to uninitialize methods?
