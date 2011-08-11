@@ -10,6 +10,8 @@
 #include "pyccn.h"
 #include "converters.h"
 #include "key_utils.h"
+#include "methods_contentobject.h"
+#include "methods_name.h"
 #include "misc.h"
 #include "objects.h"
 
@@ -17,160 +19,6 @@
 // TO AND FROM CCNx LIBRARY STRUCTURES OR
 // FROM THE WIRE FORMAT, IF THERE ARE NO
 // CORRESPONDING C STRUCTS.
-
-// ************
-// Name
-
-struct ccn_charbuf *
-Name_to_ccn(PyObject *py_name)
-{
-	struct ccn_charbuf *name;
-	PyObject *comps, *iterator, *item = NULL;
-	int r;
-
-	comps = PyObject_GetAttrString(py_name, "components");
-	if (!comps)
-		return NULL;
-
-	iterator = PyObject_GetIter(comps);
-	Py_DECREF(comps);
-	if (!iterator)
-		return NULL;
-
-	name = ccn_charbuf_create();
-	JUMP_IF_NULL(name, out_of_mem);
-
-	r = ccn_name_init(name);
-	JUMP_IF_NEG(r, out_of_mem);
-
-	// Parse the list of components and
-	// convert them to C objects
-	//
-	while ((item = PyIter_Next(iterator))) {
-		if (PyByteArray_Check(item)) {
-			Py_ssize_t n = PyByteArray_Size(item);
-			char *b = PyByteArray_AsString(item);
-			r = ccn_name_append(name, b, n);
-			JUMP_IF_NEG(r, out_of_mem);
-		} else if (PyString_Check(item)) { // Unicode or UTF-8?
-			char *s = PyString_AsString(item);
-			JUMP_IF_NULL(s, error);
-
-			r = ccn_name_append_str(name, s);
-			JUMP_IF_NEG(r, out_of_mem);
-
-			// Note, we choose to convert numbers to their string
-			// representation; if we want numeric encoding, use a
-			// byte array and do it explicitly.
-		} else if (PyFloat_Check(item) || PyLong_Check(item) || PyInt_Check(item)) {
-			PyObject *str = PyObject_Str(item);
-			JUMP_IF_NULL(str, error);
-
-			char *s = PyString_AsString(str);
-			Py_DECREF(str);
-			JUMP_IF_NULL(s, error);
-
-			r = ccn_name_append_str(name, s);
-			JUMP_IF_NEG(r, out_of_mem);
-		} else {
-			PyErr_SetString(PyExc_TypeError, "Unknown value type in the list");
-			goto error;
-		}
-		Py_DECREF(item);
-	}
-	Py_DECREF(iterator);
-
-	return name;
-
-out_of_mem:
-	PyErr_SetNone(PyExc_MemoryError);
-error:
-	Py_XDECREF(item);
-	Py_XDECREF(iterator);
-	ccn_charbuf_destroy(&name);
-	return NULL;
-}
-
-
-// Can be called directly from c library
-// For now, everything is a bytearray
-//
-
-PyObject *
-Name_from_ccn(PyObject *ccn_data)
-{
-	struct ccn_charbuf *name;
-
-	fprintf(stderr, "Name_from_ccn start\n");
-
-	// Create name object
-	PyObject* py_name = PyObject_CallObject(g_type_Name, NULL);
-
-	// Create component list
-	PyObject* py_component_list = PyList_New(0);
-	PyObject_SetAttrString(py_name, "components", py_component_list);
-
-	// Iterate through name components
-	// Copy into byte array
-	PyObject* py_component;
-
-	struct ccn_indexbuf* comps = ccn_indexbuf_create();
-	name = CCNObject_Get(NAME, ccn_data);
-	ccn_name_split(name, comps);
-
-	unsigned char* comp;
-	int size;
-	int n; // component
-	int h; // header size
-	for (n = 0; n < comps->n - 1; n++) { // not the implicit digest component
-		fprintf(stderr, "Name_from_ccn component %d of %d \n", n, n < comps->n - 1);
-		comp = &(name->buf[comps->buf[n]]) + 1; // What is the first byte?  (250?)
-		//fprintf(stderr,"\t%s\n", comp);
-		for (h = 2; h < (comps->buf[n + 1] - comps->buf[n]); h++) { // walk through the header until the terminators is found
-			if (*(comp++) > 127) break;
-		}
-		size = (int) (comps->buf[n + 1] - comps->buf[n]) - 1 - h; // don't include the DTAG Component
-		py_component = PyByteArray_FromStringAndSize((char*) comp, size);
-		PyList_Append(py_component_list, py_component);
-		Py_DECREF(py_component);
-	}
-	// TODO: Add implicit digest componet?
-	// TODO: Parse version & segment?
-
-	PyObject_SetAttrString(py_name, "ccn_data", ccn_data);
-
-	ccn_indexbuf_destroy(&comps);
-
-	fprintf(stderr, "Name_from_ccn ends\n");
-	return py_name;
-}
-
-// Takes a byte array with DTAG
-//
-
-PyObject *
-Name_from_ccn_tagged_bytearray(const unsigned char *buf, size_t size)
-{
-	PyObject *py_name, *py_cname;
-	struct ccn_charbuf *name;
-	int r;
-
-	name = ccn_charbuf_create();
-	if (!name)
-		return PyErr_NoMemory();
-
-	py_cname = CCNObject_New(NAME, name);
-	if (!py_cname) {
-		ccn_charbuf_destroy(&name);
-		return NULL;
-	}
-
-	r = ccn_charbuf_append(name, buf, size);
-	py_name = r < 0 ? PyErr_NoMemory() : Name_from_ccn(py_cname);
-	Py_DECREF(py_cname);
-
-	return py_name;
-}
 
 
 // ************
@@ -377,6 +225,7 @@ KeyLocator_from_ccn(struct ccn_charbuf* key_locator)
 		} else if (ccn_buf_match_dtag(d, CCN_DTAG_Key)) {
 			const unsigned char *dkey;
 			size_t dkey_size;
+			start = d->decoder.token_index;
 			ccn_parse_required_tagged_BLOB(d, CCN_DTAG_Key, 1, -1);
 			stop = d->decoder.token_index;
 			res = ccn_ref_tagged_BLOB(CCN_DTAG_Key, d->buf,
@@ -1141,34 +990,64 @@ SigningParams_from_ccn(struct ccn_signing_params* signing_params)
 //
 //
 
-static void
-__ccn_upcall_info_destroy(void *p)
-{
-	return;
-	// I don't think we destroy this as it is free by the callback routines int he library...
-}
 // Can be called directly from c library
 
 PyObject *
 UpcallInfo_from_ccn(struct ccn_upcall_info *ui)
 {
-	PyObject *py_upcall_info, *ccn_data;
+	PyObject *py_upcall_info;
+	PyObject *py_o;
+	int r;
+
+	//TODO: fix this
+	if (!ui->content_ccnb)
+		Py_RETURN_NONE;
+
+	assert(ui->content_ccnb);
 
 	// Create name object
 	assert(g_type_UpcallInfo);
 	py_upcall_info = PyObject_CallObject(g_type_UpcallInfo, NULL);
+	JUMP_IF_NULL(py_upcall_info, error);
 
-	//
-	// TODO: Build the python UpcallInfo here
-	//
+	py_o = CCNObject_Borrow(HANDLE, ui->h);
+	r = PyObject_SetAttrString(py_upcall_info, "ccn", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
 
-	// Set ccn_data to cobject, INCRef
-	// We don't have a destructor here is this object does not exist outside of the callback (for now)
-	ccn_data = PyCObject_FromVoidPtr(ui, __ccn_upcall_info_destroy);
-	PyObject_SetAttrString(py_upcall_info, "ccn_data", ccn_data);
-	Py_DECREF(ccn_data);
+	const unsigned char *ccnb;
+	size_t ccnb_size;
+	struct ccn_indexbuf *comps;
+	int matched_comps;
+	PyObject *py_content_object;
+	struct ccn_charbuf *data;
+
+	ccnb = ui->content_ccnb;
+	ccnb_size = ui->pco->offset[CCN_PCO_E];
+	comps = ui->content_comps;
+	matched_comps = ui->pi->prefix_comps;
+
+	data = ccn_charbuf_create();
+	ccn_charbuf_append(data, ccnb, ccnb_size);
+	PyObject *py_data = CCNObject_New(CONTENT_OBJECT, data);
+
+	struct ccn_parsed_ContentObject *pco;
+	pco = malloc(sizeof(*pco));
+	memcpy(pco, ui->pco, sizeof(*pco));
+	PyObject *py_pco = CCNObject_New(PARSED_CONTENT_OBJECT, pco);
+
+	PyObject *py_comps = CCNObject_New(CONTENT_OBJECT_COMPONENTS, comps);
+
+	py_content_object = ContentObject_from_ccn_parsed(py_data, py_pco, py_comps);
+
+	PyObject_SetAttrString(py_upcall_info, "ContentObject", py_content_object);
+	Py_DECREF(py_content_object);
 
 	return py_upcall_info;
+
+error:
+	Py_XDECREF(py_upcall_info);
+	return NULL;
 }
 
 
@@ -1177,188 +1056,4 @@ UpcallInfo_from_ccn(struct ccn_upcall_info *ui)
 //
 //
 
-static void
-__ccn_parsed_content_object_destroy(void* p)
-{
-	if (p != NULL)
-		free(p);
-}
 
-static void
-__ccn_content_object_components_destroy(void* p)
-{
-	if (p != NULL)
-		ccn_indexbuf_destroy((struct ccn_indexbuf**) &p);
-}
-
-static PyObject *
-Name_from_ccn_parsed(struct ccn_charbuf *content_object,
-		struct ccn_parsed_ContentObject *parsed_content_object)
-{
-	PyObject *py_Name;
-	size_t namelen;
-	int r;
-
-	namelen = parsed_content_object->offset[CCN_PCO_E_Name]
-			- parsed_content_object->offset[CCN_PCO_B_Name];
-
-	debug("ContentObject_from_ccn_parsed Name len=%zd\n", namelen);
-	if (namelen > 0) {
-		struct ccn_charbuf *name;
-		size_t name_begin, name_end;
-		PyObject *py_ccn_name;
-
-		name = ccn_charbuf_create();
-		if (!name)
-			return PyErr_NoMemory();
-
-		py_ccn_name = CCNObject_New(NAME, name);
-		if (!py_ccn_name) {
-			ccn_charbuf_destroy(&name);
-			return NULL;
-		}
-
-		name_begin = parsed_content_object->offset[CCN_PCO_B_Name];
-		name_end = parsed_content_object->offset[CCN_PCO_E_Name];
-
-		r = ccn_charbuf_append(name, &content_object->buf[name_begin],
-				name_end - name_begin);
-		if (r < 0) {
-			Py_DECREF(py_ccn_name);
-			return PyErr_NoMemory();
-		}
-
-		debug("Name: ");
-		dump_charbuf(name, stderr);
-		debug("\n");
-
-		py_Name = Name_from_ccn(py_ccn_name);
-		Py_DECREF(py_ccn_name);
-	} else {
-		PyErr_SetString(g_PyExc_CCNNameError, "No name stored (or name is"
-				" invalid) in parsed content object");
-		return NULL;
-	}
-
-	return py_Name;
-}
-
-static PyObject *
-Content_from_ccn_parsed(struct ccn_charbuf *content_object,
-		struct ccn_parsed_ContentObject *parsed_content_object)
-{
-	const char *value;
-	size_t size;
-	PyObject *py_content;
-	int r;
-
-	debug("ContentObject_from_ccn_parsed Content\n");
-
-	r = ccn_content_get_value(content_object->buf, content_object->length,
-			parsed_content_object, (const unsigned char **) &value, &size);
-	if (r < 0) {
-		PyErr_Format(g_PyExc_CCNNameError, "ccn_content_get_value() returned"
-				" %d", r);
-		return NULL;
-	}
-
-	py_content = PyByteArray_FromStringAndSize(value, size);
-	if (!py_content)
-		return NULL;
-
-	return py_content;
-}
-
-PyObject *
-ContentObject_from_ccn_parsed(struct ccn_charbuf *content_object,
-		struct ccn_parsed_ContentObject *parsed_content_object,
-		struct ccn_indexbuf *components)
-{
-	PyObject *py_ContentObject, *py_o;
-	int r;
-
-	debug("ContentObject_from_ccn_parsed content_object->length=%zd\n",
-			content_object->length);
-
-	py_ContentObject = PyObject_CallObject(g_type_ContentObject, NULL);
-	if (!py_ContentObject)
-		return NULL;
-
-	/* Name */
-	py_o = Name_from_ccn_parsed(content_object, parsed_content_object);
-	JUMP_IF_NULL(py_o, error);
-	r = PyObject_SetAttrString(py_ContentObject, "name", py_o);
-	Py_DECREF(py_o);
-	JUMP_IF_NEG(r, error);
-
-	/* Content */
-	py_o = Content_from_ccn_parsed(content_object, parsed_content_object);
-	JUMP_IF_NULL(py_o, error);
-	r = PyObject_SetAttrString(py_ContentObject, "content", py_o);
-	Py_DECREF(py_o);
-	JUMP_IF_NEG(r, error);
-
-	debug("ContentObject_from_ccn_parsed Signature\n");
-
-	struct ccn_charbuf* signature = ccn_charbuf_create();
-	ccn_charbuf_append(signature, &content_object->buf[parsed_content_object->offset[CCN_PCO_B_Signature]],
-			(size_t) (parsed_content_object->offset[CCN_PCO_E_Signature] - parsed_content_object->offset[CCN_PCO_B_Signature]));
-
-	PyObject* py_signature = Signature_from_ccn(signature); // it will destroy?
-	PyObject_SetAttrString(py_ContentObject, "signature", py_signature);
-	Py_INCREF(py_signature);
-
-	fprintf(stderr, "ContentObject_from_ccn_parsed SignedInfo\n");
-
-	struct ccn_charbuf* signed_info = ccn_charbuf_create();
-	ccn_charbuf_append(signed_info, &content_object->buf[parsed_content_object->offset[CCN_PCO_B_SignedInfo]],
-			(size_t) (parsed_content_object->offset[CCN_PCO_E_SignedInfo] - parsed_content_object->offset[CCN_PCO_B_SignedInfo]));
-
-	PyObject* py_signedinfo = SignedInfo_from_ccn(signed_info); // it will destroy?
-	PyObject_SetAttrString(py_ContentObject, "signedInfo", py_signedinfo);
-	Py_INCREF(py_signedinfo);
-
-	fprintf(stderr, "ContentObject_from_ccn_parsed DigestAlgorithm\n");
-	PyObject* py_digestalgorithm = Py_None; // TODO...  Note this seems to default to nothing in the library...?
-	PyObject_SetAttrString(py_ContentObject, "digestAlgorithm", py_digestalgorithm);
-	Py_INCREF(py_digestalgorithm);
-
-	// Set ccn_data to cobject, INCRef
-	fprintf(stderr, "ContentObject_from_ccn_parsed ccn_data\n");
-	PyObject *ccn_data = CCNObject_New(CONTENT_OBJECT, content_object);
-	Py_INCREF(ccn_data);
-	PyObject_SetAttrString(py_ContentObject, "ccn_data", ccn_data);
-
-	fprintf(stderr, "ContentObject_from_ccn_parsed ccn_data_parsed\n");
-	PyObject* ccn_data_parsed = PyCObject_FromVoidPtr((void*) parsed_content_object, __ccn_parsed_content_object_destroy);
-	Py_INCREF(ccn_data_parsed);
-	PyObject_SetAttrString(py_ContentObject, "ccn_data_parsed", ccn_data_parsed);
-
-	fprintf(stderr, "ContentObject_from_ccn_parsed ccn_data_components\n");
-	PyObject* ccn_data_components = PyCObject_FromVoidPtr((void*) components, __ccn_content_object_components_destroy);
-	Py_INCREF(ccn_data_components);
-	PyObject_SetAttrString(py_ContentObject, "ccn_data_components", ccn_data_components);
-
-	fprintf(stderr, "ContentObject_from_ccn_parsed complete\n");
-
-	return py_ContentObject;
-
-error:
-	Py_XDECREF(py_ContentObject);
-	return NULL;
-}
-
-// Can be called directly from c library
-
-PyObject*
-ContentObject_from_ccn(struct ccn_charbuf* content_object)
-{
-	struct ccn_parsed_ContentObject* parsed_content_object = calloc(sizeof(struct ccn_parsed_ContentObject), 1);
-	struct ccn_indexbuf* components = ccn_indexbuf_create();
-	ccn_parse_ContentObject(content_object->buf, content_object->length, parsed_content_object, components);
-	// TODO: Check result
-	PyObject* CO = ContentObject_from_ccn_parsed(content_object, parsed_content_object, components);
-	free(parsed_content_object);
-	ccn_indexbuf_destroy(&components);
-	return CO;
-}

@@ -8,10 +8,6 @@
 #ifndef CONVERTERS_H
 #  define	CONVERTERS_H
 
-struct ccn_charbuf *Name_to_ccn(PyObject* py_name);
-PyObject *Name_from_ccn(PyObject *py_ccn_name);
-PyObject *Name_from_ccn_tagged_bytearray(const unsigned char* buf, size_t size);
-
 struct ccn_pkey *Key_to_ccn_private(PyObject* py_key);
 PyObject *Key_from_ccn(struct ccn_pkey* key_ccn);
 struct ccn_charbuf *KeyLocator_to_ccn(PyObject* py_key_locator);
@@ -33,9 +29,7 @@ PyObject *SignedInfo_from_ccn(struct ccn_charbuf* signed_info);
 PyObject *SigningParams_from_ccn(struct ccn_signing_params* signing_params);
 
 PyObject *UpcallInfo_from_ccn(struct ccn_upcall_info* ui);
-PyObject *ContentObject_from_ccn_parsed(struct ccn_charbuf* content_object,
-		struct ccn_parsed_ContentObject* parsed_content_object,
-		struct ccn_indexbuf* components);
+
 
 PyObject *ContentObject_from_ccn(struct ccn_charbuf* content_object);
 

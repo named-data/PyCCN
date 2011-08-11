@@ -21,3 +21,10 @@ class UpcallInfo(object):
 		self.Interest = None  # Interest object
 		self.matchedComps = None  # int
 		self.ContentObject = None  # Content object
+		self.ccn_data = None #CCN representation
+
+	def __str__(self):
+		print "ccn = %s" % self.ccn
+		print "Interest = %s" % self.Interest
+		print "matchedComps = %s" % self.matchedComps
+		print "ContentObject: %s" % str(self.ContentObject)

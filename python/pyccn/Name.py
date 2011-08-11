@@ -47,7 +47,10 @@ class Name(object):
 		pass
 
 	def __str__(self):
-		return self.separator + self.separator.join(self.components)
+		ret = ""
+		for c in self.components:
+			ret += self.separator + str(c)
+		return ret
 
 	def __len__(self):
 		return len(self.components)

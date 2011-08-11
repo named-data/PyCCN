@@ -56,6 +56,10 @@ class ContentObject(object):
 
 	# Where do we support versioning and segmentation?
 
+	def __str__(self):
+		ret = "Name: %s\n" % self.name
+		ret += "Content: %s\n" % repr(self.content)
+		return ret
 
 class Signature(object):
 	def __init__(self):

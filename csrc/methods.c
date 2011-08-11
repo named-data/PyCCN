@@ -7,6 +7,8 @@
 #include "pyccn.h"
 #include "converters.h"
 #include "key_utils.h"
+#include "methods_contentobject.h"
+#include "methods_name.h"
 #include "misc.h"
 #include "objects.h"
 
@@ -394,7 +396,8 @@ static PyObject *
 _pyccn_ccn_get(PyObject *self, PyObject *args)
 {
 	PyObject *py_CCN, *py_Name, *py_Interest = Py_None;
-	PyObject *py_co, *ccn_data = NULL;
+	PyObject *py_co = NULL, *py_o = NULL;
+	PyObject *py_data = NULL, *py_pco = NULL, *py_comps = NULL;
 	int r, timeout = 3000;
 	struct ccn *handle;
 	struct ccn_charbuf *name, *interest, *data;
@@ -409,22 +412,22 @@ _pyccn_ccn_get(PyObject *self, PyObject *args)
 		PyErr_SetString(PyExc_TypeError, "Must pass a CCN as arg 1");
 		return NULL;
 	} else {
-		ccn_data = PyObject_GetAttrString(py_CCN, "ccn_data");
-		JUMP_IF_NULL(ccn_data, error);
-		handle = CCNObject_Get(HANDLE, ccn_data);
-		JUMP_IF_NULL(handle, error);
-		Py_CLEAR(ccn_data);
+		py_o = PyObject_GetAttrString(py_CCN, "ccn_data");
+		JUMP_IF_NULL(py_o, exit);
+		handle = CCNObject_Get(HANDLE, py_o);
+		JUMP_IF_NULL(handle, exit);
+		Py_CLEAR(py_o);
 	}
 
 	if (strcmp(py_Name->ob_type->tp_name, "Name")) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a Name as arg 2");
 		return NULL;
 	} else {
-		ccn_data = PyObject_GetAttrString(py_Name, "ccn_data");
-		JUMP_IF_NULL(ccn_data, error);
-		name = CCNObject_Get(NAME, ccn_data);
-		JUMP_IF_NULL(name, error);
-		Py_CLEAR(ccn_data);
+		py_o = PyObject_GetAttrString(py_Name, "ccn_data");
+		JUMP_IF_NULL(py_o, exit);
+		name = CCNObject_Get(NAME, py_o);
+		JUMP_IF_NULL(name, exit);
+		Py_CLEAR(py_o);
 	}
 
 	assert(py_Interest);
@@ -434,42 +437,43 @@ _pyccn_ccn_get(PyObject *self, PyObject *args)
 	} else if (py_Interest == Py_None)
 		interest = NULL;
 	else {
-		ccn_data = PyObject_GetAttrString(py_Interest, "ccn_data");
-		JUMP_IF_NULL(ccn_data, error);
-		interest = PyCObject_AsVoidPtr(ccn_data);
-		JUMP_IF_NULL(interest, error);
-		Py_CLEAR(ccn_data);
+		py_o = PyObject_GetAttrString(py_Interest, "ccn_data");
+		JUMP_IF_NULL(py_o, exit);
+		interest = PyCObject_AsVoidPtr(py_o);
+		JUMP_IF_NULL(interest, exit);
+		Py_CLEAR(py_o);
 	}
 
-	data = ccn_charbuf_create();
-	pco = malloc(sizeof(*pco));
-	comps = ccn_indexbuf_create();
+	py_data = CCNObject_New_ContentObject(&data);
+	JUMP_IF_NULL(py_data, exit);
+	py_pco = CCNObject_New_ParsedContentObject(&pco);
+	JUMP_IF_NULL(py_pco, exit);
+	py_comps = CCNObject_New_ContentObjectComponents(&comps);
+	JUMP_IF_NULL(py_comps, exit);
 
 	Py_BEGIN_ALLOW_THREADS
 	r = ccn_get(handle, name, interest, timeout, data, pco, comps, 0);
 	Py_END_ALLOW_THREADS
 
-	fprintf(stderr, "ccn_get result=%d\n", r);
+	debug("ccn_get result=%d\n", r);
 
 	if (r < 0) {
-		//XXX: CCN doesn't clearly say when timeout happens
+		//CCN doesn't clearly say when timeout happens, we're assuming
+		//it is when no error was set
 		int err = ccn_geterror(handle);
 		if (err)
 			py_co = PyErr_Format(PyExc_IOError, "%s [%d]", strerror(err), err);
 		else
 			py_co = (Py_INCREF(Py_None), Py_None); // timeout
 	} else
-		py_co = ContentObject_from_ccn_parsed(data, pco, comps);
+		py_co = ContentObject_from_ccn_parsed(py_data, py_pco, py_comps);
 
-	ccn_indexbuf_destroy(&comps);
-	free(pco); // TODO: freed by the destructor?
-	ccn_charbuf_destroy(&data);
-
+exit:
+	Py_XDECREF(py_comps);
+	Py_XDECREF(py_pco);
+	Py_XDECREF(py_data);
+	Py_XDECREF(py_o);
 	return py_co;
-
-error:
-	Py_XDECREF(ccn_data);
-	return NULL;
 }
 
 static PyObject * // int
@@ -675,35 +679,6 @@ _pyccn_generate_RSA_key(PyObject* self, PyObject* args)
 	return Py_BuildValue("i", result);
 }
 
-// ** Methods of ContentObject
-//
-// Content Objects
-
-static PyObject* // int
-_pyccn_ccn_encode_content_object(PyObject* self, PyObject* args)
-{
-	// PyObject* key) {
-	// Get everything, including ccn handle, and SignedInfo, from Content Object
-	// Update signature object in content object
-
-	return 0;
-}
-
-static PyObject* // int
-_pyccn_ccn_verify_content(PyObject* self, PyObject* args)
-{
-	// PyObject* msg) {
-
-	return 0;
-}
-
-static PyObject* // int
-_pyccn_ccn_content_matches_interest(PyObject* self, PyObject* args)
-{
-	// PyObject* interest) {
-
-	return 0;
-}
 
 // ** Methods of SignedInfo
 //
@@ -725,174 +700,6 @@ _pyccn_ccn_signed_info_create(PyObject* self, PyObject* args) {
 }
 
  */
-
-// Naming
-
-static PyObject* // int
-_pyccn_ccn_name_init(PyObject* self, PyObject* args)
-{
-
-	return 0;
-}
-
-static PyObject* // int
-_pyccn_ccn_name_append_nonce(PyObject* self, PyObject* args)
-{
-
-	return 0;
-}
-
-static PyObject* // int
-_pyccn_ccn_compare_names(PyObject* self, PyObject* args)
-{
-	// PyObject* name) {
-
-	return 0;
-}
-
-static PyObject *
-_pyccn_Name_to_ccn(PyObject *self, PyObject *py_name_components)
-{
-	struct ccn_charbuf *name;
-	PyObject *py_name, *iterator, *item = NULL;
-	int r;
-
-	if (!PyList_Check(py_name_components)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a components of the Name");
-		return NULL;
-	}
-
-	iterator = PyObject_GetIter(py_name_components);
-	if (!iterator)
-		return NULL;
-
-	py_name = CCNObject_New_Name(&name);
-	JUMP_IF_NULL(name, error);
-
-	r = ccn_name_init(name);
-	JUMP_IF_NEG_MEM(r, error);
-
-	// Parse the list of components and
-	// convert them to C objects
-	//
-	while ((item = PyIter_Next(iterator))) {
-		if (PyByteArray_Check(item)) {
-			Py_ssize_t n = PyByteArray_Size(item);
-			char *b = PyByteArray_AsString(item);
-			r = ccn_name_append(name, b, n);
-			JUMP_IF_NEG_MEM(r, error);
-		} else if (PyString_Check(item)) { // Unicode or UTF-8?
-			char *s = PyString_AsString(item);
-			JUMP_IF_NULL(s, error);
-
-			r = ccn_name_append_str(name, s);
-			JUMP_IF_NEG_MEM(r, error);
-
-			// Note, we choose to convert numbers to their string
-			// representation; if we want numeric encoding, use a
-			// byte array and do it explicitly.
-		} else if (PyFloat_Check(item) || PyLong_Check(item) || PyInt_Check(item)) {
-			PyObject *str = PyObject_Str(item);
-			JUMP_IF_NULL(str, error);
-
-			char *s = PyString_AsString(str);
-			if (!s) {
-				Py_DECREF(str);
-				goto error;
-			}
-
-			r = ccn_name_append_str(name, s);
-			Py_DECREF(str);
-			JUMP_IF_NEG_MEM(r, error);
-		} else {
-			PyErr_SetString(PyExc_TypeError, "Unknown value type in the list");
-			goto error;
-		}
-		Py_DECREF(item);
-	}
-	Py_CLEAR(iterator);
-
-	return CCNObject_New(NAME, name);
-
-error:
-	Py_XDECREF(item);
-	Py_DECREF(iterator);
-	Py_XDECREF(py_name);
-	return NULL;
-}
-
-// From within python
-//
-
-static PyObject *
-_pyccn_Name_from_ccn(PyObject *self, PyObject *py_cname)
-{
-	PyObject *py_component_list = NULL, *py_component = NULL;
-	struct ccn_charbuf *name;
-	struct ccn_indexbuf *comp_index;
-	int r;
-
-	if (!CCNObject_IsValid(NAME, py_cname)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a CCN name");
-		return NULL;
-	}
-	name = CCNObject_Get(NAME, py_cname);
-
-	debug("Name_from_ccn start\n");
-
-	// Iterate through name components
-	// Copy into byte array
-	comp_index = ccn_indexbuf_create();
-	JUMP_IF_NULL_MEM(comp_index, error);
-
-	r = ccn_name_split(name, comp_index);
-	if (r < 0) {
-		PyErr_SetString(PyExc_TypeError, "The argument is not a valid CCN name");
-		goto error;
-	}
-
-	// Create component list
-	py_component_list = PyList_New(0);
-	JUMP_IF_NULL(py_component_list, error);
-
-	/* I wish I could understand this code -dk */
-	unsigned char *component;
-	int size;
-	int n; // component
-	int h; // header size
-	for (n = 0; n < comp_index->n - 1; n++) { // not the implicit digest component
-		debug("Name_from_ccn component %d of %d \n", n, comp_index->n - 2);
-
-		component = &(name->buf[comp_index->buf[n]]) + 1; // What is the first byte? (250?)
-		//debug("\t%s\n", component);
-
-		for (h = 2; h < (comp_index->buf[n + 1] - comp_index->buf[n]); h++) { // walk through the header until the terminators is found
-			if (*(component++) > 127)
-				break;
-		}
-
-		size = (int) (comp_index->buf[n + 1] - comp_index->buf[n]) - 1 - h; // don't include the DTAG Component
-
-		py_component = PyByteArray_FromStringAndSize((char*) component, size);
-		JUMP_IF_NULL(py_component, error);
-
-		r = PyList_Append(py_component_list, py_component);
-		Py_DECREF(py_component);
-		JUMP_IF_NEG(r, error);
-	}
-	// TODO: Add implicit digest componet?
-	// TODO: Parse version & segment?
-
-	ccn_indexbuf_destroy(&comp_index);
-
-	fprintf(stderr, "Name_from_ccn ends\n");
-	return py_component_list;
-
-error:
-	ccn_indexbuf_destroy(&comp_index);
-	Py_XDECREF(py_component_list);
-	return NULL;
-}
 
 static PyObject *
 _pyccn_Interest_to_ccn(PyObject *self, PyObject *py_interest)
@@ -945,146 +752,9 @@ _pyccn_Interest_from_ccn(PyObject* self, PyObject* args)
 	return Py_None;
 }
 
-static PyObject *
-_pyccn_content_to_bytearray(PyObject *self, PyObject *arg)
-{
-	PyObject *result;
-
-	if (arg == Py_None)
-		result = (Py_INCREF(Py_None), Py_None);
-	else if (PyFloat_Check(arg) || PyLong_Check(arg) || PyInt_Check(arg)) {
-		PyObject *s;
-
-		s = PyObject_Str(arg);
-		if (!s)
-			return NULL;
-
-		result = PyByteArray_FromObject(s);
-		Py_DECREF(s);
-	} else
-		result = PyByteArray_FromObject(arg);
-
-	return result;
-}
-
-static PyObject *
-_pyccn_ContentObject_to_ccn(PyObject *self, PyObject *args)
-{
-	PyObject *py_content_object, *py_name, *py_content, *py_signed_info,
-			*py_key;
-	PyObject *py_o = NULL, *ret = NULL;
-	struct ccn_charbuf *name, *signed_info, *content_object = NULL;
-	struct ccn_pkey *private_key;
-	const char *digest_alg = NULL;
-	char *content;
-	int content_len, r;
-
-	if (!PyArg_ParseTuple(args, "OOOOO", &py_content_object, &py_name,
-			&py_content, &py_signed_info, &py_key))
-		return NULL;
-
-	if (strcmp(py_content_object->ob_type->tp_name, "ContentObject")) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a ContentObject as arg 1");
-		return NULL;
-	}
-
-	if (!CCNObject_IsValid(NAME, py_name)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a CCN Name as arg 2");
-		return NULL;
-	} else
-		name = CCNObject_Get(NAME, py_name);
-
-	if (py_content != Py_None && !PyByteArray_Check(py_content)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a ByteArray as arg 3");
-		return NULL;
-	} else if (py_content == Py_None) {
-		content = NULL;
-		content_len = 0;
-	} else {
-		content = PyByteArray_AS_STRING(py_content);
-		content_len = PyByteArray_GET_SIZE(py_content);
-	}
-
-	if (!CCNObject_IsValid(SIGNED_INFO, py_signed_info)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a CCN SignedInfo as arg 4");
-		return NULL;
-	} else
-		signed_info = CCNObject_Get(SIGNED_INFO, py_signed_info);
-
-	if (strcmp(py_key->ob_type->tp_name, "Key")) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a Key as arg 4");
-		return NULL;
-	}
-
-	// DigestAlgorithm
-	py_o = PyObject_GetAttrString(py_content_object, "digestAlgorithm");
-	if (py_o != Py_None) {
-		PyErr_SetString(PyExc_NotImplementedError, "non-default digest"
-				" algorithm not yet supported");
-		goto error;
-	}
-	Py_CLEAR(py_o);
-
-	// Key
-	private_key = Key_to_ccn_private(py_key);
-
-	// Note that we don't load this key into the keystore hashtable in the library
-	// because it makes this method require access to a ccn handle, and in fact,
-	// ccn_sign_content just uses what's in signedinfo (after an error check by
-	// chk_signing_params and then calls ccn_encode_ContentObject anyway
-	//
-	// Encode the content object
-
-	// Build the ContentObject here.
-	content_object = ccn_charbuf_create();
-	JUMP_IF_NULL_MEM(content_object, error);
-
-	r = ccn_encode_ContentObject(content_object, name, signed_info, content,
-			content_len, digest_alg, private_key);
-
-	debug("ccn_encode_ContentObject res=%d\n", r);
-	if (r < 0) {
-		ccn_charbuf_destroy(&content_object);
-		PyErr_SetString(g_PyExc_CCNError, "Unable to encode ContentObject");
-		goto error;
-	}
-
-	ret = CCNObject_New(CONTENT_OBJECT, content_object);
-
-error:
-	Py_XDECREF(py_o);
-	return ret;
-}
-
 
 // From within python
 //
-
-static PyObject*
-_pyccn_ContentObject_from_ccn(PyObject* self, PyObject* args)
-{
-	PyObject* cobj_content_object;
-	PyObject* cobj_parsed_content_object;
-	PyObject* cobj_content_object_components;
-	if (PyArg_ParseTuple(args, "O|OO", &cobj_content_object, &cobj_parsed_content_object, &cobj_content_object_components)) {
-		if (!PyCObject_Check(cobj_content_object)) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a CObject as args");
-			return NULL;
-		}
-		if (!PyCObject_Check(cobj_content_object)) {
-			return ContentObject_from_ccn(
-					(struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_content_object));
-		} else {
-			return ContentObject_from_ccn_parsed(
-					(struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_content_object),
-					(struct ccn_parsed_ContentObject*) PyCObject_AsVoidPtr(cobj_parsed_content_object),
-					(struct ccn_indexbuf*) PyCObject_AsVoidPtr(cobj_content_object_components));
-		}
-	}
-	Py_INCREF(Py_None);
-
-	return Py_None;
-}
 
 static PyObject *
 _pyccn_Key_to_ccn_public(PyObject *self, PyObject *py_key)
@@ -1115,6 +785,7 @@ _pyccn_Key_from_ccn(PyObject *self, PyObject *cobj_key)
 {
 	if (!CCNObject_IsValid(PKEY, cobj_key)) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a CCN PKEY object");
+
 		return NULL;
 	}
 
@@ -1145,6 +816,7 @@ KeyLocator_name_to_ccn(struct ccn_charbuf *keylocator, PyObject *py_name)
 	r = 0;
 
 error:
+
 	return r;
 }
 
@@ -1173,6 +845,7 @@ KeyLocator_key_to_ccn(struct ccn_charbuf *keylocator, PyObject *py_key)
 	r = 0;
 
 error:
+
 	return r;
 }
 
@@ -1218,6 +891,7 @@ _pyccn_KeyLocator_to_ccn(PyObject *self, PyObject *args, PyObject *kwds)
 	return CCNObject_New(KEY_LOCATOR, keylocator);
 error:
 	ccn_charbuf_destroy(&keylocator);
+
 	return NULL;
 }
 
@@ -1421,6 +1095,7 @@ _pyccn_SignedInfo_to_ccn(PyObject *self, PyObject *args, PyObject *kwds)
 	if (r < 0) {
 		ccn_charbuf_destroy(&si);
 		PyErr_SetString(g_PyExc_CCNError, "Error while creating SignedInfo");
+
 		return NULL;
 	}
 
@@ -1524,10 +1199,12 @@ static PyMethodDef _module_methods[] = {
 	{"_pyccn_ccn_connect", _pyccn_ccn_connect, METH_O, NULL},
 	{"_pyccn_ccn_disconnect", _pyccn_ccn_disconnect, METH_O, NULL},
 	{"_pyccn_ccn_run", _pyccn_ccn_run, METH_VARARGS, NULL},
-	{"_pyccn_ccn_set_run_timeout", _pyccn_ccn_set_run_timeout, METH_VARARGS, NULL},
-	{"_pyccn_ccn_express_interest", _pyccn_ccn_express_interest, METH_VARARGS, NULL},
-	{"_pyccn_ccn_set_interest_filter", _pyccn_ccn_set_interest_filter, METH_VARARGS,
-		""},
+	{"_pyccn_ccn_set_run_timeout", _pyccn_ccn_set_run_timeout, METH_VARARGS,
+		NULL},
+	{"_pyccn_ccn_express_interest", _pyccn_ccn_express_interest, METH_VARARGS,
+		NULL},
+	{"_pyccn_ccn_set_interest_filter", _pyccn_ccn_set_interest_filter,
+		METH_VARARGS, NULL},
 	{"_pyccn_ccn_get", _pyccn_ccn_get, METH_VARARGS, NULL},
 	{"_pyccn_ccn_put", _pyccn_ccn_put, METH_VARARGS, NULL},
 	{"_pyccn_ccn_get_default_key", _pyccn_ccn_get_default_key, METH_VARARGS,
@@ -1577,8 +1254,10 @@ static PyMethodDef _module_methods[] = {
 		""},
 	{"_pyccn_ContentObject_to_ccn", _pyccn_ContentObject_to_ccn, METH_VARARGS,
 		""},
+#if 0
 	{"_pyccn_ContentObject_from_ccn", _pyccn_ContentObject_from_ccn, METH_VARARGS,
 		""},
+#endif
 	{"_pyccn_Key_to_ccn_public", _pyccn_Key_to_ccn_public, METH_O, NULL},
 	{"_pyccn_Key_to_ccn_private", _pyccn_Key_to_ccn_private, METH_O, NULL},
 	{"_pyccn_Key_from_ccn", _pyccn_Key_from_ccn, METH_O, NULL},

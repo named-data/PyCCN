@@ -12,7 +12,8 @@ TESTS = \
 	ContentObject.py \
 	key.py \
 	signing.py \
-	simpleCommunication.py
+	simpleCommunication.py \
+	receiving.py
 
 TEST_EXTENSIONS = .py
 PY_LOG_COMPILER = $(PYTHON)
