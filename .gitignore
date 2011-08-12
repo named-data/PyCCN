@@ -6,6 +6,7 @@
 /configure
 /config.cache
 /config.h
+/config.h.in
 /config.log
 /config.status
 /libtool
@@ -17,10 +18,10 @@
 /m4/lt~obsolete.m4
 
 Makefile
+Makefile.in
 .deps/
 .libs/
 
-*.in
 *.la
 *.lo
 *.o

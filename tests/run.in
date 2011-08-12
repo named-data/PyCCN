@@ -1,0 +1,10 @@
+#! /bin/sh
+
+prefix=@prefix@
+modpath=@top_builddir@/tests/install@pythondir@/pyccn
+pypath=@top_builddir@/tests/install@pythondir@:$PYTHONPATH
+
+test -z "$1" &&
+	PYTHONPATH=$pypath DYLD_LIBRAY_PATH=$modpath exec @PYTHON@
+
+PYTHONPATH=$pypath DYLD_LIBRAY_PATH=$modpath exec @PYTHON@ "$@"

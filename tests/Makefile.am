@@ -1,4 +1,4 @@
-#TEST_ENVIRONMENT = $(PYTHON) -t -3
+#TEST_ENVIRONMENT = ./run
 
 TESTS = \
 	importModule.py \
@@ -15,8 +15,10 @@ TESTS = \
 	simpleCommunication.py \
 	receiving.py
 
+check_SCRIPTS = run
+
 TEST_EXTENSIONS = .py
-PY_LOG_COMPILER = $(PYTHON)
+PY_LOG_COMPILER = ./run
 AM_PY_LOG_FLAGS = -v
 
 #%.gdb: %

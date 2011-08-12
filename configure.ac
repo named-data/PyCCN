@@ -14,7 +14,7 @@ LT_INIT
 
 # Checks for programs.
 AC_PROG_CC
-AM_PATH_PYTHON([2.5],,AC_MSG_ERROR([Python is required to compile PyCCN]))
+AM_PATH_PYTHON([2.7],,AC_MSG_ERROR([Python 2.7 is required to compile and run PyCCN]))
 
 # Checks for libraries.
 AX_CHECK_CCN(,AC_MSG_ERROR([CCNx is required to compile PyCCN]))
@@ -33,4 +33,5 @@ AC_CONFIG_FILES([
 	python/Makefile
 	tests/Makefile
 	])
+AC_CONFIG_FILES([tests/run], [chmod +x tests/run])
 AC_OUTPUT
