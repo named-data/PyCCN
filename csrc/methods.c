@@ -27,7 +27,7 @@ _pyccn_ccn_create(PyObject* self, PyObject* args)
 {
 	struct ccn *ccn_handle = ccn_create();
 
-	if (ccn_handle < 0) {
+	if (!ccn_handle) {
 		PyErr_SetString(g_PyExc_CCNError,
 				"ccn_create() failed for an unknown reason"
 				" (out of memory?).");

@@ -161,7 +161,7 @@ CCNObject_New_Name(struct ccn_charbuf **name)
 	PyObject *py_cname;
 
 	p = ccn_charbuf_create();
-	if (p < 0)
+	if (!p)
 		return PyErr_NoMemory();
 
 	py_cname = CCNObject_New(NAME, p);
@@ -205,7 +205,7 @@ CCNObject_New_ContentObject(struct ccn_charbuf **content_object)
 	PyObject *py_co;
 
 	p = ccn_charbuf_create();
-	if (p < 0)
+	if (!p)
 		return PyErr_NoMemory();
 
 	py_co = CCNObject_New(CONTENT_OBJECT, p);

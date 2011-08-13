@@ -6,7 +6,72 @@
 #include "misc.h"
 #include "objects.h"
 
-// Naming
+// Can be called directly from c library
+// For now, everything is a bytearray
+
+static PyObject *
+name_comps_from_ccn(PyObject *py_cname)
+{
+	struct ccn_charbuf *name;
+	struct ccn_indexbuf *comp_index;
+	int r;
+	PyObject *py_component_list = NULL, *py_component;
+
+	assert(CCNObject_IsValid(NAME, py_cname));
+
+	name = CCNObject_Get(NAME, py_cname);
+
+	comp_index = ccn_indexbuf_create();
+	JUMP_IF_NULL_MEM(comp_index, error);
+
+	r = ccn_name_split(name, comp_index);
+	if (r < 0) {
+		PyErr_SetString(PyExc_TypeError, "The argument is not a valid CCN"
+				" name");
+		goto error;
+	}
+
+	// Create component list
+	py_component_list = PyList_New(0);
+	JUMP_IF_NULL(py_component_list, error);
+
+	/* I wish I could understand this code -dk */
+	for (int n = 0; n < comp_index->n - 1; n++) { // not the implicit digest component
+		int h; // header size
+		int size;
+		unsigned char *component;
+
+		debug("name_comps_from_ccn component %d of %d \n", n, comp_index->n - 2);
+
+		component = &(name->buf[comp_index->buf[n]]) + 1; // What is the first byte? (250?)
+		//debug("\t%s\n", component);
+
+		for (h = 2; h < (comp_index->buf[n + 1] - comp_index->buf[n]); h++) { // walk through the header until the terminators is found
+			if (*(component++) > 127)
+				break;
+		}
+
+		size = (comp_index->buf[n + 1] - comp_index->buf[n]) - 1 - h; // don't include the DTAG Component
+
+		py_component = PyByteArray_FromStringAndSize((char *) component, size);
+		JUMP_IF_NULL(py_component, error);
+
+		r = PyList_Append(py_component_list, py_component);
+		Py_DECREF(py_component);
+		JUMP_IF_NEG(r, error);
+	}
+	// TODO: Add implicit digest component?
+	// TODO: Parse version & segment?
+
+	ccn_indexbuf_destroy(&comp_index);
+
+	return py_component_list;
+
+error:
+	ccn_indexbuf_destroy(&comp_index);
+	Py_XDECREF(py_component_list);
+	return NULL;
+}
 
 PyObject *
 _pyccn_Name_to_ccn(PyObject *self, PyObject *py_name_components)
@@ -85,178 +150,93 @@ error:
 PyObject *
 _pyccn_Name_from_ccn(PyObject *self, PyObject *py_cname)
 {
-	PyObject *py_component_list = NULL, *py_component = NULL;
-	struct ccn_charbuf *name;
-	struct ccn_indexbuf *comp_index;
-	int r;
-
 	if (!CCNObject_IsValid(NAME, py_cname)) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a CCN name");
 		return NULL;
 	}
-	name = CCNObject_Get(NAME, py_cname);
 
-	debug("Name_from_ccn start\n");
-
-	// Iterate through name components
-	// Copy into byte array
-	comp_index = ccn_indexbuf_create();
-	JUMP_IF_NULL_MEM(comp_index, error);
-
-	r = ccn_name_split(name, comp_index);
-	if (r < 0) {
-		PyErr_SetString(PyExc_TypeError, "The argument is not a valid CCN name");
-		goto error;
-	}
-
-	// Create component list
-	py_component_list = PyList_New(0);
-	JUMP_IF_NULL(py_component_list, error);
-
-	/* I wish I could understand this code -dk */
-	unsigned char *component;
-	int size;
-	int n; // component
-	int h; // header size
-	for (n = 0; n < comp_index->n - 1; n++) { // not the implicit digest component
-		debug("Name_from_ccn component %d of %d \n", n, comp_index->n - 2);
-
-		component = &(name->buf[comp_index->buf[n]]) + 1; // What is the first byte? (250?)
-		//debug("\t%s\n", component);
-
-		for (h = 2; h < (comp_index->buf[n + 1] - comp_index->buf[n]); h++) { // walk through the header until the terminators is found
-			if (*(component++) > 127)
-				break;
-		}
-
-		size = (int) (comp_index->buf[n + 1] - comp_index->buf[n]) - 1 - h; // don't include the DTAG Component
-
-		py_component = PyByteArray_FromStringAndSize((char*) component, size);
-		JUMP_IF_NULL(py_component, error);
-
-		r = PyList_Append(py_component_list, py_component);
-		Py_DECREF(py_component);
-		JUMP_IF_NEG(r, error);
-	}
-	// TODO: Add implicit digest componet?
-	// TODO: Parse version & segment?
-
-	ccn_indexbuf_destroy(&comp_index);
-
-	debug("Name_from_ccn ends\n");
-	return py_component_list;
-
-error:
-	ccn_indexbuf_destroy(&comp_index);
-	Py_XDECREF(py_component_list);
-	return NULL;
+	return name_comps_from_ccn(py_cname);
 }
 
 PyObject *
-Name_from_ccn_parsed(struct ccn_charbuf *content_object,
-		struct ccn_parsed_ContentObject *parsed_content_object)
+Name_from_ccn_parsed(PyObject *py_content_object,
+		PyObject *py_parsed_content_object)
 {
+	struct ccn_charbuf *content_object;
+	struct ccn_parsed_ContentObject *parsed_content_object;
+	PyObject *py_ccn_name;
 	PyObject *py_Name;
-	size_t namelen;
+	struct ccn_charbuf *name;
+	size_t name_begin, name_end, s;
 	int r;
 
-	namelen = parsed_content_object->offset[CCN_PCO_E_Name]
-			- parsed_content_object->offset[CCN_PCO_B_Name];
+	assert(CCNObject_IsValid(CONTENT_OBJECT, py_content_object));
+	assert(CCNObject_IsValid(PARSED_CONTENT_OBJECT, py_parsed_content_object));
 
-	debug("ContentObject_from_ccn_parsed Name len=%zd\n", namelen);
-	if (namelen > 0) {
-		struct ccn_charbuf *name;
-		size_t name_begin, name_end;
-		PyObject *py_ccn_name;
+	content_object = CCNObject_Get(CONTENT_OBJECT, py_content_object);
+	parsed_content_object = CCNObject_Get(PARSED_CONTENT_OBJECT,
+			py_parsed_content_object);
 
-		name = ccn_charbuf_create();
-		if (!name)
-			return PyErr_NoMemory();
+	name_begin = parsed_content_object->offset[CCN_PCO_B_Name];
+	name_end = parsed_content_object->offset[CCN_PCO_E_Name];
+	s = name_end - name_begin;
 
-		py_ccn_name = CCNObject_New(NAME, name);
-		if (!py_ccn_name) {
-			ccn_charbuf_destroy(&name);
-			return NULL;
-		}
-
-		name_begin = parsed_content_object->offset[CCN_PCO_B_Name];
-		name_end = parsed_content_object->offset[CCN_PCO_E_Name];
-
-		r = ccn_charbuf_append(name, &content_object->buf[name_begin],
-				name_end - name_begin);
-		if (r < 0) {
-			Py_DECREF(py_ccn_name);
-			return PyErr_NoMemory();
-		}
-
-		debug("Name: ");
-		dump_charbuf(name, stderr);
-		debug("\n");
-
-		py_Name = Name_from_ccn(py_ccn_name);
-		Py_DECREF(py_ccn_name);
-	} else {
+	debug("ContentObject_from_ccn_parsed Name len=%zd\n", s);
+	if (s <= 0) {
 		PyErr_SetString(g_PyExc_CCNNameError, "No name stored (or name is"
 				" invalid) in parsed content object");
 		return NULL;
 	}
 
+	py_ccn_name = CCNObject_New_Name(&name);
+	if (!py_ccn_name)
+		return NULL;
+
+	r = ccn_charbuf_append(name, &content_object->buf[name_begin], s);
+	if (r < 0) {
+		Py_DECREF(py_ccn_name);
+		return PyErr_NoMemory();
+	}
+
+#if DEBUG_MSG
+	debug("Name: ");
+	dump_charbuf(name, stderr);
+	debug("\n");
+#endif
+
+	py_Name = Name_from_ccn(py_ccn_name);
+	Py_DECREF(py_ccn_name);
+
 	return py_Name;
 }
 
-// Can be called directly from c library
-// For now, everything is a bytearray
-//
-
-//XXX: Rewrite
-
 PyObject *
-Name_from_ccn(PyObject *ccn_data)
+Name_from_ccn(PyObject *py_cname)
 {
-	struct ccn_charbuf *name;
+	PyObject *py_Name = NULL, *py_components;
+	int r;
 
-	debug("Name_from_ccn start\n");
+	assert(g_type_Name);
+	assert(CCNObject_IsValid(NAME, py_cname));
 
-	// Create name object
-	PyObject* py_name = PyObject_CallObject(g_type_Name, NULL);
+	py_Name = PyObject_CallObject(g_type_Name, NULL);
+	JUMP_IF_NULL(py_Name, error);
 
-	// Create component list
-	PyObject* py_component_list = PyList_New(0);
-	PyObject_SetAttrString(py_name, "components", py_component_list);
+	py_components = name_comps_from_ccn(py_cname);
+	JUMP_IF_NULL(py_components, error);
 
-	// Iterate through name components
-	// Copy into byte array
-	PyObject* py_component;
+	r = PyObject_SetAttrString(py_Name, "components", py_components);
+	Py_DECREF(py_components);
+	JUMP_IF_NEG(r, error);
 
-	struct ccn_indexbuf* comps = ccn_indexbuf_create();
-	name = CCNObject_Get(NAME, ccn_data);
-	ccn_name_split(name, comps);
+	r = PyObject_SetAttrString(py_Name, "ccn_data", py_cname);
+	JUMP_IF_NEG(r, error);
 
-	unsigned char* comp;
-	int size;
-	int n; // component
-	int h; // header size
-	for (n = 0; n < comps->n - 1; n++) { // not the implicit digest component
-		fprintf(stderr, "Name_from_ccn component %d of %d \n", n, n < comps->n - 1);
-		comp = &(name->buf[comps->buf[n]]) + 1; // What is the first byte?  (250?)
-		//fprintf(stderr,"\t%s\n", comp);
-		for (h = 2; h < (comps->buf[n + 1] - comps->buf[n]); h++) { // walk through the header until the terminators is found
-			if (*(comp++) > 127) break;
-		}
-		size = (int) (comps->buf[n + 1] - comps->buf[n]) - 1 - h; // don't include the DTAG Component
-		py_component = PyByteArray_FromStringAndSize((char*) comp, size);
-		PyList_Append(py_component_list, py_component);
-		Py_DECREF(py_component);
-	}
-	// TODO: Add implicit digest componet?
-	// TODO: Parse version & segment?
+	return py_Name;
 
-	PyObject_SetAttrString(py_name, "ccn_data", ccn_data);
-
-	ccn_indexbuf_destroy(&comps);
-
-	fprintf(stderr, "Name_from_ccn ends\n");
-	return py_name;
+error:
+	Py_XDECREF(py_Name);
+	return NULL;
 }
 
 struct ccn_charbuf *
@@ -326,6 +306,7 @@ error:
 	Py_XDECREF(item);
 	Py_XDECREF(iterator);
 	ccn_charbuf_destroy(&name);
+
 	return NULL;
 }
 

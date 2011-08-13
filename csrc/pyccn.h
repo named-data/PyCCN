@@ -9,7 +9,9 @@
 #ifndef _PYCCN_H_
 #  define _PYCCN_H_
 
-#  if 1
+#  define DEBUG_MSG 1
+
+#  if DEBUG_MSG
 #    define debug(...) fprintf(stderr, __VA_ARGS__)
 #  else
 #    define debug(...)

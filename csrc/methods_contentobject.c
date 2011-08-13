@@ -42,25 +42,21 @@ ContentObject_from_ccn_parsed(PyObject *py_content_object,
 {
 	struct ccn_charbuf *content_object;
 	struct ccn_parsed_ContentObject *parsed_content_object;
-	struct ccn_indexbuf *components;
 	PyObject *py_ContentObject, *py_o;
 	int r;
 
 	if (!CCNObject_ReqType(CONTENT_OBJECT, py_content_object))
 		return NULL;
-	else
-		content_object = CCNObject_Get(CONTENT_OBJECT, py_content_object);
 
 	if (!CCNObject_ReqType(PARSED_CONTENT_OBJECT, py_parsed_content_object))
 		return NULL;
-	else
-		parsed_content_object = CCNObject_Get(PARSED_CONTENT_OBJECT,
-			py_parsed_content_object);
 
 	if (!CCNObject_ReqType(CONTENT_OBJECT_COMPONENTS, py_components))
 		return NULL;
-	else
-		components = CCNObject_Get(CONTENT_OBJECT_COMPONENTS, py_components);
+
+	content_object = CCNObject_Get(CONTENT_OBJECT, py_content_object);
+	parsed_content_object = CCNObject_Get(PARSED_CONTENT_OBJECT,
+			py_parsed_content_object);
 
 	debug("ContentObject_from_ccn_parsed content_object->length=%zd\n",
 			content_object->length);
@@ -70,7 +66,7 @@ ContentObject_from_ccn_parsed(PyObject *py_content_object,
 		return NULL;
 
 	/* Name */
-	py_o = Name_from_ccn_parsed(content_object, parsed_content_object);
+	py_o = Name_from_ccn_parsed(py_content_object, py_parsed_content_object);
 	JUMP_IF_NULL(py_o, error);
 	r = PyObject_SetAttrString(py_ContentObject, "name", py_o);
 	Py_DECREF(py_o);
@@ -133,6 +129,7 @@ error:
 
 // Can be called directly from c library
 #if 0
+
 PyObject*
 ContentObject_from_ccn(struct ccn_charbuf* content_object)
 {
@@ -259,6 +256,7 @@ error:
 }
 
 #if 0
+
 PyObject *
 _pyccn_ContentObject_from_ccn(PyObject *self, PyObject *args)
 {

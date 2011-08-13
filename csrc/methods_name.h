@@ -10,8 +10,8 @@
 
 PyObject *_pyccn_Name_to_ccn(PyObject *self, PyObject *py_name_components);
 PyObject *_pyccn_Name_from_ccn(PyObject *self, PyObject *py_cname);
-PyObject *Name_from_ccn_parsed(struct ccn_charbuf *content_object,
-		struct ccn_parsed_ContentObject *parsed_content_object);
+PyObject *Name_from_ccn_parsed(PyObject *py_content_object,
+		PyObject *py_parsed_content_object);
 PyObject *Name_from_ccn(PyObject *ccn_data);
 struct ccn_charbuf *Name_to_ccn(PyObject *py_name);
 PyObject *Name_from_ccn_tagged_bytearray(const unsigned char *buf,

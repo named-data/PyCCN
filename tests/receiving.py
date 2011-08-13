@@ -20,3 +20,4 @@ thread.join()
 print co
 
 assert co.content == "Hello everyone"
+assert str(co.name) == "/messages/hello"

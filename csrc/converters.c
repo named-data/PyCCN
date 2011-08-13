@@ -997,6 +997,10 @@ UpcallInfo_from_ccn(struct ccn_upcall_info *ui)
 {
 	PyObject *py_upcall_info;
 	PyObject *py_o;
+	PyObject *py_data = NULL, *py_pco = NULL, *py_comps = NULL;
+	struct ccn_charbuf *data;
+	struct ccn_parsed_ContentObject *pco;
+	struct ccn_indexbuf *comps;
 	int r;
 
 	//TODO: fix this
@@ -1010,42 +1014,39 @@ UpcallInfo_from_ccn(struct ccn_upcall_info *ui)
 	py_upcall_info = PyObject_CallObject(g_type_UpcallInfo, NULL);
 	JUMP_IF_NULL(py_upcall_info, error);
 
+	// CCN handle (I hope it isn't freed)
 	py_o = CCNObject_Borrow(HANDLE, ui->h);
 	r = PyObject_SetAttrString(py_upcall_info, "ccn", py_o);
 	Py_DECREF(py_o);
 	JUMP_IF_NEG(r, error);
 
-	const unsigned char *ccnb;
-	size_t ccnb_size;
-	struct ccn_indexbuf *comps;
-	int matched_comps;
-	PyObject *py_content_object;
-	struct ccn_charbuf *data;
+	py_data = CCNObject_New_ContentObject(&data);
+	JUMP_IF_NULL(py_data, error);
+	r = ccn_charbuf_append(data, ui->content_ccnb, ui->pco->offset[CCN_PCO_E]);
+	JUMP_IF_NEG_MEM(r, error);
 
-	ccnb = ui->content_ccnb;
-	ccnb_size = ui->pco->offset[CCN_PCO_E];
-	comps = ui->content_comps;
-	matched_comps = ui->pi->prefix_comps;
+	py_pco = CCNObject_New_ParsedContentObject(&pco);
+	JUMP_IF_NULL(py_pco, error);
 
-	data = ccn_charbuf_create();
-	ccn_charbuf_append(data, ccnb, ccnb_size);
-	PyObject *py_data = CCNObject_New(CONTENT_OBJECT, data);
+	py_comps = CCNObject_New_ContentObjectComponents(&comps);
+	JUMP_IF_NULL(py_comps, error);
 
-	struct ccn_parsed_ContentObject *pco;
-	pco = malloc(sizeof(*pco));
-	memcpy(pco, ui->pco, sizeof(*pco));
-	PyObject *py_pco = CCNObject_New(PARSED_CONTENT_OBJECT, pco);
+	py_o = ContentObject_from_ccn_parsed(py_data, py_pco, py_comps);
+	Py_CLEAR(py_comps);
+	Py_CLEAR(py_pco);
+	Py_CLEAR(py_data);
+	JUMP_IF_NULL(py_o, error);
 
-	PyObject *py_comps = CCNObject_New(CONTENT_OBJECT_COMPONENTS, comps);
-
-	py_content_object = ContentObject_from_ccn_parsed(py_data, py_pco, py_comps);
-
-	PyObject_SetAttrString(py_upcall_info, "ContentObject", py_content_object);
-	Py_DECREF(py_content_object);
+	r = PyObject_SetAttrString(py_upcall_info, "ContentObject", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
 
 	return py_upcall_info;
 
 error:
+	Py_XDECREF(py_comps);
+	Py_XDECREF(py_pco);
+	Py_XDECREF(py_data);
 	Py_XDECREF(py_upcall_info);
 	return NULL;
 }
