@@ -91,6 +91,9 @@ pyccn_Capsule_Destructor(PyObject *capsule)
 	} else if (CCNObject_IsValid(PKEY, capsule)) {
 		struct ccn_pkey *p = pointer;
 		ccn_pubkey_free(p); // what about private keys?
+	} else if (CCNObject_IsValid(SIGNATURE, capsule)) {
+		struct ccn_charbuf *p = pointer;
+		ccn_charbuf_destroy(&p);
 	} else if (CCNObject_IsValid(SIGNED_INFO, capsule)) {
 		struct ccn_charbuf *p = pointer;
 		ccn_charbuf_destroy(&p);
@@ -260,6 +263,29 @@ CCNObject_New_ContentObjectComponents(struct ccn_indexbuf **comps)
 
 	if (comps)
 		*comps = p;
+
+	return py_o;
+}
+
+PyObject *
+CCNObject_New_charbuf(enum _pyccn_capsules type,
+		struct ccn_charbuf **charbuf)
+{
+	struct ccn_charbuf *p;
+	PyObject *py_o;
+
+	p = ccn_charbuf_create();
+	if (!p)
+		return PyErr_NoMemory();
+
+	py_o = CCNObject_New(type, p);
+	if (!py_o) {
+		ccn_charbuf_destroy(&p);
+		return NULL;
+	}
+
+	if (charbuf)
+		*charbuf = p;
 
 	return py_o;
 }

@@ -89,7 +89,7 @@ _pyccn_Name_to_ccn(PyObject *self, PyObject *py_name_components)
 	if (!iterator)
 		return NULL;
 
-	py_name = CCNObject_New_Name(&name);
+	py_name = CCNObject_New_charbuf(NAME, &name);
 	JUMP_IF_NULL(name, error);
 
 	r = ccn_name_init(name);
@@ -188,7 +188,7 @@ Name_from_ccn_parsed(PyObject *py_content_object,
 		return NULL;
 	}
 
-	py_ccn_name = CCNObject_New_Name(&name);
+	py_ccn_name = CCNObject_New_charbuf(NAME, &name);
 	if (!py_ccn_name)
 		return NULL;
 

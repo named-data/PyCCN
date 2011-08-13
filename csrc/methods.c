@@ -9,6 +9,7 @@
 #include "key_utils.h"
 #include "methods_contentobject.h"
 #include "methods_name.h"
+#include "methods_signature.h"
 #include "misc.h"
 #include "objects.h"
 
@@ -444,7 +445,7 @@ _pyccn_ccn_get(PyObject *self, PyObject *args)
 		Py_CLEAR(py_o);
 	}
 
-	py_data = CCNObject_New_ContentObject(&data);
+	py_data = CCNObject_New_charbuf(CONTENT_OBJECT, &data);
 	JUMP_IF_NULL(py_data, exit);
 	py_pco = CCNObject_New_ParsedContentObject(&pco);
 	JUMP_IF_NULL(py_pco, exit);
@@ -934,7 +935,7 @@ _pyccn_KeyLocator_from_ccn(PyObject *self, PyObject *py_keylocator)
 		ccn_buf_advance(d);
 
 		start = d->decoder.token_index;
-		r = ccn_parse_required_tagged_BLOB(d, CCN_DTAG_Name, 0, -1);
+		r = ccn_parse_required_tagged_BLOB(d, CCN_DTAG_Name, 1, -1);
 		stop = d->decoder.token_index;
 		if (r < 0)
 			return PyErr_Format(g_PyExc_CCNKeyLocatorError, "Error finding NAME"
@@ -948,7 +949,7 @@ _pyccn_KeyLocator_from_ccn(PyObject *self, PyObject *py_keylocator)
 
 		debug("Parse CCN_DTAG_Name inside KeyName, len=%zd\n", bname_size);
 
-		py_res = CCNObject_New_Name(&name);
+		py_res = CCNObject_New_charbuf(NAME, &name);
 		if (!py_res)
 			return NULL;
 
@@ -962,7 +963,7 @@ _pyccn_KeyLocator_from_ccn(PyObject *self, PyObject *py_keylocator)
 		size_t dkey_size;
 
 		start = d->decoder.token_index;
-		r = ccn_parse_required_tagged_BLOB(d, CCN_DTAG_Key, 0, -1);
+		r = ccn_parse_required_tagged_BLOB(d, CCN_DTAG_Key, 1, -1);
 		stop = d->decoder.token_index;
 		if (r < 0)
 			return PyErr_Format(g_PyExc_CCNKeyLocatorError, "Error finding KEY"
@@ -998,41 +999,6 @@ _pyccn_KeyLocator_from_ccn(PyObject *self, PyObject *py_keylocator)
 	ccn_buf_check_close(d); // we don't really check the parser, though-
 
 	return py_res;
-}
-
-static PyObject*
-_pyccn_Signature_to_ccn(PyObject* self, PyObject* args)
-{
-	PyObject* py_signature;
-	struct ccn_charbuf* signature;
-	if (PyArg_ParseTuple(args, "O", &py_signature)) {
-		if (strcmp(py_signature->ob_type->tp_name, "Signature") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a Signature");
-
-			return NULL;
-		}
-		signature = Signature_to_ccn(py_signature);
-	}
-	return PyCObject_FromVoidPtr((void*) signature, __ccn_signature_destroy);
-}
-
-// From within python
-//
-
-static PyObject*
-_pyccn_Signature_from_ccn(PyObject* self, PyObject* args)
-{
-	PyObject* cobj_signature;
-	if (PyArg_ParseTuple(args, "O", &cobj_signature)) {
-		if (!PyCObject_Check(cobj_signature)) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a CObject containing a struct ccn_charbuf*");
-			return NULL;
-		}
-		return Signature_from_ccn((struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_signature));
-	}
-	Py_INCREF(Py_None);
-
-	return Py_None;
 }
 
 static PyObject *
@@ -1264,10 +1230,8 @@ static PyMethodDef _module_methods[] = {
 	{"_pyccn_KeyLocator_to_ccn", (PyCFunction) _pyccn_KeyLocator_to_ccn,
 		METH_VARARGS | METH_KEYWORDS, NULL},
 	{"_pyccn_KeyLocator_from_ccn", _pyccn_KeyLocator_from_ccn, METH_O, NULL},
-	{"_pyccn_Signature_to_ccn", _pyccn_Signature_to_ccn, METH_VARARGS,
-		""},
-	{"_pyccn_Signature_from_ccn", _pyccn_Signature_from_ccn, METH_VARARGS,
-		""},
+	{"_pyccn_Signature_to_ccn", _pyccn_Signature_to_ccn, METH_O, NULL},
+	{"_pyccn_Signature_from_ccn", _pyccn_Signature_from_ccn, METH_O, NULL},
 	{"_pyccn_SignedInfo_to_ccn", (PyCFunction) _pyccn_SignedInfo_to_ccn,
 		METH_VARARGS | METH_KEYWORDS, NULL},
 	{"_pyccn_SignedInfo_from_ccn", _pyccn_SignedInfo_from_ccn, METH_VARARGS,

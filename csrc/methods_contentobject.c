@@ -2,8 +2,9 @@
 #include <ccn/ccn.h>
 
 #include "pyccn.h"
-#include "converters.h"
+#include "converters.h" //TODO: get rid of this
 #include "methods_name.h"
+#include "methods_signature.h"
 #include "objects.h"
 
 static PyObject *
@@ -14,8 +15,6 @@ Content_from_ccn_parsed(struct ccn_charbuf *content_object,
 	size_t size;
 	PyObject *py_content;
 	int r;
-
-	debug("ContentObject_from_ccn_parsed Content\n");
 
 	r = ccn_content_get_value(content_object->buf, content_object->length,
 			parsed_content_object, (const unsigned char **) &value, &size);
@@ -44,6 +43,8 @@ ContentObject_from_ccn_parsed(PyObject *py_content_object,
 	struct ccn_parsed_ContentObject *parsed_content_object;
 	PyObject *py_ContentObject, *py_o;
 	int r;
+	struct ccn_charbuf *signature;
+	PyObject *py_signature;
 
 	if (!CCNObject_ReqType(CONTENT_OBJECT, py_content_object))
 		return NULL;
@@ -79,17 +80,30 @@ ContentObject_from_ccn_parsed(PyObject *py_content_object,
 	Py_DECREF(py_o);
 	JUMP_IF_NEG(r, error);
 
+	/* Signature */
 	debug("ContentObject_from_ccn_parsed Signature\n");
 
-	struct ccn_charbuf* signature = ccn_charbuf_create();
-	ccn_charbuf_append(signature, &content_object->buf[parsed_content_object->offset[CCN_PCO_B_Signature]],
-			(size_t) (parsed_content_object->offset[CCN_PCO_E_Signature] - parsed_content_object->offset[CCN_PCO_B_Signature]));
+	py_signature = CCNObject_New_charbuf(SIGNATURE, &signature);
+	JUMP_IF_NULL(py_signature, error);
 
-	PyObject* py_signature = Signature_from_ccn(signature); // it will destroy?
-	PyObject_SetAttrString(py_ContentObject, "signature", py_signature);
-	Py_INCREF(py_signature);
+	r = ccn_charbuf_append(signature,
+			&content_object->buf[parsed_content_object->offset[CCN_PCO_B_Signature]],
+			(size_t) (parsed_content_object->offset[CCN_PCO_E_Signature]
+			- parsed_content_object->offset[CCN_PCO_B_Signature]));
+	if (r < 0) {
+		PyErr_NoMemory();
+		Py_DECREF(py_signature);
+		goto error;
+	}
 
-	fprintf(stderr, "ContentObject_from_ccn_parsed SignedInfo\n");
+	py_o = Signature_from_ccn(py_signature);
+	Py_DECREF(py_signature);
+	JUMP_IF_NULL(py_o, error);
+	r = PyObject_SetAttrString(py_ContentObject, "signature", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
+
+	debug("ContentObject_from_ccn_parsed SignedInfo\n");
 	struct ccn_charbuf* signed_info = ccn_charbuf_create();
 	ccn_charbuf_append(signed_info, &content_object->buf[parsed_content_object->offset[CCN_PCO_B_SignedInfo]],
 			(size_t) (parsed_content_object->offset[CCN_PCO_E_SignedInfo] - parsed_content_object->offset[CCN_PCO_B_SignedInfo]));

@@ -477,7 +477,7 @@ Interest_from_ccn_parsed(struct ccn_charbuf* interest, struct ccn_parsed_interes
 	l = CCN_PI_E_Name - CCN_PI_B_Name;
 	if (l > 0) {
 		PyObject *py_cname;
-		py_cname = CCNObject_New_Name(&cb);
+		py_cname = CCNObject_New_charbuf(NAME, &cb);
 		ccn_charbuf_append(cb, interest->buf + pi->offset[CCN_PI_B_Name], l);
 		p = Name_from_ccn(py_cname);
 		Py_DECREF(py_cname);
@@ -617,136 +617,6 @@ Interest_from_ccn(struct ccn_charbuf* interest)
 
 
 
-// ************
-// Signature
-//
-//
-
-void
-__ccn_signature_destroy(void* p)
-{
-	if (p != NULL)
-		;
-}
-
-struct ccn_charbuf*
-Signature_to_ccn(PyObject* py_signature)
-{
-	fprintf(stderr, "Signature_to_ccn starts \n");
-	struct ccn_charbuf* sig = ccn_charbuf_create();
-	PyObject* py_digestAlgorithm = PyObject_GetAttrString(py_signature, "digestAlgorithm");
-	PyObject* py_witness = PyObject_GetAttrString(py_signature, "witness");
-	PyObject* py_signatureBits = PyObject_GetAttrString(py_signature, "signatureBits");
-	const char* blob;
-	size_t blobsize;
-	int res = -1;
-	res = ccn_charbuf_append_tt(sig, CCN_DTAG_Signature, CCN_DTAG);
-	if (py_digestAlgorithm != Py_None) {
-		struct ccn_charbuf* digestAlgorithm = ccn_charbuf_create();
-		ccn_charbuf_append_string(digestAlgorithm, PyString_AsString(py_digestAlgorithm));
-		res = ccnb_append_tagged_blob(sig, CCN_DTAG_DigestAlgorithm, digestAlgorithm->buf, digestAlgorithm->length);
-		ccn_charbuf_destroy(&digestAlgorithm);
-	}
-	if (py_witness != Py_None) {
-		blobsize = (size_t) PyByteArray_Size(py_witness);
-		blob = PyByteArray_AsString(py_witness);
-		fprintf(stderr, "witness blobsize = %zd\n", blobsize);
-		res = ccnb_append_tagged_blob(sig, CCN_DTAG_Witness, blob, blobsize);
-	}
-	if (py_signatureBits != Py_None) {
-		blobsize = (size_t) PyByteArray_Size(py_signatureBits);
-		blob = PyByteArray_AsString(py_signatureBits);
-		res = ccnb_append_tagged_blob(sig, CCN_DTAG_SignatureBits, blob, blobsize);
-	}
-	res = ccn_charbuf_append_closer(sig); /* </Signature> */
-	return sig;
-}
-// Can be called directly from c library
-
-PyObject*
-Signature_from_ccn(struct ccn_charbuf* signature)
-{
-	fprintf(stderr, "Signature_from_ccn start, len=%zd\n", signature->length);
-
-	// 1) Create python object
-	PyObject* py_signature = PyObject_CallObject(g_type_Signature, NULL);
-
-	// 2) Parse c structure and fill python attributes
-	PyObject* p;
-
-	// Neither DigestAlgorithm nor Witness are included in the packet
-	// from ccnput, so they are apparently both optional
-	//
-	struct ccn_buf_decoder decoder;
-	struct ccn_buf_decoder *d;
-	size_t start;
-	size_t stop;
-	size_t size;
-	const unsigned char *ptr = NULL;
-	int i = 0;
-	d = ccn_buf_decoder_start(&decoder,
-			signature->buf,
-			signature->length);
-	if (ccn_buf_match_dtag(d, CCN_DTAG_Signature)) {
-		fprintf(stderr, "Is a signature\n");
-		ccn_buf_advance(d);
-		start = d->decoder.token_index;
-		ccn_parse_optional_tagged_BLOB(d, CCN_DTAG_DigestAlgorithm, 1, -1);
-		stop = d->decoder.token_index;
-		i = ccn_ref_tagged_BLOB(CCN_DTAG_DigestAlgorithm, d->buf, start, stop, &ptr, &size);
-		if (i == 0) {
-			//    self.timeStamp = None   # CCNx timestamp
-			fprintf(stderr, "PyObject_SetAttrString digestAlgorithm\n");
-			p = PyByteArray_FromStringAndSize((const char*) ptr, size);
-			PyObject_SetAttrString(py_signature, "digestAlgorithm", p);
-			Py_INCREF(p);
-		}
-
-
-		start = d->decoder.token_index;
-		ccn_parse_optional_tagged_BLOB(d, CCN_DTAG_Witness, 1, -1);
-		stop = d->decoder.token_index;
-		fprintf(stderr, "witness start %zd stop %zd\n", start, stop);
-		i = ccn_ref_tagged_BLOB(CCN_DTAG_Witness, d->buf, start, stop, &ptr, &size);
-		if (i == 0) {
-			// The Witness is represented as a DER-encoded PKCS#1 DigestInfo,
-			// which contains an AlgorithmIdentifier (an OID, together with any necessary parameters)
-			// and a byte array (OCTET STRING) containing the digest information to be interpreted according to that OID.
-			// http://www.ccnx.org/releases/latest/doc/technical/SignatureGeneration.html
-			fprintf(stderr, "PyObject_SetAttrString witness\n");
-			p = PyByteArray_FromStringAndSize((const char*) ptr, size);
-			PyObject_SetAttrString(py_signature, "witness", p);
-			Py_INCREF(p);
-		}
-		start = d->decoder.token_index;
-		ccn_parse_required_tagged_BLOB(d, CCN_DTAG_SignatureBits, 1, -1);
-		stop = d->decoder.token_index;
-		i = ccn_ref_tagged_BLOB(CCN_DTAG_SignatureBits, d->buf, start, stop, &ptr, &size);
-		if (i == 0) {
-			fprintf(stderr, "PyObject_SetAttrString signatureBits\n");
-			p = PyByteArray_FromStringAndSize((const char*) ptr, size);
-			PyObject_SetAttrString(py_signature, "signatureBits", p);
-			Py_INCREF(p);
-		}
-
-		ccn_buf_check_close(d);
-	} else {
-		fprintf(stderr, "Did not pass data starting with CCN_DTAG_Signature.\n");
-	}
-	if (d->decoder.state < 0) {
-		fprintf(stderr, "Signature decode error.\n");
-	}
-
-	// 3) Set ccn_data to a cobject pointing to the c struct
-	//    and ensure proper destructor is set up for the c object.
-	PyObject* ccn_data = PyCObject_FromVoidPtr((void*) signature, __ccn_signature_destroy);
-	Py_INCREF(ccn_data);
-	PyObject_SetAttrString(py_signature, "ccn_data", ccn_data);
-
-	// 4) Return the created object
-	fprintf(stderr, "Signature_from_ccn ends\n");
-	return py_signature;
-}
 
 // ************
 // SignedInfo
@@ -1020,7 +890,7 @@ UpcallInfo_from_ccn(struct ccn_upcall_info *ui)
 	Py_DECREF(py_o);
 	JUMP_IF_NEG(r, error);
 
-	py_data = CCNObject_New_ContentObject(&data);
+	py_data = CCNObject_New_charbuf(CONTENT_OBJECT, &data);
 	JUMP_IF_NULL(py_data, error);
 	r = ccn_charbuf_append(data, ui->content_ccnb, ui->pco->offset[CCN_PCO_E]);
 	JUMP_IF_NEG_MEM(r, error);
