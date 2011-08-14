@@ -152,7 +152,7 @@ error:
 // Can be called directly from c library
 
 PyObject *
-Signature_from_ccn(PyObject *py_signature)
+Signature_obj_from_ccn(PyObject *py_signature)
 {
 	struct ccn_charbuf *signature;
 	PyObject *py_obj_signature, *py_o;
@@ -284,5 +284,5 @@ _pyccn_Signature_from_ccn(PyObject *self, PyObject *cobj_signature)
 		return NULL;
 	}
 
-	return Signature_from_ccn(cobj_signature);
+	return Signature_obj_from_ccn(cobj_signature);
 }
