@@ -98,7 +98,7 @@ ContentObject_from_ccn_parsed(PyObject *py_content_object,
 		goto error;
 	}
 
-	py_o = Signature_obj_from_ccn(py_signature);
+	py_o = obj_Signature_obj_from_ccn(py_signature);
 	Py_DECREF(py_signature);
 	JUMP_IF_NULL(py_o, error);
 	r = PyObject_SetAttrString(py_ContentObject, "signature", py_o);
