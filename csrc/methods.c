@@ -10,6 +10,7 @@
 #include "methods_contentobject.h"
 #include "methods_name.h"
 #include "methods_signature.h"
+#include "methods_signedinfo.h"
 #include "misc.h"
 #include "objects.h"
 
@@ -1001,92 +1002,6 @@ _pyccn_KeyLocator_from_ccn(PyObject *self, PyObject *py_keylocator)
 	return py_res;
 }
 
-static PyObject *
-_pyccn_SignedInfo_to_ccn(PyObject *self, PyObject *args, PyObject *kwds)
-{
-	static char *kwlist[] = {"pubkey_digest", "type", "timestamp",
-		"freshness", "final_block_id", "key_locator", NULL};
-
-	PyObject *py_pubkey_digest, *py_timestamp = NULL, *py_final_block = NULL,
-			*py_key_locator = NULL;
-	struct ccn_charbuf *si;
-	int r;
-	size_t publisher_key_id_size;
-	const void *publisher_key_id;
-	int type, freshness = -1;
-	struct ccn_charbuf *timestamp, *finalblockid, *key_locator;
-
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "Oi|OiOO", kwlist,
-			&py_pubkey_digest, &type, &py_timestamp, &freshness,
-			&py_final_block, &py_key_locator))
-		return NULL;
-
-	if (!PyByteArray_Check(py_pubkey_digest)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a ByteArray as pubkey_digest");
-		return NULL;
-	} else {
-		publisher_key_id_size = PyByteArray_GET_SIZE(py_pubkey_digest);
-		publisher_key_id = PyByteArray_AS_STRING(py_pubkey_digest);
-	}
-
-	if (py_timestamp && py_timestamp != Py_None) {
-		PyErr_SetString(PyExc_NotImplementedError, "Timestamp is not implemented yet");
-		return NULL;
-	} else
-		timestamp = NULL;
-
-	if (py_final_block && py_final_block != Py_None) {
-		PyErr_SetString(PyExc_NotImplementedError, "Final Block ID is not implemented yet");
-		return NULL;
-	} else
-		finalblockid = NULL;
-
-	if (!py_key_locator || py_key_locator == Py_None)
-		key_locator = NULL;
-	else if (CCNObject_IsValid(KEY_LOCATOR, py_key_locator))
-		key_locator = CCNObject_Get(KEY_LOCATOR, py_key_locator);
-	else {
-		PyErr_SetString(PyExc_TypeError, "key_locator needs to be a CCN KeyLocator object");
-		return NULL;
-	}
-
-	si = ccn_charbuf_create();
-	if (!si)
-		return PyErr_NoMemory();
-
-	r = ccn_signed_info_create(si, publisher_key_id, publisher_key_id_size,
-			timestamp, type, freshness, finalblockid, key_locator);
-	fprintf(stderr, "ccn_signed_info_create res=%d\n", r);
-
-	if (r < 0) {
-		ccn_charbuf_destroy(&si);
-		PyErr_SetString(g_PyExc_CCNError, "Error while creating SignedInfo");
-
-		return NULL;
-	}
-
-	return CCNObject_New(SIGNED_INFO, si);
-}
-
-// From within python
-//
-
-static PyObject*
-_pyccn_SignedInfo_from_ccn(PyObject* self, PyObject* args)
-{
-	PyObject* cobj_signed_info;
-	if (PyArg_ParseTuple(args, "O", &cobj_signed_info)) {
-		if (!PyCObject_Check(cobj_signed_info)) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a CObject containing a struct ccn_charbuf*");
-			return NULL;
-		}
-		return SignedInfo_from_ccn((struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_signed_info));
-	}
-	Py_INCREF(Py_None);
-
-	return Py_None;
-}
-
 // From within python
 //
 
@@ -1234,8 +1149,7 @@ static PyMethodDef _module_methods[] = {
 	{"_pyccn_Signature_from_ccn", _pyccn_Signature_from_ccn, METH_O, NULL},
 	{"_pyccn_SignedInfo_to_ccn", (PyCFunction) _pyccn_SignedInfo_to_ccn,
 		METH_VARARGS | METH_KEYWORDS, NULL},
-	{"_pyccn_SignedInfo_from_ccn", _pyccn_SignedInfo_from_ccn, METH_VARARGS,
-		""},
+	{"_pyccn_SignedInfo_from_ccn", _pyccn_SignedInfo_from_ccn, METH_O, NULL},
 #if 0
 	{"_pyccn_SignedInfo_to_ccn", _pyccn_SigningParams_to_ccn, METH_VARARGS,
 		""},

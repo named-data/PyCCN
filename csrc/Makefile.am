@@ -10,6 +10,7 @@ noinst_HEADERS = \
   methods_contentobject.h \
   methods_name.h \
   methods_signature.h \
+  methods_signedinfo.h \
   objects.h
 
 _pyccn_la_SOURCES = \
@@ -21,6 +22,7 @@ _pyccn_la_SOURCES = \
   methods_contentobject.c \
   methods_name.c \
   methods_signature.c \
+  methods_signedinfo.c \
   objects.c
 
 _pyccn_la_CPPFLAGS = -Wall @PYTHON_CPPFLAGS@ @CCN_INCLUDES@

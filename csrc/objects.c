@@ -158,28 +158,6 @@ CCNObject_Get(enum _pyccn_capsules type, PyObject *capsule)
 }
 
 PyObject *
-CCNObject_New_Name(struct ccn_charbuf **name)
-{
-	struct ccn_charbuf *p;
-	PyObject *py_cname;
-
-	p = ccn_charbuf_create();
-	if (!p)
-		return PyErr_NoMemory();
-
-	py_cname = CCNObject_New(NAME, p);
-	if (!py_cname) {
-		ccn_charbuf_destroy(&p);
-		return NULL;
-	}
-
-	if (name)
-		*name = p;
-
-	return py_cname;
-}
-
-PyObject *
 CCNObject_New_Closure(struct ccn_closure **closure)
 {
 	struct ccn_closure *p;
@@ -199,28 +177,6 @@ CCNObject_New_Closure(struct ccn_closure **closure)
 		*closure = p;
 
 	return result;
-}
-
-PyObject *
-CCNObject_New_ContentObject(struct ccn_charbuf **content_object)
-{
-	struct ccn_charbuf *p;
-	PyObject *py_co;
-
-	p = ccn_charbuf_create();
-	if (!p)
-		return PyErr_NoMemory();
-
-	py_co = CCNObject_New(CONTENT_OBJECT, p);
-	if (!py_co) {
-		ccn_charbuf_destroy(&p);
-		return NULL;
-	}
-
-	if (content_object)
-		*content_object = p;
-
-	return py_co;
 }
 
 PyObject *
@@ -273,6 +229,9 @@ CCNObject_New_charbuf(enum _pyccn_capsules type,
 {
 	struct ccn_charbuf *p;
 	PyObject *py_o;
+
+	assert(type == CONTENT_OBJECT || type == KEY_LOCATOR || type == NAME
+			|| type == SIGNATURE || type == SIGNED_INFO);
 
 	p = ccn_charbuf_create();
 	if (!p)

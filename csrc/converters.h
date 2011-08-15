@@ -21,8 +21,6 @@ void __ccn_parsed_interest_destroy(void* p);
 struct ccn_charbuf *Interest_to_ccn(PyObject* py_interest);
 PyObject *Interest_from_ccn(struct ccn_charbuf* interest);
 PyObject *Interest_from_ccn_parsed(struct ccn_charbuf* interest, struct ccn_parsed_interest* pi);
-void __ccn_signed_info_destroy(void* p);
-PyObject *SignedInfo_from_ccn(struct ccn_charbuf* signed_info);
 PyObject *SigningParams_from_ccn(struct ccn_signing_params* signing_params);
 
 PyObject *UpcallInfo_from_ccn(struct ccn_upcall_info* ui);

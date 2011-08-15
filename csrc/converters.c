@@ -613,157 +613,6 @@ Interest_from_ccn(struct ccn_charbuf* interest)
 	return Interest_from_ccn_parsed(interest, parsed_interest);
 }
 
-
-
-
-
-
-// ************
-// SignedInfo
-//
-//
-
-void
-__ccn_signed_info_destroy(void* p)
-{
-	if (p != NULL)
-		ccn_charbuf_destroy((struct ccn_charbuf**) &p);
-}
-
-// Can be called directly from c library
-//
-// Pointer to a tagged blob starting with CCN_DTAG_SignedInfo
-//
-
-PyObject*
-SignedInfo_from_ccn(struct ccn_charbuf* signed_info)
-{
-	fprintf(stderr, "SignedInfo_from_ccn start, size=%zd\n", signed_info->length);
-
-	// 1) Create python object
-	PyObject* py_signedinfo = PyObject_CallObject(g_type_SignedInfo, NULL);
-
-	// 2) Parse c structure and fill python attributes
-	//    using PyObject_SetAttrString
-	// based on chk_signing_params
-	// from ccn_client.c
-	//
-	//outputs:
-
-	// Note, it is ok that non-filled optional elements
-	// are initialized to None (through the .py file __init__)
-	//
-
-	PyObject* p;
-
-
-	//
-	struct ccn_buf_decoder decoder;
-	struct ccn_buf_decoder *d;
-	size_t start;
-	size_t stop;
-	size_t size;
-	const unsigned char *ptr = NULL;
-	int i = 0;
-	d = ccn_buf_decoder_start(&decoder,
-			signed_info->buf,
-			signed_info->length);
-	if (ccn_buf_match_dtag(d, CCN_DTAG_SignedInfo)) {
-		ccn_buf_advance(d);
-		if (ccn_buf_match_dtag(d, CCN_DTAG_PublisherPublicKeyDigest))
-			start = d->decoder.token_index;
-		//TODO - what if not?
-		ccn_parse_required_tagged_BLOB(d, CCN_DTAG_PublisherPublicKeyDigest, 16, 64);
-		stop = d->decoder.token_index; // check - do we need this here?
-		i = ccn_ref_tagged_BLOB(CCN_DTAG_PublisherPublicKeyDigest, d->buf, start, stop, &ptr, &size);
-		if (i == 0) {
-			//    self.publisherPublicKeyDigest = None     # SHA256 hash
-			fprintf(stderr, "PyObject_SetAttrString publisherPublicKeyDigest\n");
-			p = PyByteArray_FromStringAndSize((const char*) ptr, size);
-			PyObject_SetAttrString(py_signedinfo, "publisherPublicKeyDigest", p);
-			Py_INCREF(p);
-		}
-
-		start = d->decoder.token_index;
-		ccn_parse_optional_tagged_BLOB(d, CCN_DTAG_Timestamp, 1, -1);
-		stop = d->decoder.token_index;
-		i = ccn_ref_tagged_BLOB(CCN_DTAG_Timestamp, d->buf, start, stop, &ptr, &size);
-		if (i == 0) {
-			//    self.timeStamp = None   # CCNx timestamp
-			fprintf(stderr, "PyObject_SetAttrString timestamp\n");
-			p = PyByteArray_FromStringAndSize((const char*) ptr, size);
-			PyObject_SetAttrString(py_signedinfo, "timestamp", p);
-			Py_INCREF(p);
-		}
-		start = d->decoder.token_index;
-		ccn_parse_optional_tagged_BLOB(d, CCN_DTAG_Type, 1, -1);
-		stop = d->decoder.token_index;
-		i = ccn_ref_tagged_BLOB(CCN_DTAG_Type, d->buf, start, stop, &ptr, &size);
-		if (i == 0) {
-			//    type = None   # CCNx type
-			// TODO: Provide a string representation with the Base64 mnemonic?
-			fprintf(stderr, "PyObject_SetAttrString type\n");
-			p = PyByteArray_FromStringAndSize((const char*) ptr, size);
-			PyObject_SetAttrString(py_signedinfo, "type", p);
-			Py_INCREF(p);
-		}
-		i = ccn_parse_optional_tagged_nonNegativeInteger(d, CCN_DTAG_FreshnessSeconds);
-		if (i >= 0) {
-			//    self.freshnessSeconds = None
-			fprintf(stderr, "PyObject_SetAttrString freshnessSeconds\n");
-			p = PyLong_FromLong(i);
-			PyObject_SetAttrString(py_signedinfo, "freshnessSeconds", p);
-			Py_INCREF(p);
-		}
-		if (ccn_buf_match_dtag(d, CCN_DTAG_FinalBlockID)) {
-			ccn_buf_advance(d);
-			start = d->decoder.token_index;
-			if (ccn_buf_match_some_blob(d))
-				ccn_buf_advance(d);
-			stop = d->decoder.token_index;
-			ccn_buf_check_close(d);
-			if (d->decoder.state >= 0 && stop > start) {
-				//    self.finalBlockID = None
-				fprintf(stderr, "PyObject_SetAttrString finalBlockID, len=%zd\n", stop - start);
-				p = PyByteArray_FromStringAndSize((const char*) (d->buf + start), stop - start);
-				PyObject_SetAttrString(py_signedinfo, "finalBlockID", p);
-				Py_INCREF(p);
-			}
-		}
-		start = d->decoder.token_index;
-		if (ccn_buf_match_dtag(d, CCN_DTAG_KeyLocator))
-			ccn_buf_advance_past_element(d);
-		stop = d->decoder.token_index;
-		if (d->decoder.state >= 0 && stop > start) {
-			fprintf(stderr, "PyObject_SetAttrString keyLocator, len=%zd\n", stop - start);
-			struct ccn_charbuf* keyLocator = ccn_charbuf_create();
-			ccn_charbuf_append(keyLocator, d->buf + start, stop - start);
-			//    self.keyLocator = None
-			p = KeyLocator_from_ccn(keyLocator); // it will free
-			PyObject_SetAttrString(py_signedinfo, "keyLocator", p);
-			Py_INCREF(p);
-		}
-		ccn_buf_check_close(d);
-	} else {
-		fprintf(stderr, "Did not pass data starting with CCN_DTAG_SignedInfo.\n");
-	}
-	if (d->decoder.state < 0) {
-		fprintf(stderr, "SignedInfo decode error.\n");
-	}
-
-	// 3) Set ccn_data to a cobject pointing to the c struct
-	//    and ensure proper destructor is set up for the c object.
-	PyObject* ccn_data = PyCObject_FromVoidPtr((void*) signed_info, __ccn_signed_info_destroy);
-	Py_INCREF(ccn_data);
-	PyObject_SetAttrString(py_signedinfo, "ccn_data", ccn_data);
-
-	// 4) Return the created object
-	fprintf(stderr, "SignedInfo_from_ccn ends\n");
-	return py_signedinfo;
-}
-
-
-
 // ************
 // SigningParams
 //
@@ -825,9 +674,10 @@ SigningParams_from_ccn(struct ccn_signing_params* signing_params)
 	PyObject_SetAttrString(py_SigningParams, "apiVersion", p);
 	Py_INCREF(p);
 
+	assert(0); //TODO: we need to pass PyObject not struct charbuf*
 	if (signing_params->template_ccnb != NULL)
 		if (signing_params->template_ccnb->length > 0)
-			p = SignedInfo_from_ccn(signing_params->template_ccnb);
+			p = SignedInfo_obj_from_ccn(signing_params->template_ccnb);
 		else
 			p = Py_None;
 	else

@@ -37,7 +37,6 @@ int CCNObject_IsValid(enum _pyccn_capsules type, PyObject *capsule);
 void *CCNObject_Get(enum _pyccn_capsules type, PyObject *capsule);
 
 PyObject *CCNObject_New_Closure(struct ccn_closure **closure);
-PyObject *CCNObject_New_ContentObject(struct ccn_charbuf **content_object) __attribute__((deprecated));
 PyObject *CCNObject_New_ParsedContentObject(
 		struct ccn_parsed_ContentObject **pco);
 PyObject *CCNObject_New_ContentObjectComponents(

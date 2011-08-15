@@ -102,13 +102,29 @@ ContentObject_from_ccn_parsed(PyObject *py_content_object,
 	JUMP_IF_NEG(r, error);
 
 	debug("ContentObject_from_ccn_parsed SignedInfo\n");
-	struct ccn_charbuf* signed_info = ccn_charbuf_create();
-	ccn_charbuf_append(signed_info, &content_object->buf[parsed_content_object->offset[CCN_PCO_B_SignedInfo]],
-			(size_t) (parsed_content_object->offset[CCN_PCO_E_SignedInfo] - parsed_content_object->offset[CCN_PCO_B_SignedInfo]));
 
-	PyObject* py_signedinfo = SignedInfo_from_ccn(signed_info); // it will destroy?
-	PyObject_SetAttrString(py_ContentObject, "signedInfo", py_signedinfo);
-	Py_INCREF(py_signedinfo);
+	struct ccn_charbuf *signed_info;
+	PyObject *py_signed_info;
+
+	py_signed_info = CCNObject_New_charbuf(SIGNED_INFO, &signed_info);
+	JUMP_IF_NULL(py_signed_info, error);
+
+	r = ccn_charbuf_append(signed_info,
+			&content_object->buf[parsed_content_object->offset[CCN_PCO_B_SignedInfo]],
+			(size_t) (parsed_content_object->offset[CCN_PCO_E_SignedInfo]
+			- parsed_content_object->offset[CCN_PCO_B_SignedInfo]));
+	if (r < 0) {
+		PyErr_NoMemory();
+		Py_DECREF(py_signed_info);
+		goto error;
+	}
+
+	py_o = SignedInfo_obj_from_ccn(py_signed_info);
+	Py_DECREF(py_signed_info);
+	JUMP_IF_NULL(py_o, error);
+	r = PyObject_SetAttrString(py_ContentObject, "signedInfo", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
 
 	debug("ContentObject_from_ccn_parsed DigestAlgorithm\n");
 	// TODO...  Note this seems to default to nothing in the library...?

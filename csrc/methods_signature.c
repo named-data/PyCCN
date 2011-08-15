@@ -183,8 +183,8 @@ Signature_obj_from_ccn(PyObject *py_signature)
 	d = ccn_buf_decoder_start(&decoder, signature->buf, signature->length);
 
 	if (!ccn_buf_match_dtag(d, CCN_DTAG_Signature)) {
-		PyErr_Format(g_PyExc_CCNSignature, "Error finding CCN_DTAG_Signature"
-				"  (decoder state: %d)", d->decoder.state);
+		PyErr_Format(g_PyExc_CCNSignatureError, "Error finding"
+				" CCN_DTAG_Signature (decoder state: %d)", d->decoder.state);
 		goto error;
 	}
 
@@ -235,7 +235,7 @@ Signature_obj_from_ccn(PyObject *py_signature)
 	r = ccn_ref_tagged_BLOB(CCN_DTAG_SignatureBits, d->buf, start, stop, &ptr,
 			&size);
 	if (r < 0) {
-		PyErr_Format(g_PyExc_CCNSignature, "Error parsing"
+		PyErr_Format(g_PyExc_CCNSignatureError, "Error parsing"
 				" CCN_DTAG_SignatureBits (decoder state %d)", d->decoder.state);
 		goto error;
 	}
@@ -250,8 +250,9 @@ Signature_obj_from_ccn(PyObject *py_signature)
 
 	ccn_buf_check_close(d);
 	if (d->decoder.state < 0) {
-		PyErr_Format(g_PyExc_CCNSignature, "Signature decoding error (decoder"
-				" state: %d, numval: %d)", d->decoder.state, d->decoder.numval);
+		PyErr_Format(g_PyExc_CCNSignatureError, "Signature decoding error"
+				" (decoder state: %d, numval: %d)", d->decoder.state,
+				d->decoder.numval);
 		goto error;
 	}
 
