@@ -27,7 +27,7 @@ append_digest_algorithm(struct ccn_charbuf *signature,
 
 	if (py_digestAlgorithm != Py_None) {
 		r = PyString_AsStringAndSize(py_digestAlgorithm, &str, &str_len);
-		assert(strlen(str) == str_len);
+		assert((Py_ssize_t) strlen(str) == str_len);
 		JUMP_IF_NEG(r, error);
 
 		r = ccnb_append_tagged_blob(signature, CCN_DTAG_DigestAlgorithm,
@@ -266,7 +266,7 @@ error:
 }
 
 PyObject *
-_pyccn_Signature_to_ccn(PyObject *self, PyObject *py_obj_Signature)
+_pyccn_Signature_to_ccn(PyObject *UNUSED(self), PyObject *py_obj_Signature)
 {
 	if (strcmp(py_obj_Signature->ob_type->tp_name, "Signature") != 0) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a Signature");
@@ -278,7 +278,7 @@ _pyccn_Signature_to_ccn(PyObject *self, PyObject *py_obj_Signature)
 }
 
 PyObject *
-_pyccn_Signature_from_ccn(PyObject *self, PyObject *cobj_signature)
+_pyccn_Signature_from_ccn(PyObject *UNUSED(self), PyObject *cobj_signature)
 {
 	if (!PyCObject_Check(cobj_signature)) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a CObject containing a struct ccn_charbuf*");

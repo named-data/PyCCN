@@ -26,7 +26,7 @@
 // returns:  CObject that is an opaque reference to the ccn handle
 
 static PyObject * // CCN
-_pyccn_ccn_create(PyObject* self, PyObject* args)
+_pyccn_ccn_create(PyObject *UNUSED(self), PyObject *UNUSED(args))
 {
 	struct ccn *ccn_handle = ccn_create();
 
@@ -47,7 +47,7 @@ _pyccn_ccn_create(PyObject* self, PyObject* args)
 //
 
 static PyObject *
-_pyccn_ccn_connect(PyObject *self, PyObject *py_ccn_handle)
+_pyccn_ccn_connect(PyObject *UNUSED(self), PyObject *py_ccn_handle)
 {
 	struct ccn *handle;
 	int r;
@@ -73,7 +73,7 @@ _pyccn_ccn_connect(PyObject *self, PyObject *py_ccn_handle)
 //
 
 static PyObject *
-_pyccn_ccn_disconnect(PyObject *self, PyObject *py_ccn_handle)
+_pyccn_ccn_disconnect(PyObject *UNUSED(self), PyObject *py_ccn_handle)
 {
 	struct ccn *handle;
 	int r;
@@ -95,7 +95,7 @@ _pyccn_ccn_disconnect(PyObject *self, PyObject *py_ccn_handle)
 }
 
 static PyObject *
-_pyccn_ccn_run(PyObject* self, PyObject* args)
+_pyccn_ccn_run(PyObject *UNUSED(self), PyObject *args)
 {
 	int r;
 	PyObject *py_handle;
@@ -144,8 +144,8 @@ _pyccn_ccn_run(PyObject* self, PyObject* args)
 	Py_RETURN_NONE;
 }
 
-static PyObject * // int
-_pyccn_ccn_set_run_timeout(PyObject* self, PyObject* args)
+static PyObject *
+_pyccn_ccn_set_run_timeout(PyObject *UNUSED(self), PyObject *args)
 {
 	int r;
 	PyObject *py_handle;
@@ -241,7 +241,7 @@ error:
 // Registering callbacks
 
 static PyObject *
-_pyccn_ccn_express_interest(PyObject *self, PyObject *args)
+_pyccn_ccn_express_interest(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_o, *py_ccn, *py_name, *py_closure, *py_templ;
 	int r;
@@ -330,7 +330,7 @@ _pyccn_ccn_express_interest(PyObject *self, PyObject *args)
 }
 
 static PyObject *
-_pyccn_ccn_set_interest_filter(PyObject *self, PyObject *args)
+_pyccn_ccn_set_interest_filter(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_ccn, *py_name, *py_closure, *py_o;
 	int forw_flags = CCN_FORW_ACTIVE | CCN_FORW_CHILD_INHERIT;
@@ -396,7 +396,7 @@ _pyccn_ccn_set_interest_filter(PyObject *self, PyObject *args)
 // Simple get/put
 
 static PyObject *
-_pyccn_ccn_get(PyObject *self, PyObject *args)
+_pyccn_ccn_get(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_CCN, *py_Name, *py_Interest = Py_None;
 	PyObject *py_co = NULL, *py_o = NULL;
@@ -480,7 +480,7 @@ exit:
 }
 
 static PyObject * // int
-_pyccn_ccn_put(PyObject *self, PyObject *args)
+_pyccn_ccn_put(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_ccn, *py_content_object;
 	PyObject *py_o;
@@ -524,7 +524,7 @@ _pyccn_ccn_put(PyObject *self, PyObject *args)
 // args:  Key to fill, CCN Handle
 
 static PyObject*
-_pyccn_ccn_get_default_key(PyObject* self, PyObject* args)
+_pyccn_ccn_get_default_key(PyObject *UNUSED(self), PyObject *args)
 {
 	fprintf(stderr, "Got _pyccn_ccn_get_default_key start\n");
 	PyObject* py_ccn;
@@ -625,7 +625,7 @@ _pyccn_ccn_get_public_key(PyObject* self, PyObject* args) {
 //
 
 static PyObject*
-_pyccn_generate_RSA_key(PyObject* self, PyObject* args)
+_pyccn_generate_RSA_key(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_key, *p;
 	long keylen = 0;
@@ -705,7 +705,7 @@ _pyccn_ccn_signed_info_create(PyObject* self, PyObject* args) {
  */
 
 static PyObject *
-_pyccn_Interest_to_ccn(PyObject *self, PyObject *py_interest)
+_pyccn_Interest_to_ccn(PyObject *UNUSED(self), PyObject *py_interest)
 {
 	struct ccn_charbuf *interest;
 	struct ccn_parsed_interest *parsed_interest;
@@ -732,7 +732,7 @@ _pyccn_Interest_to_ccn(PyObject *self, PyObject *py_interest)
 //
 
 static PyObject*
-_pyccn_Interest_from_ccn(PyObject* self, PyObject* args)
+_pyccn_Interest_from_ccn(PyObject *UNUSED(self), PyObject* args)
 {
 	PyObject* cobj_interest;
 	PyObject* cobj_parsed_interest;
@@ -759,7 +759,7 @@ _pyccn_Interest_from_ccn(PyObject* self, PyObject* args)
 //
 
 static PyObject*
-_pyccn_SigningParams_from_ccn(PyObject* self, PyObject* args)
+_pyccn_SigningParams_from_ccn(PyObject *UNUSED(self), PyObject* args)
 {
 	PyObject* cobj_signing_params;
 	if (PyArg_ParseTuple(args, "O", &cobj_signing_params)) {
@@ -775,7 +775,7 @@ _pyccn_SigningParams_from_ccn(PyObject* self, PyObject* args)
 }
 
 static PyObject*
-_pyccn_ExclusionFilter_to_ccn(PyObject* self, PyObject* args)
+_pyccn_ExclusionFilter_to_ccn(PyObject *UNUSED(self), PyObject* args)
 {
 	PyObject* py_ExclusionFilter;
 	struct ccn_charbuf* ExclusionFilter;
@@ -791,7 +791,7 @@ _pyccn_ExclusionFilter_to_ccn(PyObject* self, PyObject* args)
 }
 
 static PyObject*
-_pyccn_ExclusionFilter_from_ccn(PyObject* self, PyObject* args)
+_pyccn_ExclusionFilter_from_ccn(PyObject *UNUSED(self), PyObject* args)
 {
 	PyObject* cobj_ExclusionFilter;
 	if (PyArg_ParseTuple(args, "O", &cobj_ExclusionFilter)) {
@@ -807,7 +807,7 @@ _pyccn_ExclusionFilter_from_ccn(PyObject* self, PyObject* args)
 }
 
 static PyObject*
-_pyccn_UpcallInfo_from_ccn(PyObject* self, PyObject* args)
+_pyccn_UpcallInfo_from_ccn(PyObject *UNUSED(self), PyObject* args)
 {
 	PyObject* cobj_upcall_info;
 	if (PyArg_ParseTuple(args, "O", &cobj_upcall_info)) {

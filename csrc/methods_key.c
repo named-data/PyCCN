@@ -315,7 +315,7 @@ KeyLocator_from_ccn(PyObject *py_keylocator)
  */
 
 PyObject *
-_pyccn_Key_to_ccn_public(PyObject *self, PyObject *py_key)
+_pyccn_Key_to_ccn_public(PyObject *UNUSED(self), PyObject *py_key)
 {
 	if (strcmp(py_key->ob_type->tp_name, "Key") != 0) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a Key");
@@ -327,7 +327,7 @@ _pyccn_Key_to_ccn_public(PyObject *self, PyObject *py_key)
 }
 
 PyObject *
-_pyccn_Key_to_ccn_private(PyObject *self, PyObject *py_key)
+_pyccn_Key_to_ccn_private(PyObject *UNUSED(self), PyObject *py_key)
 {
 	if (strcmp(py_key->ob_type->tp_name, "Key") != 0) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a Key");
@@ -339,7 +339,7 @@ _pyccn_Key_to_ccn_private(PyObject *self, PyObject *py_key)
 }
 
 PyObject *
-_pyccn_Key_from_ccn(PyObject *self, PyObject *cobj_key)
+_pyccn_Key_from_ccn(PyObject *UNUSED(self), PyObject *cobj_key)
 {
 	if (!CCNObject_IsValid(PKEY, cobj_key)) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a CCN PKEY object");
@@ -351,7 +351,8 @@ _pyccn_Key_from_ccn(PyObject *self, PyObject *cobj_key)
 }
 
 PyObject *
-_pyccn_KeyLocator_to_ccn(PyObject *self, PyObject *args, PyObject *kwds)
+_pyccn_KeyLocator_to_ccn(PyObject *UNUSED(self), PyObject *args,
+		PyObject *kwds)
 {
 	static char *kwlist[] = {"name", "key", "cert", NULL};
 	PyObject *py_name = Py_None, *py_key = Py_None, *py_cert = Py_None;
@@ -397,7 +398,7 @@ error:
 }
 
 PyObject *
-_pyccn_KeyLocator_from_ccn(PyObject *self, PyObject *py_keylocator)
+_pyccn_KeyLocator_from_ccn(PyObject *UNUSED(self), PyObject *py_keylocator)
 {
 	if (!CCNObject_IsValid(KEY_LOCATOR, py_keylocator)) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a CCN Key Locator object");

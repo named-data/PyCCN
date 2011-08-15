@@ -36,8 +36,8 @@ name_comps_from_ccn(PyObject *py_cname)
 	JUMP_IF_NULL(py_component_list, error);
 
 	/* I wish I could understand this code -dk */
-	for (int n = 0; n < comp_index->n - 1; n++) { // not the implicit digest component
-		int h; // header size
+	for (size_t n = 0; n < comp_index->n - 1; n++) { // not the implicit digest component
+		size_t h; // header size
 		int size;
 		unsigned char *component;
 
@@ -74,7 +74,7 @@ error:
 }
 
 PyObject *
-_pyccn_Name_to_ccn(PyObject *self, PyObject *py_name_components)
+_pyccn_Name_to_ccn(PyObject *UNUSED(self), PyObject *py_name_components)
 {
 	struct ccn_charbuf *name;
 	PyObject *py_name, *iterator, *item = NULL;
@@ -148,7 +148,7 @@ error:
 //
 
 PyObject *
-_pyccn_Name_from_ccn(PyObject *self, PyObject *py_cname)
+_pyccn_Name_from_ccn(PyObject *UNUSED(self), PyObject *py_cname)
 {
 	if (!CCNObject_IsValid(NAME, py_cname)) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a CCN name");

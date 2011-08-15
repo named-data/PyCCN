@@ -8,14 +8,13 @@
 #include <stdio.h>
 
 void
-dump_charbuf(struct ccn_charbuf* c, FILE* fp)
+dump_charbuf(struct ccn_charbuf *c, FILE * fp)
 {
-	int i = 0;
-	for (i = 0; i < c->length; i++) {
-		if (c->buf[i] < 0x20 || c->buf[i] > 0x7E)
-			fprintf(fp, "\\(%i)", c->buf[i]);
-		else
+	for (size_t i = 0; i < c->length; i++) {
+		if (isprint(c->buf[i]))
 			putc(c->buf[i], fp);
+		else
+			fprintf(fp, "\\(%i)", c->buf[i]);
 	}
 }
 

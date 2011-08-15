@@ -174,7 +174,7 @@ ContentObject_from_ccn(struct ccn_charbuf* content_object)
 #endif
 
 PyObject *
-_pyccn_content_to_bytearray(PyObject *self, PyObject *arg)
+_pyccn_content_to_bytearray(PyObject *UNUSED(self), PyObject *arg)
 {
 	PyObject *result;
 
@@ -196,7 +196,7 @@ _pyccn_content_to_bytearray(PyObject *self, PyObject *arg)
 }
 
 PyObject *
-_pyccn_ContentObject_to_ccn(PyObject *self, PyObject *args)
+_pyccn_ContentObject_to_ccn(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_content_object, *py_name, *py_content, *py_signed_info,
 			*py_key;
