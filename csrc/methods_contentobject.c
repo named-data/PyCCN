@@ -3,8 +3,10 @@
 
 #include "pyccn.h"
 #include "converters.h" //TODO: get rid of this
+#include "methods_key.h"
 #include "methods_name.h"
 #include "methods_signature.h"
+#include "methods_signedinfo.h"
 #include "objects.h"
 
 static PyObject *
@@ -45,6 +47,8 @@ ContentObject_from_ccn_parsed(PyObject *py_content_object,
 	int r;
 	struct ccn_charbuf *signature;
 	PyObject *py_signature;
+	struct ccn_charbuf *signed_info;
+	PyObject *py_signed_info;
 
 	if (!CCNObject_ReqType(CONTENT_OBJECT, py_content_object))
 		return NULL;
@@ -102,9 +106,6 @@ ContentObject_from_ccn_parsed(PyObject *py_content_object,
 	JUMP_IF_NEG(r, error);
 
 	debug("ContentObject_from_ccn_parsed SignedInfo\n");
-
-	struct ccn_charbuf *signed_info;
-	PyObject *py_signed_info;
 
 	py_signed_info = CCNObject_New_charbuf(SIGNED_INFO, &signed_info);
 	JUMP_IF_NULL(py_signed_info, error);

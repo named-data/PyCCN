@@ -8,7 +8,6 @@
 #ifndef METHODS_H
 #  define	METHODS_H
 
-PyObject *Key_from_ccn(struct ccn_pkey* key_ccn);
 PyObject *initialize_methods(const char* name);
 
 #endif	/* METHODS_H */

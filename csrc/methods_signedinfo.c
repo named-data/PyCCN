@@ -5,6 +5,7 @@
 #include "objects.h"
 
 #include "converters.h"
+#include "methods_key.h"
 
 // ************
 // SignedInfo
@@ -193,6 +194,9 @@ SignedInfo_obj_from_ccn(PyObject *py_signed_info)
 	 */
 	start = d->decoder.token_index;
 	if (ccn_buf_match_dtag(d, CCN_DTAG_KeyLocator)) {
+		struct ccn_charbuf *key_locator;
+		PyObject *py_key_locator;
+
 		r = ccn_buf_advance_past_element(d);
 		if (r < 0) {
 			PyErr_Format(g_PyExc_CCNSignedInfoError, "Error locating"
@@ -213,23 +217,21 @@ SignedInfo_obj_from_ccn(PyObject *py_signed_info)
 		size = stop - start;
 		assert(size > 0);
 
-		//TODO: Change to an CCNObject object
-		struct ccn_charbuf *key_locator;
-
 		debug("PyObject_SetAttrString keyLocator, len=%zd\n", size);
-		key_locator = ccn_charbuf_create();
-		JUMP_IF_NULL_MEM(key_locator, error);
+
+		py_key_locator = CCNObject_New_charbuf(KEY_LOCATOR, &key_locator);
+		JUMP_IF_NULL(py_key_locator, error);
 
 		r = ccn_charbuf_append(key_locator, ptr, size);
 		if (r < 0) {
+			Py_DECREF(py_key_locator);
 			PyErr_NoMemory();
-			ccn_charbuf_destroy(&key_locator);
 			goto error;
 		}
 
 		//    self.keyLocator = None
-		py_o = KeyLocator_from_ccn(key_locator);
-		//XXX: Py_DECREF(py_key_locator);
+		py_o = KeyLocator_from_ccn(py_key_locator);
+		Py_DECREF(py_key_locator);
 		JUMP_IF_NULL(py_o, error);
 		r = PyObject_SetAttrString(py_obj_SignedInfo, "keyLocator", py_o);
 		Py_DECREF(py_o);

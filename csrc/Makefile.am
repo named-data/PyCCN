@@ -8,6 +8,7 @@ noinst_HEADERS = \
   converters.h \
   methods.h \
   methods_contentobject.h \
+  methods_key.h \
   methods_name.h \
   methods_signature.h \
   methods_signedinfo.h \
@@ -20,6 +21,7 @@ _pyccn_la_SOURCES = \
   converters.c \
   methods.c \
   methods_contentobject.c \
+  methods_key.c \
   methods_name.c \
   methods_signature.c \
   methods_signedinfo.c \
