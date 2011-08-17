@@ -17,7 +17,12 @@ handle = CCN.CCN()
 thread.start()
 co = handle.get(name)
 thread.join()
-print co
+#print co
 
 assert co.content == "Hello everyone"
 assert str(co.name) == "/messages/hello"
+
+signedinfo = co.signedInfo
+signature = co.signature
+
+print signedinfo

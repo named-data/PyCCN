@@ -89,6 +89,8 @@ PyObject *g_PyExc_CCNNameError;
 PyObject *g_PyExc_CCNKeyLocatorError;
 PyObject *g_PyExc_CCNSignatureError;
 PyObject *g_PyExc_CCNSignedInfoError;
+PyObject *g_PyExc_CCNInterestError;
+PyObject *g_PyExc_CCNExclusionFilterError;
 
 static bool
 import_module(PyObject **module, const char *name)
@@ -134,24 +136,28 @@ init_pyccn(void)
 			g_PyExc_CCNError);
 	NEW_EXCEPTION(CCNSignedInfoError, "CCN SignedInfo Exception",
 			g_PyExc_CCNError);
+	NEW_EXCEPTION(CCNInterestError, "CCN Interest Exception",
+			g_PyExc_CCNError);
+	NEW_EXCEPTION(CCNExclusionFilterError, "CCN ExclusionFilter Exception",
+			g_PyExc_CCNInterestError);
 
 	if (!import_module(&module_CCN, "pyccn.CCN"))
 		return; //XXX: How to uninitialize methods?
 
 	if (!import_module(&module_Interest, "pyccn.Interest"))
-		goto unload_ccn;
+		return;
 
 	if (!import_module(&module_ContentObject, "pyccn.ContentObject"))
-		goto unload_contentobject;
+		goto unload_ccn;
 
 	if (!import_module(&module_Closure, "pyccn.Closure"))
-		goto unload_closure;
+		goto unload_contentobject;
 
 	if (!import_module(&module_Key, "pyccn.Key"))
-		goto unload_key;
+		goto unload_closure;
 
 	if (!import_module(&module_Name, "pyccn.Name"))
-		goto unload_name;
+		goto unload_key;
 
 	PyObject *CCNDict, *InterestDict, *ContentObjectDict, *ClosureDict,
 			*KeyDict, *NameDict;
@@ -192,8 +198,6 @@ init_pyccn(void)
 
 	return;
 
-unload_name:
-	Py_DECREF(module_Name);
 unload_key:
 	Py_DECREF(module_Key);
 unload_closure:

@@ -8,6 +8,7 @@
 #include "converters.h"
 #include "key_utils.h"
 #include "methods_contentobject.h"
+#include "methods_interest.h"
 #include "methods_key.h"
 #include "methods_name.h"
 #include "methods_signature.h"
@@ -297,7 +298,7 @@ _pyccn_ccn_express_interest(PyObject *UNUSED(self), PyObject *args)
 	py_o = CCNObject_New_Closure(&cl);
 	cl->p = ccn_upcall_handler;
 	cl->data = py_o;
-	Py_INCREF(py_closure);
+	Py_INCREF(py_closure); /* We don't want py_closure to be dealocated */
 	r = PyCapsule_SetContext(py_o, py_closure);
 	assert(r == 0);
 
@@ -704,57 +705,6 @@ _pyccn_ccn_signed_info_create(PyObject* self, PyObject* args) {
 
  */
 
-static PyObject *
-_pyccn_Interest_to_ccn(PyObject *UNUSED(self), PyObject *py_interest)
-{
-	struct ccn_charbuf *interest;
-	struct ccn_parsed_interest *parsed_interest;
-	int r;
-
-	if (strcmp(py_interest->ob_type->tp_name, "Interest") != 0) {
-		PyErr_SetString(PyExc_TypeError, "Must pass an Interest");
-
-		return NULL;
-	}
-	//  Build an interest
-	interest = Interest_to_ccn(py_interest);
-
-	parsed_interest = calloc(1, sizeof(*parsed_interest));
-	r = ccn_parse_interest(interest->buf, interest->length, parsed_interest, NULL /* no comps */);
-	// TODO: Check result
-
-	return Py_BuildValue("(OO)",
-			PyCObject_FromVoidPtr((void*) interest, __ccn_interest_destroy),
-			PyCObject_FromVoidPtr((void*) parsed_interest, __ccn_parsed_interest_destroy));
-}
-
-// From within python
-//
-
-static PyObject*
-_pyccn_Interest_from_ccn(PyObject *UNUSED(self), PyObject* args)
-{
-	PyObject* cobj_interest;
-	PyObject* cobj_parsed_interest;
-	if (PyArg_ParseTuple(args, "O|O", &cobj_interest, &cobj_parsed_interest)) {
-		if (!PyCObject_Check(cobj_interest)) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a CObject as args");
-			return NULL;
-		}
-		if (!PyCObject_Check(cobj_parsed_interest)) {
-			return Interest_from_ccn(
-					(struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_interest));
-		} else {
-			return Interest_from_ccn_parsed(
-					(struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_interest),
-					(struct ccn_parsed_interest*) PyCObject_AsVoidPtr(cobj_parsed_interest));
-		}
-	}
-	Py_INCREF(Py_None);
-
-	return Py_None;
-}
-
 // From within python
 //
 
@@ -768,38 +718,6 @@ _pyccn_SigningParams_from_ccn(PyObject *UNUSED(self), PyObject* args)
 			return NULL;
 		}
 		return SigningParams_from_ccn((struct ccn_signing_params*) PyCObject_AsVoidPtr(cobj_signing_params));
-	}
-	Py_INCREF(Py_None);
-
-	return Py_None;
-}
-
-static PyObject*
-_pyccn_ExclusionFilter_to_ccn(PyObject *UNUSED(self), PyObject* args)
-{
-	PyObject* py_ExclusionFilter;
-	struct ccn_charbuf* ExclusionFilter;
-	if (PyArg_ParseTuple(args, "O", &py_ExclusionFilter)) {
-		if (strcmp(py_ExclusionFilter->ob_type->tp_name, "ExclusionFilter") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass an ExclusionFilter");
-
-			return NULL;
-		}
-		ExclusionFilter = ExclusionFilter_to_ccn(py_ExclusionFilter);
-	}
-	return PyCObject_FromVoidPtr((void*) ExclusionFilter, __ccn_exclusion_filter_destroy);
-}
-
-static PyObject*
-_pyccn_ExclusionFilter_from_ccn(PyObject *UNUSED(self), PyObject* args)
-{
-	PyObject* cobj_ExclusionFilter;
-	if (PyArg_ParseTuple(args, "O", &cobj_ExclusionFilter)) {
-		if (!PyCObject_Check(cobj_ExclusionFilter)) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a CObject containing a [??]");
-			return NULL;
-		}
-		return ExclusionFilter_from_ccn((struct ccn_charbuf*) PyCObject_AsVoidPtr(cobj_ExclusionFilter));
 	}
 	Py_INCREF(Py_None);
 
@@ -909,10 +827,10 @@ static PyMethodDef _module_methods[] = {
 #endif
 	{"_pyccn_SignedInfo_from_ccn", _pyccn_SigningParams_from_ccn, METH_VARARGS,
 		""},
-	{"_pyccn_ExclusionFilter_to_ccn", _pyccn_ExclusionFilter_to_ccn, METH_VARARGS,
-		""},
-	{"_pyccn_ExclusionFilter_from_ccn", _pyccn_ExclusionFilter_from_ccn, METH_VARARGS,
-		""},
+	{"_pyccn_ExclusionFilter_to_ccn", _pyccn_ExclusionFilter_to_ccn, METH_O,
+		NULL},
+	{"_pyccn_ExclusionFilter_from_ccn", _pyccn_ExclusionFilter_from_ccn, METH_O,
+		NULL},
 	{"_pyccn_UpcallInfo_from_ccn", _pyccn_UpcallInfo_from_ccn, METH_VARARGS,
 		""},
 

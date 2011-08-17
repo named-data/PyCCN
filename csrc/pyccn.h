@@ -17,6 +17,12 @@
 #    define debug(...)
 #  endif
 
+#define JUMP_IF_ERR(label) \
+do { \
+	if (PyErr_Occured()) \
+		goto label; \
+} while(0)
+
 #  define JUMP_IF_NULL(variable, label) \
 do { \
 	if (!variable) \
@@ -75,5 +81,7 @@ extern PyObject *g_PyExc_CCNNameError;
 extern PyObject *g_PyExc_CCNKeyLocatorError;
 extern PyObject *g_PyExc_CCNSignatureError;
 extern PyObject *g_PyExc_CCNSignedInfoError;
+extern PyObject *g_PyExc_CCNInterestError;
+extern PyObject *g_PyExc_CCNExclusionFilterError;
 
 #endif /* _PYCCN_H_ */

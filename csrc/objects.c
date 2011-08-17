@@ -13,37 +13,56 @@
 static struct completed_closure *g_completed_closures;
  */
 
+static struct type_to_name {
+	enum _pyccn_capsules type;
+	const char *name;
+} g_types_to_names[] = {
+	{CLOSURE, "Closure_ccn_data"},
+	{CONTENT_OBJECT, "ContentObject_ccn_data"},
+	{CONTENT_OBJECT_COMPONENTS, "ContentObjects_ccn_data_components"},
+	{EXCLUSION_FILTER, "ExclusionFilter_ccn_data"},
+	{HANDLE, "CCN_ccn_data"},
+	{INTEREST, "Interest_ccn_data"},
+	{KEY_LOCATOR, "KeyLocator_ccn_data"},
+	{NAME, "Name_ccn_data"},
+	{PARSED_CONTENT_OBJECT, "ParsedContentObject_ccn_data"},
+	{PARSED_INTEREST, "ParsedInterest_ccn_data"},
+	{PKEY, "PKEY_ccn_data"},
+	{SIGNATURE, "Signature_ccn_data"},
+	{SIGNED_INFO, "SignedInfo_ccn_data"},
+	{UPCALL_INFO, "UpcallInfo_ccn_data"},
+	{0, NULL}
+};
+
 static inline const char *
 type2name(enum _pyccn_capsules type)
 {
-	switch (type) {
-	case CLOSURE:
-		return "Closure_ccn_data";
-	case CONTENT_OBJECT:
-		return "ContentObject_ccn_data";
-	case CONTENT_OBJECT_COMPONENTS:
-		return "ContentObjects_ccn_data_components";
-	case HANDLE:
-		return "CCN_ccn_data";
-	case KEY_LOCATOR:
-		return "KeyLocator_ccn_data";
-	case NAME:
-		return "Name_ccn_data";
-	case PARSED_CONTENT_OBJECT:
-		return "ParsedContentObject_ccn_data";
-	case PKEY:
-		return "PKEY_ccn_data";
-	case SIGNATURE:
-		return "Signature_ccn_data";
-	case SIGNED_INFO:
-		return "SignedInfo_ccn_data";
-	case UPCALL_INFO:
-		return "UpcallInfo_ccn_data";
-	default:
-		panic("Unknown type");
-	}
+	struct type_to_name *p;
 
-	return NULL;
+	assert(type > 0);
+	assert(type < sizeof(g_types_to_names) / sizeof(struct type_to_name));
+
+
+	p = &g_types_to_names[type - g_types_to_names[0].type];
+	assert(p->type == type);
+	return p->name;
+}
+
+static inline enum _pyccn_capsules
+name2type(const char *name)
+{
+	struct type_to_name *p;
+
+	assert(name);
+
+	for (p = g_types_to_names; p->type; p++)
+		if (!strcmp(p->name, name))
+			return p->type;
+
+	debug("name = %s", name);
+	panic("Got unknown type name");
+
+	return 0; /* this shouldn't be reached */
 }
 
 static void
@@ -51,53 +70,68 @@ pyccn_Capsule_Destructor(PyObject *capsule)
 {
 	const char *name;
 	void *pointer;
+	enum _pyccn_capsules type;
 
 	assert(PyCapsule_CheckExact(capsule));
 
 	name = PyCapsule_GetName(capsule);
+	type = name2type(name);
+
 	pointer = PyCapsule_GetPointer(capsule, name);
 	assert(pointer);
 
-	if (CCNObject_IsValid(CLOSURE, capsule)) {
-		PyObject *py_closure;
+	switch (type) {
+	case CLOSURE:
+	{
+		PyObject *py_obj_closure;
 		struct ccn_closure *p = pointer;
 
-		py_closure = PyCapsule_GetContext(capsule);
-		assert(py_closure);
-		Py_DECREF(py_closure); /* No longer referencing Closure object */
+		py_obj_closure = PyCapsule_GetContext(capsule);
+		assert(py_obj_closure);
+		Py_DECREF(py_obj_closure); /* No longer referencing Closure object */
 
 		/* If we store something else, than ourselves, it probably is a bug */
 		assert(capsule == p->data);
 
 		free(p);
-	} else if (CCNObject_IsValid(CONTENT_OBJECT, capsule)) {
-		struct ccn_charbuf *p = pointer;
-		ccn_charbuf_destroy(&p);
-	} else if (CCNObject_IsValid(CONTENT_OBJECT_COMPONENTS, capsule)) {
+	}
+		break;
+	case CONTENT_OBJECT_COMPONENTS:
+	{
 		struct ccn_indexbuf *p = pointer;
 		ccn_indexbuf_destroy(&p);
-	} else if (CCNObject_IsValid(HANDLE, capsule)) {
+	}
+		break;
+	case HANDLE:
+	{
 		struct ccn *p = pointer;
 		ccn_disconnect(p);
 		ccn_destroy(&p);
-	} else if (CCNObject_IsValid(KEY_LOCATOR, capsule)) {
-		struct ccn_charbuf *p = pointer;
-		ccn_charbuf_destroy(&p);
-	} else if (CCNObject_IsValid(NAME, capsule)) {
-		struct ccn_charbuf *p = pointer;
-		ccn_charbuf_destroy(&p);
-	} else if (CCNObject_IsValid(PARSED_CONTENT_OBJECT, capsule)) {
+	}
+		break;
+	case PARSED_CONTENT_OBJECT:
+	case PARSED_INTEREST:
 		free(pointer);
-	} else if (CCNObject_IsValid(PKEY, capsule)) {
+		break;
+	case PKEY:
+	{
 		struct ccn_pkey *p = pointer;
 		ccn_pubkey_free(p); // what about private keys?
-	} else if (CCNObject_IsValid(SIGNATURE, capsule)) {
+	}
+		break;
+	case CONTENT_OBJECT:
+	case EXCLUSION_FILTER:
+	case INTEREST:
+	case KEY_LOCATOR:
+	case NAME:
+	case SIGNATURE:
+	case SIGNED_INFO:
+	{
 		struct ccn_charbuf *p = pointer;
 		ccn_charbuf_destroy(&p);
-	} else if (CCNObject_IsValid(SIGNED_INFO, capsule)) {
-		struct ccn_charbuf *p = pointer;
-		ccn_charbuf_destroy(&p);
-	} else {
+	}
+		break;
+	default:
 		debug("Got capsule: %s\n", PyCapsule_GetName(capsule));
 		panic("Unable to destroy the object: got an unknown capsule");
 	}
@@ -230,8 +264,13 @@ CCNObject_New_charbuf(enum _pyccn_capsules type,
 	struct ccn_charbuf *p;
 	PyObject *py_o;
 
-	assert(type == CONTENT_OBJECT || type == KEY_LOCATOR || type == NAME
-			|| type == SIGNATURE || type == SIGNED_INFO);
+	assert(type == CONTENT_OBJECT ||
+			type == EXCLUSION_FILTER ||
+			type == INTEREST ||
+			type == KEY_LOCATOR ||
+			type == NAME ||
+			type == SIGNATURE ||
+			type == SIGNED_INFO);
 
 	p = ccn_charbuf_create();
 	if (!p)

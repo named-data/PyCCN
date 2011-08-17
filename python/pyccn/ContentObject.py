@@ -1,7 +1,8 @@
-
 # Front ccn_parsed_ContentObject.
 # Sort of.
 import _pyccn
+
+from base64 import b64encode
 
 class ContentObject(object):
 	def __init__(self):
@@ -57,8 +58,10 @@ class ContentObject(object):
 	# Where do we support versioning and segmentation?
 
 	def __str__(self):
-		ret = "Name: %s\n" % self.name
-		ret += "Content: %s\n" % repr(self.content)
+		ret = "Name: %s" % self.name
+		ret += "\nContent: %s" % self.content
+		ret += "\nDigestAlg: %s" % self.digestAlgorithm
+		ret += "\nSignedInfo: %s" % self.signedInfo
 		return ret
 
 class Signature(object):
@@ -113,6 +116,16 @@ class SignedInfo(object):
 	def __get_ccn(self):
 		pass
 		# Call ccn_signed_info_create
+
+	def __str__(self):
+		pubkeydigest = "<PublisherPublicKeyDigest>%s</PublisherPublicKeyDigest>" \
+			% b64encode(self.publisherPublicKeyDigest)
+		timestamp = "<Timestamp>%s</Timestamp>" % b64encode(self.timeStamp)
+		type = "<Type>%s</Type>" % self.type
+		freshness = "<FreshnessSeconds>%s<FreshnessSeconds>" % self.freshnessSeconds
+		finalBlockID = "<FinalBlockID>%s</FinalBlockID>" % self.finalBlockID
+		res = "<SignedInfo>%s%s%s%s%s%s</SignedInfo>" % (pubkeydigest, timestamp, type, freshness, finalBlockID, self.keyLocator)
+		return res
 
 class ContentType(object):
 	CCN_CONTENT_DATA = 0x0C04C0

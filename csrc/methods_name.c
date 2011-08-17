@@ -239,14 +239,15 @@ error:
 	return NULL;
 }
 
-struct ccn_charbuf *
-Name_to_ccn(PyObject *py_name)
+PyObject *
+Name_to_ccn(PyObject *py_obj_Name)
 {
 	struct ccn_charbuf *name;
+	PyObject *py_name = NULL;
 	PyObject *comps, *iterator, *item = NULL;
 	int r;
 
-	comps = PyObject_GetAttrString(py_name, "components");
+	comps = PyObject_GetAttrString(py_obj_Name, "components");
 	if (!comps)
 		return NULL;
 
@@ -255,27 +256,27 @@ Name_to_ccn(PyObject *py_name)
 	if (!iterator)
 		return NULL;
 
-	name = ccn_charbuf_create();
-	JUMP_IF_NULL(name, out_of_mem);
+	py_name = CCNObject_New_charbuf(NAME, &name);
+	JUMP_IF_NULL(py_name, error);
 
 	r = ccn_name_init(name);
-	JUMP_IF_NEG(r, out_of_mem);
+	JUMP_IF_NEG_MEM(r, error);
 
 	// Parse the list of components and
 	// convert them to C objects
 	//
 	while ((item = PyIter_Next(iterator))) {
 		if (PyByteArray_Check(item)) {
-			Py_ssize_t n = PyByteArray_Size(item);
 			char *b = PyByteArray_AsString(item);
+			Py_ssize_t n = PyByteArray_GET_SIZE(item);
 			r = ccn_name_append(name, b, n);
-			JUMP_IF_NEG(r, out_of_mem);
+			JUMP_IF_NEG_MEM(r, error);
 		} else if (PyString_Check(item)) { // Unicode or UTF-8?
 			char *s = PyString_AsString(item);
 			JUMP_IF_NULL(s, error);
 
 			r = ccn_name_append_str(name, s);
-			JUMP_IF_NEG(r, out_of_mem);
+			JUMP_IF_NEG_MEM(r, error);
 
 			// Note, we choose to convert numbers to their string
 			// representation; if we want numeric encoding, use a
@@ -285,11 +286,14 @@ Name_to_ccn(PyObject *py_name)
 			JUMP_IF_NULL(str, error);
 
 			char *s = PyString_AsString(str);
-			Py_DECREF(str);
-			JUMP_IF_NULL(s, error);
+			if (!s) {
+				Py_DECREF(str);
+				goto error;
+			}
 
 			r = ccn_name_append_str(name, s);
-			JUMP_IF_NEG(r, out_of_mem);
+			Py_DECREF(str);
+			JUMP_IF_NEG_MEM(r, error);
 		} else {
 			PyErr_SetString(PyExc_TypeError, "Unknown value type in the list");
 			goto error;
@@ -298,14 +302,12 @@ Name_to_ccn(PyObject *py_name)
 	}
 	Py_DECREF(iterator);
 
-	return name;
+	return py_name;
 
-out_of_mem:
-	PyErr_SetNone(PyExc_MemoryError);
 error:
 	Py_XDECREF(item);
+	Py_XDECREF(py_name);
 	Py_XDECREF(iterator);
-	ccn_charbuf_destroy(&name);
 
 	return NULL;
 }

@@ -102,10 +102,10 @@ SignedInfo_obj_from_ccn(PyObject *py_signed_info)
 	}
 
 	//    self.timeStamp = None   # CCNx timestamp
-	debug("PyObject_SetAttrString timestamp\n");
+	debug("PyObject_SetAttrString timeStamp\n");
 	py_o = PyByteArray_FromStringAndSize((const char*) ptr, size);
 	JUMP_IF_NULL(py_o, error);
-	r = PyObject_SetAttrString(py_obj_SignedInfo, "timestamp", py_o);
+	r = PyObject_SetAttrString(py_obj_SignedInfo, "timeStamp", py_o);
 	Py_DECREF(py_o);
 	JUMP_IF_NEG(r, error);
 
