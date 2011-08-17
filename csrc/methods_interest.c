@@ -2,7 +2,6 @@
 #include <ccn/ccn.h>
 
 #include "pyccn.h"
-#include "converters.h"
 #include "methods_name.h"
 #include "objects.h"
 

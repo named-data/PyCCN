@@ -4,7 +4,6 @@
 #include "pyccn.h"
 #include "objects.h"
 
-#include "converters.h"
 #include "methods_key.h"
 
 // ************

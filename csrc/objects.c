@@ -30,6 +30,7 @@ static struct type_to_name {
 	{PKEY, "PKEY_ccn_data"},
 	{SIGNATURE, "Signature_ccn_data"},
 	{SIGNED_INFO, "SignedInfo_ccn_data"},
+	{SIGNING_PARAMS, "SigningParams_ccn_data"},
 	{UPCALL_INFO, "UpcallInfo_ccn_data"},
 	{0, NULL}
 };
@@ -131,6 +132,18 @@ pyccn_Capsule_Destructor(PyObject *capsule)
 		ccn_charbuf_destroy(&p);
 	}
 		break;
+	case SIGNING_PARAMS:
+	{
+		struct ccn_signing_params *p = pointer;
+
+		if (p->template_ccnb)
+			ccn_charbuf_destroy(&p->template_ccnb);
+
+		free(p);
+	}
+		break;
+	case UPCALL_INFO:
+		panic("For now we shouldn't use UPCALL_INFO at all");
 	default:
 		debug("Got capsule: %s\n", PyCapsule_GetName(capsule));
 		panic("Unable to destroy the object: got an unknown capsule");

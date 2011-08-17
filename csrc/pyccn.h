@@ -83,5 +83,6 @@ extern PyObject *g_PyExc_CCNSignatureError;
 extern PyObject *g_PyExc_CCNSignedInfoError;
 extern PyObject *g_PyExc_CCNInterestError;
 extern PyObject *g_PyExc_CCNExclusionFilterError;
+extern PyObject *g_PyExc_CCNKeyError;
 
 #endif /* _PYCCN_H_ */

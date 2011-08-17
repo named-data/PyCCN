@@ -2,7 +2,6 @@
 #include <ccn/ccn.h>
 
 #include "pyccn.h"
-#include "converters.h" //TODO: get rid of this
 #include "methods_key.h"
 #include "methods_name.h"
 #include "methods_signature.h"

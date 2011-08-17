@@ -134,75 +134,108 @@ Key_to_ccn_private(PyObject *py_key)
 // so that we can do the key hash
 
 PyObject *
-Key_from_ccn(struct ccn_pkey* key_ccn)
+Key_from_ccn(struct ccn_pkey *key_ccn)
 {
-	fprintf(stderr, "Key_from_ccn start\n");
+	PyObject *py_obj_Key;
+	RSA *private_key_rsa;
+	struct ccn_pkey *private_key_ccn, *public_key_ccn;
+	unsigned char* public_key_digest;
+	size_t public_key_digest_len;
+	int r;
+	PyObject* py_o;
 
 	assert(g_type_Key);
 
+	debug("Key_from_ccn start\n");
+
 	// 1) Create python object
-	PyObject* py_key = PyObject_CallObject(g_type_Key, NULL);
+	py_obj_Key = PyObject_CallObject(g_type_Key, NULL);
+	JUMP_IF_NULL(py_obj_Key, error);
 
 	// 2) Parse c structure and fill python attributes
 
 	// If this is a private key, split private and public keys
-	// There is probably a less convoluted way to do this than pulling it out to RSA
+	// There is probably a less convoluted way to do this than pulling
+	// it out to RSA
 	// Also, create the digest...
 	// These non-ccn functions assume the CCN defaults, RSA + SHA256
-	RSA* private_key_rsa = EVP_PKEY_get1_RSA((EVP_PKEY*) key_ccn);
-	struct ccn_pkey *private_key_ccn, *public_key_ccn;
-	unsigned char* public_key_digest;
-	size_t public_key_digest_len;
-	ccn_keypair_from_rsa(private_key_rsa, &private_key_ccn, &public_key_ccn);
-	create_public_key_digest(private_key_rsa, &public_key_digest, &public_key_digest_len);
+	private_key_rsa = EVP_PKEY_get1_RSA((EVP_PKEY *) key_ccn);
+	if (!private_key_rsa) {
+		PyErr_SetString(g_type_Key, "Error obtaining private key");
+		goto error;
+	}
+
+	r = ccn_keypair_from_rsa(private_key_rsa, &private_key_ccn,
+			&public_key_ccn);
+	JUMP_IF_NEG(r, error);
+
+	r = create_public_key_digest(private_key_rsa, &public_key_digest,
+			&public_key_digest_len);
+	JUMP_IF_NEG(r, error);
+
 	//  ccn_digest has a more convoluted API, with examples
 	// in ccn_client, but *for now* it boils down to the same thing.
 
-	PyObject* p;
+	/* type */
+	py_o = PyString_FromString("RSA");
+	JUMP_IF_NULL(py_o, error);
+	r = PyObject_SetAttrString(py_obj_Key, "type", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
 
+	/* publicKeyID */
+	py_o = PyByteArray_FromStringAndSize((char*) public_key_digest,
+			public_key_digest_len);
+	JUMP_IF_NULL(py_o, error);
+	r = PyObject_SetAttrString(py_obj_Key, "publicKeyID", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
 
-	// type
-	p = PyString_FromString("RSA");
-	PyObject_SetAttrString(py_key, "type", p);
-	Py_INCREF(p);
-
-
-	// publicKeyID
-	p = PyByteArray_FromStringAndSize((char*) public_key_digest, public_key_digest_len);
-	PyObject_SetAttrString(py_key, "publicKeyID", p);
-	Py_INCREF(p);
 	//free (public_key_digest); -- this is the job of python
 	// publicKeyIDsize
-	p = PyInt_FromLong(public_key_digest_len);
-	PyObject_SetAttrString(py_key, "publicKeyIDsize", p);
-	Py_INCREF(p);
+	py_o = PyInt_FromLong(public_key_digest_len);
+	JUMP_IF_NULL(py_o, error);
+	r = PyObject_SetAttrString(py_obj_Key, "publicKeyIDsize", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
 
 	// pubID
 	// TODO: pubID not implemented
-	p = Py_None;
-	PyObject_SetAttrString(py_key, "pubID", p);
-	Py_INCREF(p);
+	py_o = (Py_INCREF(Py_None), Py_None);
+	JUMP_IF_NULL(py_o, error);
+	r = PyObject_SetAttrString(py_obj_Key, "pubID", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
 
 	// 3) Set ccn_data to a cobject pointing to the c struct
 	//    and ensure proper destructor is set up for the c object.
 	// privateKey
 	// Don't free these here, python will call destructor
-	p = CCNObject_New(PKEY, private_key_ccn);
-	PyObject_SetAttrString(py_key, "ccn_data_private", p);
-	Py_INCREF(p);
+	py_o = CCNObject_New(PKEY, private_key_ccn);
+	JUMP_IF_NULL(py_o, error);
+	r = PyObject_SetAttrString(py_obj_Key, "ccn_data_private", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
 
 	// publicKey
 	// Don't free this here, python will call destructor
-	p = CCNObject_New(PKEY, public_key_ccn);
-	PyObject_SetAttrString(py_key, "ccn_data_public", p);
-	Py_DECREF(p);
+	py_o = CCNObject_New(PKEY, public_key_ccn);
+	JUMP_IF_NULL(py_o, error);
+	r = PyObject_SetAttrString(py_obj_Key, "ccn_data_public", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
 
 	// 4) Return the created object
 
 	//free(public_key_digest);
 
-	fprintf(stderr, "Key_from_ccn ends\n");
-	return py_key;
+	debug("Key_from_ccn ends\n");
+
+	return py_obj_Key;
+
+error:
+	Py_XDECREF(py_obj_Key);
+	return NULL;
 }
 
 // Can be called directly from c library

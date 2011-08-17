@@ -30,6 +30,7 @@ enum _pyccn_capsules {
 	PKEY,
 	SIGNATURE,
 	SIGNED_INFO,
+	SIGNING_PARAMS,
 	UPCALL_INFO
 };
 

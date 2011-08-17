@@ -5,7 +5,6 @@
 #include <ccn/signing.h>
 
 #include "pyccn.h"
-#include "converters.h"
 #include "key_utils.h"
 #include "methods_contentobject.h"
 #include "methods_interest.h"
@@ -168,6 +167,73 @@ _pyccn_ccn_set_run_timeout(PyObject *UNUSED(self), PyObject *args)
 	return Py_BuildValue("i", r);
 }
 
+// ************
+// UpcallInfo
+//
+//
+
+// Can be called directly from c library
+
+static PyObject *
+UpcallInfo_from_ccn(struct ccn_upcall_info *ui)
+{
+	PyObject *py_upcall_info;
+	PyObject *py_o;
+	PyObject *py_data = NULL, *py_pco = NULL, *py_comps = NULL;
+	struct ccn_charbuf *data;
+	struct ccn_parsed_ContentObject *pco;
+	struct ccn_indexbuf *comps;
+	int r;
+
+	assert(g_type_UpcallInfo);
+
+	//TODO: fix this
+	if (!ui->content_ccnb)
+		Py_RETURN_NONE;
+
+	assert(ui->content_ccnb);
+
+	// Create name object
+	py_upcall_info = PyObject_CallObject(g_type_UpcallInfo, NULL);
+	JUMP_IF_NULL(py_upcall_info, error);
+
+	// CCN handle (I hope it isn't freed)
+	py_o = CCNObject_Borrow(HANDLE, ui->h);
+	r = PyObject_SetAttrString(py_upcall_info, "ccn", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
+
+	py_data = CCNObject_New_charbuf(CONTENT_OBJECT, &data);
+	JUMP_IF_NULL(py_data, error);
+	r = ccn_charbuf_append(data, ui->content_ccnb, ui->pco->offset[CCN_PCO_E]);
+	JUMP_IF_NEG_MEM(r, error);
+
+	py_pco = CCNObject_New_ParsedContentObject(&pco);
+	JUMP_IF_NULL(py_pco, error);
+
+	py_comps = CCNObject_New_ContentObjectComponents(&comps);
+	JUMP_IF_NULL(py_comps, error);
+
+	py_o = ContentObject_from_ccn_parsed(py_data, py_pco, py_comps);
+	Py_CLEAR(py_comps);
+	Py_CLEAR(py_pco);
+	Py_CLEAR(py_data);
+	JUMP_IF_NULL(py_o, error);
+
+	r = PyObject_SetAttrString(py_upcall_info, "ContentObject", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
+
+	return py_upcall_info;
+
+error:
+	Py_XDECREF(py_comps);
+	Py_XDECREF(py_pco);
+	Py_XDECREF(py_data);
+	Py_XDECREF(py_upcall_info);
+	return NULL;
+}
+
 static enum ccn_upcall_res
 ccn_upcall_handler(struct ccn_closure *selfp,
 		enum ccn_upcall_kind upcall_kind,
@@ -292,7 +358,7 @@ _pyccn_ccn_express_interest(PyObject *UNUSED(self), PyObject *args)
 	if (!py_o)
 		return NULL;
 	Py_DECREF(py_o);
-	templ = PyCObject_AsVoidPtr(py_o); //XXX: change to capsules
+	templ = CCNObject_Get(INTEREST, py_o);
 
 	// Build the closure
 	py_o = CCNObject_New_Closure(&cl);
@@ -443,7 +509,7 @@ _pyccn_ccn_get(PyObject *UNUSED(self), PyObject *args)
 	else {
 		py_o = PyObject_GetAttrString(py_Interest, "ccn_data");
 		JUMP_IF_NULL(py_o, exit);
-		interest = PyCObject_AsVoidPtr(py_o);
+		interest = CCNObject_Get(INTEREST, py_o);
 		JUMP_IF_NULL(interest, exit);
 		Py_CLEAR(py_o);
 	}
@@ -524,79 +590,88 @@ _pyccn_ccn_put(PyObject *UNUSED(self), PyObject *args)
 //
 // args:  Key to fill, CCN Handle
 
-static PyObject*
-_pyccn_ccn_get_default_key(PyObject *UNUSED(self), PyObject *args)
+static PyObject *
+_pyccn_ccn_get_default_key(PyObject *UNUSED(self), PyObject *py_obj_CCN)
 {
-	fprintf(stderr, "Got _pyccn_ccn_get_default_key start\n");
-	PyObject* py_ccn;
-	struct ccn_keystore* keystore;
-	const struct ccn_pkey* private_key;
-	if (PyArg_ParseTuple(args, "O", &py_ccn)) {
-		if (strcmp(py_ccn->ob_type->tp_name, "CCN") != 0) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a CCN");
+	struct ccn_keystore *keystore;
+	const struct ccn_pkey *private_key;
+	PyObject *py_handle;
+	int r;
 
-			return NULL;
-		}
+	debug("Got _pyccn_ccn_get_default_key start\n");
 
-		struct ccn_private {
-			int sock;
-			size_t outbufindex;
-			struct ccn_charbuf *interestbuf;
-			struct ccn_charbuf *inbuf;
-			struct ccn_charbuf *outbuf;
-			struct ccn_charbuf *ccndid;
-			struct hashtb *interests_by_prefix;
-			struct hashtb *interest_filters;
-			struct ccn_skeleton_decoder decoder;
-			struct ccn_indexbuf *scratch_indexbuf;
-			struct hashtb *keys; /* public keys, by pubid */
-			struct hashtb *keystores; /* unlocked private keys */
-			struct ccn_charbuf *default_pubid;
-			struct timeval now;
-			int timeout;
-			int refresh_us;
-			int err; /* pos => errno value, neg => other */
-			int errline;
-			int verbose_error;
-			int tap;
-			int running;
-		};
-
-		// In order to get the default key, have to call ccn_chk_signing_params
-		// which seems to get the key and insert it in the hash table; otherwise
-		// the hashtable starts empty
-		// Could we just have an API call that returns the default signing key?
-		//
-		struct ccn_private* h = (struct ccn_private*) PyCObject_AsVoidPtr(PyObject_GetAttrString(py_ccn, "ccn_data"));
-		struct ccn_signing_params name_sp = CCN_SIGNING_PARAMS_INIT;
-		struct ccn_signing_params p = CCN_SIGNING_PARAMS_INIT;
-		struct ccn_charbuf *timestamp = NULL;
-		struct ccn_charbuf *finalblockid = NULL;
-		struct ccn_charbuf *keylocator = NULL;
-		int res = ccn_chk_signing_params((struct ccn*) h, &name_sp, &p, &timestamp, &finalblockid, &keylocator);
-
-		struct hashtb_enumerator ee;
-		struct hashtb_enumerator *e = &ee;
-		res = 0;
-		hashtb_start(h->keystores, e);
-		if (hashtb_seek(e, p.pubid, sizeof(p.pubid), 0) != HT_OLD_ENTRY) {
-			fprintf(stderr, "No default keystore?\n");
-			res = -1;
-			hashtb_end(e);
-			Py_INCREF(Py_None);
-			return Py_None;
-		} else {
-			struct ccn_keystore **pk = e->data;
-			keystore = *pk;
-			private_key = (struct ccn_pkey*) ccn_keystore_private_key(keystore);
-		}
-		hashtb_end(e);
-
-		return Key_from_ccn((struct ccn_pkey*) private_key);
-	} else {
-
+	if (strcmp(py_obj_CCN->ob_type->tp_name, "CCN")) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a CCN Handle");
 		return NULL;
 	}
+
+	struct ccn_private {
+		int sock;
+		size_t outbufindex;
+		struct ccn_charbuf *interestbuf;
+		struct ccn_charbuf *inbuf;
+		struct ccn_charbuf *outbuf;
+		struct ccn_charbuf *ccndid;
+		struct hashtb *interests_by_prefix;
+		struct hashtb *interest_filters;
+		struct ccn_skeleton_decoder decoder;
+		struct ccn_indexbuf *scratch_indexbuf;
+		struct hashtb *keys; /* public keys, by pubid */
+		struct hashtb *keystores; /* unlocked private keys */
+		struct ccn_charbuf *default_pubid;
+		struct timeval now;
+		int timeout;
+		int refresh_us;
+		int err; /* pos => errno value, neg => other */
+		int errline;
+		int verbose_error;
+		int tap;
+		int running;
+	};
+
+	// In order to get the default key, have to call ccn_chk_signing_params
+	// which seems to get the key and insert it in the hash table; otherwise
+	// the hashtable starts empty
+	// Could we just have an API call that returns the default signing key?
+	//
+	py_handle = PyObject_GetAttrString(py_obj_CCN, "ccn_data");
+	JUMP_IF_NULL(py_handle, error);
+
+	struct ccn_private *handle = CCNObject_Get(HANDLE, py_handle);
+	struct ccn_signing_params name_sp = CCN_SIGNING_PARAMS_INIT;
+	struct ccn_signing_params p = CCN_SIGNING_PARAMS_INIT;
+	struct ccn_charbuf *timestamp = NULL;
+	struct ccn_charbuf *finalblockid = NULL;
+	struct ccn_charbuf *keylocator = NULL;
+	r = ccn_chk_signing_params((struct ccn*) handle, &name_sp, &p,
+			&timestamp, &finalblockid, &keylocator);
+	if (r < 0) {
+		PyErr_SetString(g_PyExc_CCNError, "Error while calling"
+				" ccn_chk_signing_params()");
+		goto error;
+	}
+
+	struct hashtb_enumerator ee;
+	struct hashtb_enumerator *e = &ee;
+
+	hashtb_start(handle->keystores, e);
+	if (hashtb_seek(e, p.pubid, sizeof(p.pubid), 0) != HT_OLD_ENTRY) {
+		debug("No default keystore?\n");
+		hashtb_end(e);
+
+		return(Py_INCREF(Py_None), Py_None);
+	} else {
+		struct ccn_keystore **pk = e->data;
+		keystore = *pk;
+		private_key = (struct ccn_pkey*) ccn_keystore_private_key(keystore);
+	}
+	hashtb_end(e);
+
+	return Key_from_ccn((struct ccn_pkey*) private_key);
+
+error:
+	Py_XDECREF(py_handle);
+	return NULL;
 }
 
 // We do not use these because working with the key storage
@@ -705,46 +780,161 @@ _pyccn_ccn_signed_info_create(PyObject* self, PyObject* args) {
 
  */
 
-// From within python
+// ************
+// SigningParams
+//
+//
+
+// Note that SigningParams information is essentially redundant
+// to what's in SignedInfo, and is internal to the
+// ccn libraries.
+// See the source for ccn_sign_content, for example.
+//
+// To use it requires working with keystores & hashtables to
+// reference keys, which requires accessing private functions in the library
+//
+// So, we don't provide "to_ccn" functionality here, only "from_ccn" in case
+// there is a need to parse a struct coming from the c library.
+
+
+// Can be called directly from c library
+//
+// Pointer to a struct ccn_signing_params
 //
 
 static PyObject*
-_pyccn_SigningParams_from_ccn(PyObject *UNUSED(self), PyObject* args)
+obj_SigningParams_from_ccn(PyObject *py_signing_params)
 {
-	PyObject* cobj_signing_params;
-	if (PyArg_ParseTuple(args, "O", &cobj_signing_params)) {
-		if (!PyCObject_Check(cobj_signing_params)) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a CObject containing a struct ccn_signing_params*");
-			return NULL;
-		}
-		return SigningParams_from_ccn((struct ccn_signing_params*) PyCObject_AsVoidPtr(cobj_signing_params));
-	}
-	Py_INCREF(Py_None);
+	struct ccn_signing_params *signing_params;
+	PyObject *py_obj_SigningParams, *py_o;
+	int r;
 
-	return Py_None;
+	assert(g_type_SigningParams);
+
+	debug("SigningParams_from_ccn start\n");
+
+	signing_params = CCNObject_Get(SIGNING_PARAMS, py_signing_params);
+
+	// 1) Create python object
+	py_obj_SigningParams = PyObject_CallObject(g_type_SigningParams, NULL);
+	JUMP_IF_NULL(py_obj_SigningParams, error);
+
+	// 2) Set ccn_data to a cobject pointing to the c struct
+	//    and ensure proper destructor is set up for the c object.
+	r = PyObject_SetAttrString(py_obj_SigningParams, "ccn_data",
+			py_signing_params);
+	JUMP_IF_NEG(r, error);
+
+
+	// 3) Parse c structure and fill python attributes
+	//    using PyObject_SetAttrString
+
+	py_o = PyInt_FromLong(signing_params->sp_flags);
+	JUMP_IF_NULL(py_o, error);
+	r = PyObject_SetAttrString(py_obj_SigningParams, "flags", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
+
+	py_o = PyInt_FromLong(signing_params->type);
+	JUMP_IF_NULL(py_o, error);
+	r = PyObject_SetAttrString(py_obj_SigningParams, "type", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
+
+	py_o = PyInt_FromLong(signing_params->freshness);
+	JUMP_IF_NULL(py_o, error);
+	r = PyObject_SetAttrString(py_obj_SigningParams, "freshness", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
+
+	py_o = PyInt_FromLong(signing_params->api_version);
+	JUMP_IF_NULL(py_o, error);
+	r = PyObject_SetAttrString(py_obj_SigningParams, "apiVersion", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
+
+	if (signing_params->template_ccnb &&
+			signing_params->template_ccnb->length > 0) {
+		PyObject *py_signed_object;
+		struct ccn_charbuf *signed_object;
+
+		py_signed_object = CCNObject_New_charbuf(SIGNED_INFO, &signed_object);
+		JUMP_IF_NULL(py_signed_object, error);
+
+		r = ccn_charbuf_append_charbuf(signed_object,
+				signing_params->template_ccnb);
+		if (r < 0) {
+			Py_DECREF(py_signed_object);
+			PyErr_NoMemory();
+			goto error;
+		}
+
+		py_o = SignedInfo_obj_from_ccn(py_signed_object);
+		Py_DECREF(py_signed_object);
+		JUMP_IF_NULL(py_o, error);
+	} else
+		py_o = (Py_INCREF(Py_None), Py_None);
+
+	r = PyObject_SetAttrString(py_obj_SigningParams, "template", py_o);
+	Py_DECREF(py_o);
+
+	// Right now we're going to set this to the byte array corresponding
+	// to the key hash, but this is not ideal
+	// TODO:  Figure out how to deal with keys here...
+	py_o = PyByteArray_FromStringAndSize((char *) signing_params->pubid,
+			sizeof(signing_params->pubid));
+	JUMP_IF_NULL(py_o, error);
+	r = PyObject_SetAttrString(py_obj_SigningParams, "key", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
+
+	// 4) Return the created object
+	debug("SigningParams_from_ccn ends\n");
+
+	return py_obj_SigningParams;
+
+error:
+	Py_XDECREF(py_obj_SigningParams);
+	return NULL;
 }
 
 static PyObject*
-_pyccn_UpcallInfo_from_ccn(PyObject *UNUSED(self), PyObject* args)
+_pyccn_SigningParams_from_ccn(PyObject *UNUSED(self),
+		PyObject *py_signing_params)
 {
-	PyObject* cobj_upcall_info;
-	if (PyArg_ParseTuple(args, "O", &cobj_upcall_info)) {
-		if (!PyCObject_Check(cobj_upcall_info)) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a CObject containing a struct ccn_upcall_info*");
-			return NULL;
-		}
-		return UpcallInfo_from_ccn((struct ccn_upcall_info*) PyCObject_AsVoidPtr(cobj_upcall_info));
+	if (!CCNObject_IsValid(SIGNING_PARAMS, py_signing_params)) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a CCN SigningParams");
+		return NULL;
 	}
-	Py_INCREF(Py_None);
 
-	return Py_None;
+	return obj_SigningParams_from_ccn(py_signing_params);
+}
+
+/*
+ * XXX: This looks like an useless function, the upcall_info supposed to be
+ * just temporary structure valid for the duration of upcall, we shouldn't
+ * ever have need to store it. If it indeed is needed, we need to make copy
+ * of the struct and also write routine in destructor
+ */
+static PyObject *
+_pyccn_UpcallInfo_from_ccn(PyObject *UNUSED(self), PyObject *py_upcall_info)
+{
+	struct ccn_upcall_info *upcall_info;
+
+	if (!CCNObject_IsValid(UPCALL_INFO, py_upcall_info)) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a CCN UpcallInfo");
+		return NULL;
+	}
+
+	upcall_info = CCNObject_Get(UPCALL_INFO, py_upcall_info);
+
+	return UpcallInfo_from_ccn(upcall_info);
 }
 
 // DECLARATION OF PYTHON-ACCESSIBLE FUNCTIONS
 //
 
 static PyMethodDef _module_methods[] = {
-
 	// ** Methods of CCN
 	//
 	{"_pyccn_ccn_create", _pyccn_ccn_create, METH_NOARGS, NULL},
@@ -759,8 +949,7 @@ static PyMethodDef _module_methods[] = {
 		METH_VARARGS, NULL},
 	{"_pyccn_ccn_get", _pyccn_ccn_get, METH_VARARGS, NULL},
 	{"_pyccn_ccn_put", _pyccn_ccn_put, METH_VARARGS, NULL},
-	{"_pyccn_ccn_get_default_key", _pyccn_ccn_get_default_key, METH_VARARGS,
-		""},
+	{"_pyccn_ccn_get_default_key", _pyccn_ccn_get_default_key, METH_O, NULL},
 #if 0
 	{"_pyccn_ccn_load_default_key", _pyccn_ccn_load_default_key, METH_VARARGS,
 		""},
@@ -825,14 +1014,12 @@ static PyMethodDef _module_methods[] = {
 	{"_pyccn_SignedInfo_to_ccn", _pyccn_SigningParams_to_ccn, METH_VARARGS,
 		""},
 #endif
-	{"_pyccn_SignedInfo_from_ccn", _pyccn_SigningParams_from_ccn, METH_VARARGS,
-		""},
+	{"_pyccn_SignedInfo_from_ccn", _pyccn_SigningParams_from_ccn, METH_O, NULL},
 	{"_pyccn_ExclusionFilter_to_ccn", _pyccn_ExclusionFilter_to_ccn, METH_O,
 		NULL},
 	{"_pyccn_ExclusionFilter_from_ccn", _pyccn_ExclusionFilter_from_ccn, METH_O,
 		NULL},
-	{"_pyccn_UpcallInfo_from_ccn", _pyccn_UpcallInfo_from_ccn, METH_VARARGS,
-		""},
+	{"_pyccn_UpcallInfo_from_ccn", _pyccn_UpcallInfo_from_ccn, METH_O, NULL},
 
 	{NULL, NULL, 0, NULL} /* Sentinel */
 };

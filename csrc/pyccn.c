@@ -56,7 +56,6 @@
 #include <stdbool.h>
 
 #include "pyccn.h"
-#include "converters.h"
 #include "key_utils.h"
 #include "methods.h"
 #include "misc.h"
@@ -91,6 +90,7 @@ PyObject *g_PyExc_CCNSignatureError;
 PyObject *g_PyExc_CCNSignedInfoError;
 PyObject *g_PyExc_CCNInterestError;
 PyObject *g_PyExc_CCNExclusionFilterError;
+PyObject *g_PyExc_CCNKeyError;
 
 static bool
 import_module(PyObject **module, const char *name)
@@ -140,6 +140,7 @@ init_pyccn(void)
 			g_PyExc_CCNError);
 	NEW_EXCEPTION(CCNExclusionFilterError, "CCN ExclusionFilter Exception",
 			g_PyExc_CCNInterestError);
+	NEW_EXCEPTION(CCNKeyError, "CCN Key Exception", g_PyExc_CCNKeyError);
 
 	if (!import_module(&module_CCN, "pyccn.CCN"))
 		return; //XXX: How to uninitialize methods?
