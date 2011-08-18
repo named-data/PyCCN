@@ -598,8 +598,8 @@ error:
 
 // Can be called directly from c library
 
-static PyObject *
-Interest_from_ccn(PyObject *py_interest)
+PyObject *
+obj_Interest_from_ccn(PyObject *py_interest)
 {
 	struct ccn_charbuf *interest;
 	struct ccn_parsed_interest *parsed_interest;
@@ -612,7 +612,7 @@ Interest_from_ccn(PyObject *py_interest)
 	if (!parsed_interest)
 		return PyErr_NoMemory();
 
-	py_parsed_interest = CCNObject_New(INTEREST, parsed_interest);
+	py_parsed_interest = CCNObject_New(PARSED_INTEREST, parsed_interest);
 	if (!py_parsed_interest) {
 		free(parsed_interest);
 		return NULL;
@@ -693,7 +693,7 @@ _pyccn_Interest_from_ccn(PyObject *UNUSED(self), PyObject *args)
 	}
 
 	if (py_parsed_interest == Py_None) {
-		return Interest_from_ccn(py_interest);
+		return obj_Interest_from_ccn(py_interest);
 	} else {
 		if (!CCNObject_IsValid(PARSED_INTEREST, py_parsed_interest)) {
 			PyErr_SetString(PyExc_TypeError, "Must pass a CCN Parsed Interest"

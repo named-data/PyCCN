@@ -120,7 +120,9 @@ _pyccn_ccn_run(PyObject *UNUSED(self), PyObject *args)
 	/* Enable threads */
 	_pyccn_thread_state = PyEval_SaveThread();
 
+	debug("Entering ccn_run()\n");
 	r = ccn_run(handle, timeoutms);
+	debug("Exiting ccn_run()\n");
 
 	/* disable threads */
 	assert(_pyccn_thread_state);
@@ -175,9 +177,10 @@ _pyccn_ccn_set_run_timeout(PyObject *UNUSED(self), PyObject *args)
 // Can be called directly from c library
 
 static PyObject *
-UpcallInfo_from_ccn(struct ccn_upcall_info *ui)
+obj_UpcallInfo_from_ccn(enum ccn_upcall_kind upcall_kind,
+		struct ccn_upcall_info *ui)
 {
-	PyObject *py_upcall_info;
+	PyObject *py_obj_UpcallInfo;
 	PyObject *py_o;
 	PyObject *py_data = NULL, *py_pco = NULL, *py_comps = NULL;
 	struct ccn_charbuf *data;
@@ -187,50 +190,81 @@ UpcallInfo_from_ccn(struct ccn_upcall_info *ui)
 
 	assert(g_type_UpcallInfo);
 
-	//TODO: fix this
-	if (!ui->content_ccnb)
-		Py_RETURN_NONE;
-
-	assert(ui->content_ccnb);
-
 	// Create name object
-	py_upcall_info = PyObject_CallObject(g_type_UpcallInfo, NULL);
-	JUMP_IF_NULL(py_upcall_info, error);
+	py_obj_UpcallInfo = PyObject_CallObject(g_type_UpcallInfo, NULL);
+	JUMP_IF_NULL(py_obj_UpcallInfo, error);
 
-	// CCN handle (I hope it isn't freed)
+	// CCN handle, I hope it isn't freed; if it is freed we'll get a crash :/
 	py_o = CCNObject_Borrow(HANDLE, ui->h);
-	r = PyObject_SetAttrString(py_upcall_info, "ccn", py_o);
+	r = PyObject_SetAttrString(py_obj_UpcallInfo, "ccn", py_o);
 	Py_DECREF(py_o);
 	JUMP_IF_NEG(r, error);
 
-	py_data = CCNObject_New_charbuf(CONTENT_OBJECT, &data);
-	JUMP_IF_NULL(py_data, error);
-	r = ccn_charbuf_append(data, ui->content_ccnb, ui->pco->offset[CCN_PCO_E]);
-	JUMP_IF_NEG_MEM(r, error);
-
-	py_pco = CCNObject_New_ParsedContentObject(&pco);
-	JUMP_IF_NULL(py_pco, error);
-
-	py_comps = CCNObject_New_ContentObjectComponents(&comps);
-	JUMP_IF_NULL(py_comps, error);
-
-	py_o = ContentObject_from_ccn_parsed(py_data, py_pco, py_comps);
-	Py_CLEAR(py_comps);
-	Py_CLEAR(py_pco);
-	Py_CLEAR(py_data);
+	py_o = PyInt_FromLong(ui->matched_comps);
+	r = PyObject_SetAttrString(py_obj_UpcallInfo, "matchedComps", py_o);
+	Py_DECREF(py_o);
 	JUMP_IF_NULL(py_o, error);
 
-	r = PyObject_SetAttrString(py_upcall_info, "ContentObject", py_o);
-	Py_DECREF(py_o);
-	JUMP_IF_NEG(r, error);
+	if (upcall_kind == CCN_UPCALL_CONTENT ||
+			upcall_kind == CCN_UPCALL_CONTENT_UNVERIFIED ||
+			upcall_kind == CCN_UPCALL_CONTENT_BAD) {
 
-	return py_upcall_info;
+		py_data = CCNObject_New_charbuf(CONTENT_OBJECT, &data);
+		JUMP_IF_NULL(py_data, error);
+		r = ccn_charbuf_append(data, ui->content_ccnb,
+				ui->pco->offset[CCN_PCO_E]);
+		JUMP_IF_NEG_MEM(r, error);
+
+		py_pco = CCNObject_New_ParsedContentObject(&pco);
+		JUMP_IF_NULL(py_pco, error);
+
+		py_comps = CCNObject_New_ContentObjectComponents(&comps);
+		JUMP_IF_NULL(py_comps, error);
+
+		r = ccn_parse_ContentObject(data->buf, data->length,
+				pco, comps);
+		if (r < 0) {
+			PyErr_Format(g_PyExc_CCNError, "Unable to generate Upcall:"
+					" ccn_parse_ContentObject returned %d", r);
+			goto error;
+		}
+
+		py_o = ContentObject_from_ccn_parsed(py_data, py_pco, py_comps);
+		Py_CLEAR(py_comps);
+		Py_CLEAR(py_pco);
+		Py_CLEAR(py_data);
+		JUMP_IF_NULL(py_o, error);
+
+		r = PyObject_SetAttrString(py_obj_UpcallInfo, "ContentObject", py_o);
+		Py_DECREF(py_o);
+		JUMP_IF_NEG(r, error);
+	}
+
+	if (upcall_kind == CCN_UPCALL_INTEREST ||
+			upcall_kind == CCN_UPCALL_CONSUMED_INTEREST) {
+
+		py_data = CCNObject_New_charbuf(INTEREST, &data);
+		JUMP_IF_NULL(py_data, error);
+		r = ccn_charbuf_append(data, ui->interest_ccnb,
+				ui->pi->offset[CCN_PI_E]);
+		JUMP_IF_NEG_MEM(r, error);
+
+		py_o = obj_Interest_from_ccn(py_data);
+		Py_CLEAR(py_data);
+		JUMP_IF_NULL(py_o, error);
+
+		r = PyObject_SetAttrString(py_obj_UpcallInfo, "Interest", py_o);
+		Py_DECREF(py_o);
+		JUMP_IF_NEG(r, error);
+	}
+
+	return py_obj_UpcallInfo;
 
 error:
 	Py_XDECREF(py_comps);
 	Py_XDECREF(py_pco);
 	Py_XDECREF(py_data);
-	Py_XDECREF(py_upcall_info);
+	Py_XDECREF(py_obj_UpcallInfo);
 	return NULL;
 }
 
@@ -253,6 +287,7 @@ ccn_upcall_handler(struct ccn_closure *selfp,
 		return CCN_UPCALL_RESULT_ERR;
 	}
 
+	/* acquiring lock */
 	assert(_pyccn_thread_state);
 	PyEval_RestoreThread(_pyccn_thread_state);
 
@@ -262,25 +297,22 @@ ccn_upcall_handler(struct ccn_closure *selfp,
 	assert(py_closure);
 
 	upcall_method = PyObject_GetAttrString(py_closure, "upcall");
-	if (!upcall_method)
-		goto error;
+	JUMP_IF_NULL(upcall_method, error);
 
 	debug("Generating UpcallInfo\n");
-	py_upcall_info = UpcallInfo_from_ccn(info);
-	if (!py_upcall_info)
-		goto error;
+	py_upcall_info = obj_UpcallInfo_from_ccn(upcall_kind, info);
+	JUMP_IF_NULL(py_upcall_info, error);
 	debug("Done generating UpcallInfo\n");
 
 	arglist = Py_BuildValue("iO", upcall_kind, py_upcall_info);
 	Py_CLEAR(py_upcall_info);
 
-	fprintf(stderr, "Calling upcall\n");
+	debug("Calling upcall\n");
 
 	result = PyObject_CallObject(upcall_method, arglist);
 	Py_CLEAR(upcall_method);
 	Py_DECREF(arglist);
-	if (!result)
-		goto error;
+	JUMP_IF_NULL(result, error);
 
 	if (upcall_kind == CCN_UPCALL_FINAL)
 		Py_DECREF(py_selfp);
@@ -289,10 +321,14 @@ ccn_upcall_handler(struct ccn_closure *selfp,
 	 */
 
 	long r = PyInt_AsLong(result);
+
+	/* releasing lock */
 	_pyccn_thread_state = PyEval_SaveThread();
+
 	return r;
 
 error:
+	debug("Error routine called (upcall_kind = %d)\n", upcall_kind);
 	/*
 		CCNObject_Complete_Closure(py_selfp);
 	 */
@@ -300,7 +336,12 @@ error:
 		Py_DECREF(py_selfp);
 	Py_XDECREF(py_upcall_info);
 	Py_XDECREF(upcall_method);
+
 	//XXX: What to do with the exceptions thrown?
+	if (PyErr_Occurred()) {
+		PyErr_Print();
+	}
+
 	_pyccn_thread_state = PyEval_SaveThread();
 	return CCN_UPCALL_RESULT_ERR;
 }
@@ -928,7 +969,9 @@ _pyccn_UpcallInfo_from_ccn(PyObject *UNUSED(self), PyObject *py_upcall_info)
 
 	upcall_info = CCNObject_Get(UPCALL_INFO, py_upcall_info);
 
-	return UpcallInfo_from_ccn(upcall_info);
+	assert(0);
+	//TODO: we need kind of interest as well!
+	return obj_UpcallInfo_from_ccn(CCN_UPCALL_FINAL, upcall_info);
 }
 
 // DECLARATION OF PYTHON-ACCESSIBLE FUNCTIONS

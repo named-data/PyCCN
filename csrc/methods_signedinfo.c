@@ -109,6 +109,21 @@ SignedInfo_obj_from_ccn(PyObject *py_signed_info)
 	JUMP_IF_NEG(r, error);
 
 	/* Type */
+	assert(d->decoder.state >= 0);
+	r = ccn_parse_optional_tagged_binary_number(d, CCN_DTAG_Type, 3, 3,
+			CCN_CONTENT_DATA);
+	if (d->decoder.state < 0) {
+		PyErr_SetString(g_PyExc_CCNSignedInfoError, "Unable to parse type");
+		goto error;
+	}
+
+	py_o = PyInt_FromLong(r);
+	JUMP_IF_NULL(py_o, error);
+	r = PyObject_SetAttrString(py_obj_SignedInfo, "type", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
+
+/*
 	start = d->decoder.token_index;
 	ccn_parse_optional_tagged_BLOB(d, CCN_DTAG_Type, 1, -1);
 	stop = d->decoder.token_index;
@@ -124,6 +139,7 @@ SignedInfo_obj_from_ccn(PyObject *py_signed_info)
 		Py_DECREF(py_o);
 		JUMP_IF_NEG(r, error);
 	}
+*/
 
 	/* FreshnessSeconds */
 	r = ccn_parse_optional_tagged_nonNegativeInteger(d, CCN_DTAG_FreshnessSeconds);
@@ -322,9 +338,6 @@ _pyccn_SignedInfo_to_ccn(PyObject *UNUSED(self), PyObject *args,
 
 	return CCNObject_New(SIGNED_INFO, si);
 }
-
-// From within python
-//
 
 PyObject *
 _pyccn_SignedInfo_from_ccn(PyObject *UNUSED(self), PyObject *py_signed_info)

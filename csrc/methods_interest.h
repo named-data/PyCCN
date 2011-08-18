@@ -8,6 +8,8 @@
 #ifndef METHODS_INTERESTS_H
 #  define	METHODS_INTERESTS_H
 
+PyObject *obj_Interest_from_ccn(PyObject *py_interest);
+
 PyObject *_pyccn_Interest_to_ccn(PyObject *UNUSED(self),
 		PyObject *py_interest);
 PyObject *_pyccn_Interest_from_ccn(PyObject *UNUSED(self), PyObject *args);

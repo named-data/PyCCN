@@ -182,7 +182,7 @@ Name_from_ccn_parsed(PyObject *py_content_object,
 	s = name_end - name_begin;
 
 	debug("ContentObject_from_ccn_parsed Name len=%zd\n", s);
-	if (s <= 0) {
+	if (parsed_content_object->name_ncomps <= 0) {
 		PyErr_SetString(g_PyExc_CCNNameError, "No name stored (or name is"
 				" invalid) in parsed content object");
 		return NULL;

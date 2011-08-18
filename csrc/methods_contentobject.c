@@ -309,7 +309,7 @@ _pyccn_ContentObject_from_ccn(PyObject *self, PyObject *args)
 		}
 
 		return ContentObject_from_ccn_parsed(
-				CCNObject_Get(PARSED_CONTENT_OBJECT, py_co),
+				CCNObject_Get(CONTENT_OBJECT, py_co),
 				CCNObject_Get(PARSED_CONTENT_OBJECT, py_parsed_co),
 				CCNObject_Get(CONTENT_OBJECT_COMPONENTS, py_co_components));
 	}

@@ -13,7 +13,10 @@ n.setURI("/forty/two")
 
 class SenderClosure(Closure.Closure):
 	def upcall(self, kind, upcallInfo):
-		global c, n, k, kl
+		global sender_handle, n, k, kl
+
+		print "Sender closure:"
+		print upcallInfo
 
 		co = ContentObject.ContentObject()
 		co.name = n
@@ -22,17 +25,22 @@ class SenderClosure(Closure.Closure):
 		si = ContentObject.SignedInfo()
 		si.publisherPublicKeyDigest = k.publicKeyID
 		si.type = 0x0C04C0
-		si.freshnessSeconds = -1
+		si.freshnessSeconds = 5
 		si.keyLocator = kl
 
 		co.signedInfo = si
 
 		co.sign(k)
-		print c.put(co)
+		print "put(co) = ", sender_handle.put(co)
+		sender_handle.setRunTimeout(0)
 
 class ReceiverClosure(Closure.Closure):
 	def upcall(self, kind, upcallInfo):
-		global c, upcall_called
+		global receiver_handle, upcall_called
+
+		print "Receiver closure:"
+
+		print upcallInfo
 
 		print "#Receiver# Got response %d" % kind
 		if (kind == 4):
@@ -40,22 +48,30 @@ class ReceiverClosure(Closure.Closure):
 
 		upcall_called = True
 
-		c.setRunTimeout(0)
+		receiver_handle.setRunTimeout(0)
 
 senderclosure = SenderClosure()
 receiverclosure = ReceiverClosure()
 
-c = CCN.CCN()
+sender_handle = CCN.CCN()
+receiver_handle = CCN.CCN()
 
 #Looks like the CCNx API doesn't deliver messages
 #that we sent to ourselves, so we just push it
-#c.setInterestFilter(n, senderclosure)
-senderclosure.upcall(1, None)
+sender_handle.setInterestFilter(n, senderclosure)
+#senderclosure.upcall(1, None)
 
 i = Interest.Interest()
-c.expressInterest(n, receiverclosure, i)
+receiver_handle.expressInterest(n, receiverclosure, i)
 
 upcall_called = False
-c.run(5000)
-assert upcall_called
 
+print "Running loops"
+
+#So sender closure is called
+sender_handle.run(500)
+
+#So receiver closure is called
+receiver_handle.run(500)
+
+assert upcall_called

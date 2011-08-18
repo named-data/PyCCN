@@ -3,6 +3,7 @@
 import _pyccn
 
 from base64 import b64encode, b64decode
+from binascii import a2b_hex
 
 class ContentObject(object):
 	def __init__(self):
@@ -121,19 +122,26 @@ class SignedInfo(object):
 		pubkeydigest = "<PublisherPublicKeyDigest>%s</PublisherPublicKeyDigest>" \
 			% b64encode(self.publisherPublicKeyDigest)
 		timestamp = "<Timestamp>%s</Timestamp>" % b64encode(self.timeStamp)
-		type = "<Type>%s</Type>" % b64encode(self.type)
+#		type = "<Type>%s</Type>" % ("None" if self.type == None else "0x%0.6X" % self.type)
+		type = "<Type>%s</Type>" % ("None" if self.type == None else b64encode(a2b_hex("%0.6X" % self.type)))
 		freshness = "<FreshnessSeconds>%s<FreshnessSeconds>" % self.freshnessSeconds
 		finalBlockID = "<FinalBlockID>%s</FinalBlockID>" % self.finalBlockID
 		res = "<SignedInfo>%s%s%s%s%s%s</SignedInfo>" % (pubkeydigest, timestamp, type, freshness, finalBlockID, self.keyLocator)
 		return res
 
 class ContentType(object):
-	CCN_CONTENT_DATA = b64decode("DATA")
-	CCN_CONTENT_ENCR = b64decode("ENCR")
-	CCN_CONTENT_GONE = b64decode("GONE")
-	CCN_CONTENT_KEY  = b64decode("KEY/")
-	CCN_CONTENT_LINK = b64decode("LINK")
-	CCN_CONTENT_NACK = b64decode("NACK")
+	CCN_CONTENT_DATA = 0x0C04C0
+	CCN_CONTENT_ENCR = 0x10D091
+	CCN_CONTENT_GONE = 0x18E344
+	CCN_CONTENT_KEY  = 0x28463F
+	CCN_CONTENT_LINK = 0x2C834A
+	CCN_CONTENT_NACK = 0x34008A
+#	CCN_CONTENT_DATA = b64decode("DATA")
+#	CCN_CONTENT_ENCR = b64decode("ENCR")
+#	CCN_CONTENT_GONE = b64decode("GONE")
+#	CCN_CONTENT_KEY  = b64decode("KEY/")
+#	CCN_CONTENT_LINK = b64decode("LINK")
+#	CCN_CONTENT_NACK = b64decode("NACK")
 
 #
 #
