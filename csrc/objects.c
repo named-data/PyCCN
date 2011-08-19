@@ -36,8 +36,8 @@
 #include <stdlib.h>
 
 #include "pyccn.h"
-#include "misc.h"
 #include "objects.h"
+#include "util.h"
 
 /*
 static struct completed_closure *g_completed_closures;

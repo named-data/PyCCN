@@ -88,7 +88,7 @@
 #include "pyccn.h"
 #include "key_utils.h"
 #include "methods.h"
-#include "misc.h"
+#include "util.h"
 
 PyThreadState *_pyccn_thread_state = NULL;
 

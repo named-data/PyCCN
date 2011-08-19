@@ -28,11 +28,11 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _MISC_H_
-#  define	_MISC_H_
+#ifndef _UTIL_H_
+#  define	_UTIL_H_
 
 void dump_charbuf(struct ccn_charbuf* c, FILE* fp);
 void panic(const char *message);
 void print_object(const PyObject *object);
 
-#endif	/* _MISC_H_ */
+#endif	/* _UTIL_H_ */

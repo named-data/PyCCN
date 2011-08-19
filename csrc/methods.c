@@ -42,8 +42,8 @@
 #include "methods_name.h"
 #include "methods_signature.h"
 #include "methods_signedinfo.h"
-#include "misc.h"
 #include "objects.h"
+#include "util.h"
 
 // *** Python method declarations
 //

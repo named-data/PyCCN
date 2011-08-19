@@ -47,7 +47,7 @@
 #include <assert.h>
 
 #include "key_utils.h"
-#include "misc.h"
+#include "util.h"
 
 static char g_seed_file[200];
 static int g_seeded = 0;

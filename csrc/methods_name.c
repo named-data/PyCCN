@@ -33,8 +33,8 @@
 
 #include "methods_name.h"
 #include "pyccn.h"
-#include "misc.h"
 #include "objects.h"
+#include "util.h"
 
 // Can be called directly from c library
 // For now, everything is a bytearray
