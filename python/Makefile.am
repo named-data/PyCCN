@@ -1,4 +1,4 @@
-pyccndir = $(pythondir)/pyccn
+pyccndir = $(PYTHON_SITE_PKG)/pyccn
 
 pyccn_PYTHON = \
 	pyccn/ContentObject.py \

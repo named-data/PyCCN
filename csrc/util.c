@@ -28,6 +28,10 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * util.c - utility functions
+ */
+
 #include <Python.h>
 #include <ccn/ccn.h>
 

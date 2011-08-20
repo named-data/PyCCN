@@ -28,62 +28,11 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-//
-//  Python bindings for CCNx
-//  jburke@ucla.edu
-//  6/27/2011
-//
-//  (C) 2011 Regents of the University of California
-//  Unreleased...
-//
-//
-
-// This is intended to be a rather "thin" implementation, which supports
-// Python objects corresponding to the major CCNx entities - Interest, ContentObject,
-// and so on, as well as some support objects.  The C code is mostly just
-// responsible for marshaling data back and forth between the formats, though
-// there are some useful functions for key generation/access included.
-//
-// These are mapped more or less directly from the CCNx wire format, and the
-// Python objects are, in fact, backed by a cached version of the wire format
-// or native c object, a Python CObject kept in self.ccn_data. Accessing the
-// attribute regenerates this backing CObject if necessary - those mechanics
-// are in the Python code.
-//
-// The Interest and ContentObject objects also cache their parsed versions
-// as well
-//
-//
-
-// So far this is being built with Eclipse compiling on Mac OS X 10.6.6
-// Using Apple's version of Python 2.6.1.  It should under other versions
-// if things are compiled against the right headers.
-// Link to a shared library (.so).
-//
-
-// Still left to do:
-// - Finish implementing ccn library calls of interest (stubs below)
-// - Fill in help text python method declaration
-// - Error checking and exception handling
-// - Check proper use of Py_INCREF and Py_DECREF macros.
-// - Update for new key functions in the current branch Nick B has
-// - Unit test and debug against C and Java APIs
-// - Buffer overflow protection?
-// - Lots of interesting high-level stuff in Python may require new support code here.
-
-// Long-term:
-// - Most key- and signing-related functions are hardcoded
-//   for RSA and SHA256 because the wire format and/or libraries
-//   provide no other examples.  Need to keep an eye on API support
-//   and update.
-
 #include <Python.h>
 #include <ccn/ccn.h>
 #include <ccn/hashtb.h>
 #include <ccn/uri.h>
 #include <ccn/signing.h>
-
-#include <stdbool.h>
 
 #include "pyccn.h"
 #include "key_utils.h"
@@ -94,7 +43,6 @@ PyThreadState *_pyccn_thread_state = NULL;
 
 // Primary types for the Python libraries,
 // taken directly from the CCNx wire format
-//
 PyObject *g_type_Name;
 PyObject *g_type_CCN;
 PyObject *g_type_Interest;
@@ -104,7 +52,6 @@ PyObject *g_type_Key;
 
 // Plus some secondary helper types, which
 // are declared as inner classes.
-//
 PyObject *g_type_ExclusionFilter;
 PyObject *g_type_KeyLocator;
 PyObject *g_type_Signature;
@@ -122,7 +69,7 @@ PyObject *g_PyExc_CCNInterestError;
 PyObject *g_PyExc_CCNExclusionFilterError;
 PyObject *g_PyExc_CCNKeyError;
 
-static bool
+static PyObject *
 import_module(PyObject **module, const char *name)
 {
 	assert(module);
@@ -130,11 +77,11 @@ import_module(PyObject **module, const char *name)
 
 	*module = PyImport_ImportModule(name);
 	if (*module)
-		return true;
+		return *module;
 
 	fprintf(stderr, "Unable to import %s\n", name);
 
-	return false;
+	return NULL;
 }
 
 #define NEW_EXCEPTION(NAME, DESC, BASE) \
@@ -149,8 +96,8 @@ PyMODINIT_FUNC
 init_pyccn(void)
 {
 	PyObject *module;
-	PyObject *module_Name, *module_CCN, *module_Interest;
-	PyObject *module_ContentObject, *module_Closure, *module_Key;
+	PyObject *py_module_Name, *py_module_CCN, *py_module_Interest;
+	PyObject *py_module_ContentObject, *py_module_Closure, *py_module_Key;
 
 	module = initialize_methods("pyccn._pyccn");
 	if (!module) {
@@ -172,69 +119,76 @@ init_pyccn(void)
 			g_PyExc_CCNInterestError);
 	NEW_EXCEPTION(CCNKeyError, "CCN Key Exception", g_PyExc_CCNKeyError);
 
-	if (!import_module(&module_CCN, "pyccn.CCN"))
+	if (!import_module(&py_module_CCN, "pyccn.CCN"))
 		return; //XXX: How to uninitialize methods?
 
-	if (!import_module(&module_Interest, "pyccn.Interest"))
-		return;
-
-	if (!import_module(&module_ContentObject, "pyccn.ContentObject"))
+	if (!import_module(&py_module_Interest, "pyccn.Interest"))
 		goto unload_ccn;
 
-	if (!import_module(&module_Closure, "pyccn.Closure"))
+	if (!import_module(&py_module_ContentObject, "pyccn.ContentObject"))
+		goto unload_interest;
+
+	if (!import_module(&py_module_Closure, "pyccn.Closure"))
 		goto unload_contentobject;
 
-	if (!import_module(&module_Key, "pyccn.Key"))
+	if (!import_module(&py_module_Key, "pyccn.Key"))
 		goto unload_closure;
 
-	if (!import_module(&module_Name, "pyccn.Name"))
+	if (!import_module(&py_module_Name, "pyccn.Name"))
 		goto unload_key;
 
-	PyObject *CCNDict, *InterestDict, *ContentObjectDict, *ClosureDict,
-			*KeyDict, *NameDict;
-	CCNDict = PyModule_GetDict(module_CCN);
-	InterestDict = PyModule_GetDict(module_Interest);
-	ContentObjectDict = PyModule_GetDict(module_ContentObject);
-	ClosureDict = PyModule_GetDict(module_Closure);
-	KeyDict = PyModule_GetDict(module_Key);
-	NameDict = PyModule_GetDict(module_Name);
+	PyObject *py_dict_CCN, *py_dict_Interest, *py_dict_ContentObject;
+	PyObject *py_dict_Closure, *py_dict_Key, *py_dict_Name;
+
+	py_dict_CCN = PyModule_GetDict(py_module_CCN);
+	py_dict_Interest = PyModule_GetDict(py_module_Interest);
+	py_dict_ContentObject = PyModule_GetDict(py_module_ContentObject);
+	py_dict_Closure = PyModule_GetDict(py_module_Closure);
+	py_dict_Key = PyModule_GetDict(py_module_Key);
+	py_dict_Name = PyModule_GetDict(py_module_Name);
 
 	// These are used to instantiate new objects in C code
-	g_type_CCN = PyDict_GetItemString(CCNDict, "CCN");
+	g_type_CCN = PyDict_GetItemString(py_dict_CCN, "CCN");
 	assert(g_type_CCN);
-	g_type_Interest = PyDict_GetItemString(InterestDict, "Interest");
+	g_type_Interest = PyDict_GetItemString(py_dict_Interest, "Interest");
 	assert(g_type_Interest);
-	g_type_ContentObject = PyDict_GetItemString(ContentObjectDict, "ContentObject");
+	g_type_ContentObject = PyDict_GetItemString(py_dict_ContentObject,
+			"ContentObject");
 	assert(g_type_ContentObject);
-	g_type_Closure = PyDict_GetItemString(ClosureDict, "Closure");
+	g_type_Closure = PyDict_GetItemString(py_dict_Closure, "Closure");
 	assert(g_type_Closure);
-	g_type_Key = PyDict_GetItemString(KeyDict, "Key");
+	g_type_Key = PyDict_GetItemString(py_dict_Key, "Key");
 	assert(g_type_Key);
-	g_type_Name = PyDict_GetItemString(NameDict, "Name");
+	g_type_Name = PyDict_GetItemString(py_dict_Name, "Name");
 	assert(g_type_Name);
 
 	// Additional
-	g_type_KeyLocator = PyDict_GetItemString(KeyDict, "KeyLocator");
+	g_type_KeyLocator = PyDict_GetItemString(py_dict_Key, "KeyLocator");
 	assert(g_type_KeyLocator);
-	g_type_ExclusionFilter = PyDict_GetItemString(InterestDict, "ExclusionFilter");
+	g_type_ExclusionFilter = PyDict_GetItemString(py_dict_Interest,
+			"ExclusionFilter");
 	assert(g_type_ExclusionFilter);
-	g_type_Signature = PyDict_GetItemString(ContentObjectDict, "Signature");
+	g_type_Signature = PyDict_GetItemString(py_dict_ContentObject, "Signature");
 	assert(g_type_Signature);
-	g_type_SignedInfo = PyDict_GetItemString(ContentObjectDict, "SignedInfo");
+	g_type_SignedInfo = PyDict_GetItemString(py_dict_ContentObject,
+			"SignedInfo");
 	assert(g_type_SignedInfo);
-	g_type_SigningParams = PyDict_GetItemString(ContentObjectDict, "SigningParams");
+	g_type_SigningParams = PyDict_GetItemString(py_dict_ContentObject,
+			"SigningParams");
 	assert(g_type_SigningParams);
-	g_type_UpcallInfo = PyDict_GetItemString(ClosureDict, "UpcallInfo");
+	g_type_UpcallInfo = PyDict_GetItemString(py_dict_Closure, "UpcallInfo");
 	assert(g_type_UpcallInfo);
 
 	return;
 
 unload_key:
-	Py_DECREF(module_Key);
+	Py_DECREF(py_module_Key);
 unload_closure:
-	Py_DECREF(module_Closure);
+	Py_DECREF(py_module_Closure);
 unload_contentobject:
-	Py_DECREF(module_ContentObject);
+	Py_DECREF(py_module_ContentObject);
+unload_interest:
+	Py_DECREF(py_module_Interest);
 unload_ccn:
-	Py_DECREF(module_CCN);
+	Py_DECREF(py_module_CCN);
 }

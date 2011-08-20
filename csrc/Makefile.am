@@ -1,4 +1,4 @@
-pyccndir = $(pythondir)/pyccn
+pyccndir = $(PYTHON_SITE_PKG)/pyccn
 
 pyccn_LTLIBRARIES = _pyccn.la
 noinst_HEADERS = \

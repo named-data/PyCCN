@@ -8,19 +8,18 @@ AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux])
 AC_CONFIG_SRCDIR([csrc/pyccn.c])
 
-AM_INIT_AUTOMAKE([foreign silent-rules parallel-tests color-tests -Wall -Werror])
+AM_INIT_AUTOMAKE([foreign 1.11 silent-rules parallel-tests color-tests -Wall -Werror])
 AM_SILENT_RULES([yes])
 LT_INIT
 
 # Checks for programs.
 AC_PROG_CC
-AM_PATH_PYTHON([2.7],,AC_MSG_ERROR([Python 2.7 is required to compile and run PyCCN]))
 
 # Checks for libraries.
 AX_CHECK_CCN(,AC_MSG_ERROR([CCNx is required to compile PyCCN]))
 
 # Checks for header files.
-AX_PYTHON_DEVEL
+AX_PYTHON_DEVEL([>= 2.7])
 
 # Checks for typedefs, structures, and compiler characteristics.
 

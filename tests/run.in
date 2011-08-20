@@ -1,8 +1,9 @@
 #! /bin/sh
 
-prefix=@prefix@
-modpath=@top_builddir@/tests/install@pythondir@/pyccn
-pypath=@top_builddir@/tests/install@pythondir@:$PYTHONPATH
+tmpsite=@abs_top_builddir@/tests/install@PYTHON_SITE_PKG@
+
+modpath=${tmpsite}/pyccn
+pypath=${tmpsite}:$PYTHONPATH
 
 test -z "$1" &&
 	PYTHONPATH=$pypath DYLD_LIBRAY_PATH=$modpath exec @PYTHON@
