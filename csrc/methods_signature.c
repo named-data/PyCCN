@@ -28,11 +28,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Python.h>
+#include "python.h"
 #include <ccn/ccn.h>
 
 #include "pyccn.h"
 #include "objects.h"
+#include "util.h"
 
 /* only used by assertions code */
 #ifndef NDEBUG
@@ -44,6 +45,7 @@ append_digest_algorithm(struct ccn_charbuf *signature,
 		PyObject *py_obj_Signature)
 {
 	PyObject *py_digestAlgorithm = NULL;
+	PyObject *py_o;
 	char *str;
 	Py_ssize_t str_len;
 	int r;
@@ -56,12 +58,13 @@ append_digest_algorithm(struct ccn_charbuf *signature,
 	JUMP_IF_NULL(py_digestAlgorithm, error);
 
 	if (py_digestAlgorithm != Py_None) {
-		r = PyString_AsStringAndSize(py_digestAlgorithm, &str, &str_len);
+		py_o = _pyccn_unicode_to_utf8(py_digestAlgorithm, &str, &str_len);
 		assert((Py_ssize_t) strlen(str) == str_len);
-		JUMP_IF_NEG(r, error);
+		JUMP_IF_NULL(py_o, error);
 
 		r = ccnb_append_tagged_blob(signature, CCN_DTAG_DigestAlgorithm,
 				str, str_len);
+		Py_DECREF(py_o);
 		JUMP_IF_NEG_MEM(r, error);
 	}
 	Py_DECREF(py_digestAlgorithm);

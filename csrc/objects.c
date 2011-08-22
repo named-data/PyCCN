@@ -28,7 +28,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Python.h>
+#include "python.h"
 #include <ccn/ccn.h>
 #include <ccn/charbuf.h>
 #include <ccn/signing.h>

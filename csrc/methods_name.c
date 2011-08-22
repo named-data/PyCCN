@@ -28,7 +28,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Python.h>
+#include "python.h"
 #include <ccn/ccn.h>
 
 #include "methods_name.h"
@@ -108,6 +108,7 @@ _pyccn_Name_to_ccn(PyObject *UNUSED(self), PyObject *py_name_components)
 {
 	struct ccn_charbuf *name;
 	PyObject *py_name, *iterator, *item = NULL;
+	PyObject *py_o;
 	int r;
 
 	if (!PyList_Check(py_name_components)) {
@@ -134,28 +135,35 @@ _pyccn_Name_to_ccn(PyObject *UNUSED(self), PyObject *py_name_components)
 			char *b = PyByteArray_AsString(item);
 			r = ccn_name_append(name, b, n);
 			JUMP_IF_NEG_MEM(r, error);
-		} else if (PyString_Check(item)) { // Unicode or UTF-8?
-			char *s = PyString_AsString(item);
-			JUMP_IF_NULL(s, error);
+		} else if (_pyccn_STRING_CHECK(item)) {
+			char *s;
+
+			py_o = _pyccn_unicode_to_utf8(item, &s, NULL);
+			JUMP_IF_NULL(py_o, error);
 
 			r = ccn_name_append_str(name, s);
+			Py_DECREF(py_o);
 			JUMP_IF_NEG_MEM(r, error);
 
 			// Note, we choose to convert numbers to their string
 			// representation; if we want numeric encoding, use a
 			// byte array and do it explicitly.
-		} else if (PyFloat_Check(item) || PyLong_Check(item) || PyInt_Check(item)) {
-			PyObject *str = PyObject_Str(item);
-			JUMP_IF_NULL(str, error);
+		} else if (PyFloat_Check(item) || PyLong_Check(item) ||
+				_pyccn_Int_Check(item)) {
+			char *s;
 
-			char *s = PyString_AsString(str);
+			py_o = PyObject_Str(item);
+			JUMP_IF_NULL(py_o, error);
+
+			/* since it is a number, no need for UTF8 */
+			s = PyBytes_AS_STRING(py_o);
 			if (!s) {
-				Py_DECREF(str);
+				Py_DECREF(py_o);
 				goto error;
 			}
 
 			r = ccn_name_append_str(name, s);
-			Py_DECREF(str);
+			Py_DECREF(py_o);
 			JUMP_IF_NEG_MEM(r, error);
 		} else {
 			PyErr_SetString(PyExc_TypeError, "Unknown value type in the list");
@@ -273,6 +281,7 @@ PyObject *
 Name_to_ccn(PyObject *py_obj_Name)
 {
 	struct ccn_charbuf *name;
+	PyObject *py_o;
 	PyObject *py_name = NULL;
 	PyObject *comps, *iterator, *item = NULL;
 	int r;
@@ -301,28 +310,35 @@ Name_to_ccn(PyObject *py_obj_Name)
 			Py_ssize_t n = PyByteArray_GET_SIZE(item);
 			r = ccn_name_append(name, b, n);
 			JUMP_IF_NEG_MEM(r, error);
-		} else if (PyString_Check(item)) { // Unicode or UTF-8?
-			char *s = PyString_AsString(item);
-			JUMP_IF_NULL(s, error);
+		} else if (_pyccn_STRING_CHECK(item)) {
+			char *s;
+
+			py_o = _pyccn_unicode_to_utf8(item, &s, NULL);
+			JUMP_IF_NULL(py_o, error);
 
 			r = ccn_name_append_str(name, s);
+			Py_DECREF(py_o);
 			JUMP_IF_NEG_MEM(r, error);
 
 			// Note, we choose to convert numbers to their string
 			// representation; if we want numeric encoding, use a
 			// byte array and do it explicitly.
-		} else if (PyFloat_Check(item) || PyLong_Check(item) || PyInt_Check(item)) {
-			PyObject *str = PyObject_Str(item);
-			JUMP_IF_NULL(str, error);
+		} else if (PyFloat_Check(item) || PyLong_Check(item) ||
+				_pyccn_Int_Check(item)) {
+			char *s;
 
-			char *s = PyString_AsString(str);
+			py_o = PyObject_Str(item);
+			JUMP_IF_NULL(py_o, error);
+
+			/* Since it is a number no UTF8 needed */
+			s = PyBytes_AS_STRING(py_o);
 			if (!s) {
-				Py_DECREF(str);
+				Py_DECREF(py_o);
 				goto error;
 			}
 
 			r = ccn_name_append_str(name, s);
-			Py_DECREF(str);
+			Py_DECREF(py_o);
 			JUMP_IF_NEG_MEM(r, error);
 		} else {
 			PyErr_SetString(PyExc_TypeError, "Unknown value type in the list");

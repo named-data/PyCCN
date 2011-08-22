@@ -15,8 +15,8 @@ class SenderClosure(Closure.Closure):
 	def upcall(self, kind, upcallInfo):
 		global sender_handle, n, k, kl
 
-		print "Sender closure:"
-		print upcallInfo
+		print("Sender closure:")
+		print(upcallInfo)
 
 		co = ContentObject.ContentObject()
 		co.name = n
@@ -31,18 +31,18 @@ class SenderClosure(Closure.Closure):
 		co.signedInfo = si
 
 		co.sign(k)
-		print "put(co) = ", sender_handle.put(co)
+		print("put(co) = ", sender_handle.put(co))
 		sender_handle.setRunTimeout(0)
 
 class ReceiverClosure(Closure.Closure):
 	def upcall(self, kind, upcallInfo):
 		global receiver_handle, upcall_called
 
-		print "Receiver closure:"
+		print("Receiver closure:")
 
-		print upcallInfo
+		print(upcallInfo)
 
-		print "#Receiver# Got response %d" % kind
+		print("#Receiver# Got response %d" % kind)
 		if (kind == 4):
 			raise AssertionError("Got timeout")
 
@@ -66,7 +66,7 @@ receiver_handle.expressInterest(n, receiverclosure, i)
 
 upcall_called = False
 
-print "Running loops"
+print("Running loops")
 
 #So sender closure is called
 sender_handle.run(500)

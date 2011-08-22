@@ -1,22 +1,22 @@
 from pyccn import CCN, Name
 
 c = CCN.CCN()
-print c
+print(c)
 
 n = Name.Name()
-print n
+print(n)
 
 n.setURI("ccnx:/ccnx/ping")
-print n
+print(n)
 
 co = c.get(n)
-print co
+print(co)
 
 #this shouldn't cause segfault
-print n
+print(n)
 
 n.setURI("ccnx:/ccnx/some_nonexisting_name")
 co = c.get(n, None, 100)
 
 #this shouldn't cause segfault!
-print co
+print(co)

@@ -32,7 +32,7 @@
  * util.c - utility functions
  */
 
-#include <Python.h>
+#include "python.h"
 #include <ccn/ccn.h>
 
 #include <stdlib.h>
@@ -68,4 +68,37 @@ print_object(PyObject *object)
 	putc('\n', of);
 
 	fclose(of);
+}
+
+PyObject *
+_pyccn_unicode_to_utf8(PyObject *string, char **buffer, Py_ssize_t *length)
+{
+	PyObject *py_utf8;
+	int r;
+
+#if PY_MAJOR_VERSION < 3
+	if (!PyUnicode_Check(string)) {
+		r = PyString_AsStringAndSize(string, buffer, length);
+		if (r < 0)
+			return NULL;
+
+		Py_INCREF(string);
+		return string;
+	}
+#endif
+
+	assert(PyUnicode_Check(string));
+
+	py_utf8 = PyUnicode_EncodeUTF8(PyUnicode_AS_UNICODE(string),
+			PyUnicode_GET_SIZE(string), NULL);
+	if (!py_utf8)
+		return NULL;
+
+	r = PyBytes_AsStringAndSize(py_utf8, buffer, length);
+	if (r < 0) {
+		Py_DECREF(py_utf8);
+		return NULL;
+	}
+
+	return py_utf8;
 }

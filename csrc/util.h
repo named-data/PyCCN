@@ -31,8 +31,23 @@
 #ifndef _UTIL_H_
 #  define	_UTIL_H_
 
+#  if PY_MAJOR_VERSION >= 3
+#    define _pyccn_STRING_CHECK(op) PyUnicode_Check(op)
+#    define _pyccn_Int_Check(val) PyLong_Check(val)
+#    define _pyccn_Int_FromLong(val) PyLong_FromLong(val)
+#    define _pyccn_Int_AsLong(val) PyLong_AsLong(val)
+#  else
+#    define _pyccn_STRING_CHECK(op) (PyString_Check(op) || PyUnicode_Check(op))
+#    define _pyccn_Int_Check(val) PyInt_Check(val)
+#    define _pyccn_Int_FromLong(val) PyInt_FromLong(val)
+#    define _pyccn_Int_AsLong(val) PyInt_AsLong(val)
+#  endif
+
+
 void dump_charbuf(struct ccn_charbuf* c, FILE* fp);
 void panic(const char *message);
 void print_object(const PyObject *object);
+PyObject *_pyccn_unicode_to_utf8(PyObject *string, char **buffer,
+		Py_ssize_t *length);
 
 #endif	/* _UTIL_H_ */

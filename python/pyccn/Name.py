@@ -1,4 +1,4 @@
-import _pyccn
+from . import _pyccn
 
 # Iterate through components and check types when serializing.
 # Serialize strings without the trailing 0
@@ -49,7 +49,14 @@ class Name(object):
 	def __str__(self):
 		ret = ""
 		for c in self.components:
-			ret += self.separator + str(c)
+			ret += self.separator
+			if type(c) is str:
+				ret += c
+			elif type(c) is bytearray or type(c) is bytes:
+				ret += c.decode()
+			else:
+				ret += str(c)
+
 		return ret
 
 	def __len__(self):

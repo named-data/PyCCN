@@ -1,6 +1,5 @@
 from pyccn import CCN, Name, Interest, Closure
 from time import sleep
-import thread
 
 worked = False
 
@@ -8,9 +7,9 @@ class MyClosure(Closure.Closure):
 	def upcall(self, kind, upcallInfo):
 		global worked
 
-		print "Got response"
-		print kind
-		print upcallInfo
+		print("Got response")
+		print(kind)
+		print(upcallInfo)
 		worked = True
 
 n = Name.Name()
@@ -21,9 +20,9 @@ closure = MyClosure()
 
 c = CCN.CCN()
 res = c.expressInterest(n, closure, i)
-print res
+print(res)
 
 #causes crashes
 c.run(10)
-print "Ha!"
+print("Ha!")
 assert(worked)

@@ -7,8 +7,8 @@
 #    //              in which shortest components go first.
 #
 
-import _pyccn
-import Name
+from . import _pyccn
+from . import Name
 
 class Interest(object):
 	def __init__(self):

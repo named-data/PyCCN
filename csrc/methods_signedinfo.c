@@ -28,13 +28,13 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Python.h>
+#include "python.h"
 #include <ccn/ccn.h>
 
 #include "pyccn.h"
-#include "objects.h"
-
 #include "methods_key.h"
+#include "objects.h"
+#include "util.h"
 
 // ************
 // SignedInfo
@@ -147,7 +147,7 @@ SignedInfo_obj_from_ccn(PyObject *py_signed_info)
 		goto error;
 	}
 
-	py_o = PyInt_FromLong(r);
+	py_o = _pyccn_Int_FromLong(r);
 	JUMP_IF_NULL(py_o, error);
 	r = PyObject_SetAttrString(py_obj_SignedInfo, "type", py_o);
 	Py_DECREF(py_o);
@@ -176,7 +176,7 @@ SignedInfo_obj_from_ccn(PyObject *py_signed_info)
 	if (r >= 0) {
 		//    self.freshnessSeconds = None
 		debug("PyObject_SetAttrString freshnessSeconds\n");
-		py_o = PyInt_FromLong(r);
+		py_o = _pyccn_Int_FromLong(r);
 		JUMP_IF_NULL(py_o, error);
 		r = PyObject_SetAttrString(py_obj_SignedInfo, "freshnessSeconds", py_o);
 		Py_DECREF(py_o);

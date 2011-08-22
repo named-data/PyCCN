@@ -1,6 +1,6 @@
 # Front ccn_parsed_ContentObject.
 # Sort of.
-import _pyccn
+from . import _pyccn
 
 from base64 import b64encode, b64decode
 from binascii import a2b_hex
@@ -53,7 +53,7 @@ class ContentObject(object):
 	def __getattribute__(self, name):
 		if name == "ccn_data":
 			if object.__getattribute__(self, 'ccn_data_dirty'):
-				print "Call sign() to finalize before accessing ccn_data for a ContentObject"
+				print("Call sign() to finalize before accessing ccn_data for a ContentObject")
 		return object.__getattribute__(self, name)
 
 	# Where do we support versioning and segmentation?
@@ -122,8 +122,7 @@ class SignedInfo(object):
 		pubkeydigest = "<PublisherPublicKeyDigest>%s</PublisherPublicKeyDigest>" \
 			% b64encode(self.publisherPublicKeyDigest)
 		timestamp = "<Timestamp>%s</Timestamp>" % b64encode(self.timeStamp)
-#		type = "<Type>%s</Type>" % ("None" if self.type == None else "0x%0.6X" % self.type)
-		type = "<Type>%s</Type>" % ("None" if self.type == None else b64encode(a2b_hex("%0.6X" % self.type)))
+		type = "<Type>%s</Type>" % ("None" if self.type == None else "0x%0.6X" % self.type)
 		freshness = "<FreshnessSeconds>%s<FreshnessSeconds>" % self.freshnessSeconds
 		finalBlockID = "<FinalBlockID>%s</FinalBlockID>" % self.finalBlockID
 		res = "<SignedInfo>%s%s%s%s%s%s</SignedInfo>" % (pubkeydigest, timestamp, type, freshness, finalBlockID, self.keyLocator)

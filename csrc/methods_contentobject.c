@@ -28,7 +28,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Python.h>
+#include "python.h"
 #include <ccn/ccn.h>
 
 #include "pyccn.h"
@@ -37,6 +37,7 @@
 #include "methods_signature.h"
 #include "methods_signedinfo.h"
 #include "objects.h"
+#include "util.h"
 
 static PyObject *
 Content_from_ccn_parsed(struct ccn_charbuf *content_object,
@@ -205,21 +206,35 @@ ContentObject_from_ccn(struct ccn_charbuf* content_object)
 PyObject *
 _pyccn_content_to_bytearray(PyObject *UNUSED(self), PyObject *arg)
 {
-	PyObject *result;
+	PyObject *str, *result;
 
 	if (arg == Py_None)
-		result = (Py_INCREF(Py_None), Py_None);
-	else if (PyFloat_Check(arg) || PyLong_Check(arg) || PyInt_Check(arg)) {
-		PyObject *s;
+		Py_RETURN_NONE;
+	else if (PyFloat_Check(arg) || PyLong_Check(arg) || _pyccn_Int_Check(arg)) {
+		PyObject *py_o;
 
-		s = PyObject_Str(arg);
-		if (!s)
+		py_o = PyObject_Str(arg);
+		if (!py_o)
 			return NULL;
 
-		result = PyByteArray_FromObject(s);
-		Py_DECREF(s);
+#if PY_MAJOR_VERSION >= 3
+		str = PyUnicode_EncodeUTF8(PyUnicode_AS_UNICODE(py_o),
+				PyUnicode_GET_SIZE(py_o), NULL);
+		Py_DECREF(py_o);
+#else
+		str = py_o;
+#endif
+	} else if (PyUnicode_Check(arg)) {
+		str = PyUnicode_EncodeUTF8(PyUnicode_AS_UNICODE(arg),
+				PyUnicode_GET_SIZE(arg), NULL);
 	} else
-		result = PyByteArray_FromObject(arg);
+		str = (Py_INCREF(arg), arg);
+
+	if (!str)
+		return NULL;
+
+	result = PyByteArray_FromObject(str);
+	Py_DECREF(str);
 
 	return result;
 }

@@ -111,27 +111,6 @@ to something else than an empty string.
 	fi
 
 	#
-	# if the macro parameter ``version'' is set, honour it
-	#
-	if test -n "$1"; then
-		AC_MSG_CHECKING([for a version of Python $1])
-		ac_supports_python_ver=`$PYTHON -c "import sys; \
-			ver = sys.version.split ()[[0]]; \
-			print (ver $1)"`
-		if test "$ac_supports_python_ver" = "True"; then
-		   AC_MSG_RESULT([yes])
-		else
-			AC_MSG_RESULT([no])
-			AC_MSG_ERROR([this package requires Python $1.
-If you have it installed, but it isn't the default Python
-interpreter in your system path, please pass the PYTHON_VERSION
-variable to configure. See ``configure --help'' for reference.
-])
-			PYTHON_VERSION=""
-		fi
-	fi
-
-	#
 	# Check if you have distutils, else fail
 	#
 	AC_MSG_CHECKING([for the distutils Python package])
@@ -144,6 +123,30 @@ variable to configure. See ``configure --help'' for reference.
 Please check your Python installation. The error was:
 $ac_distutils_result])
 		PYTHON_VERSION=""
+	fi
+
+	#
+	# if the macro parameter ``version'' is set, honour it
+	#
+	if test -n "$1"; then
+		AC_MSG_CHECKING([for a version of Python $1])
+		ac_supports_python_ver=`$PYTHON -c "import sys; \
+			from distutils import version; \
+			ver = sys.version.split ()[[0]]; \
+			v1 = version.StrictVersion(ver); \
+			v2 = version.StrictVersion('$1'.split()[[1]]); \
+			print (v1 >= v2)"`
+		if test "$ac_supports_python_ver" = "True"; then
+		   AC_MSG_RESULT([yes])
+		else
+			AC_MSG_RESULT([no])
+			AC_MSG_ERROR([this package requires Python $1.
+If you have it installed, but it isn't the default Python
+interpreter in your system path, please pass the PYTHON_VERSION
+variable to configure. See ``configure --help'' for reference.
+])
+			PYTHON_VERSION=""
+		fi
 	fi
 
 	#

@@ -12,6 +12,7 @@ noinst_HEADERS = \
 	methods_signature.h \
 	methods_signedinfo.h \
 	objects.h \
+	python.h \
 	util.h
 
 _pyccn_la_SOURCES = \
@@ -27,8 +28,15 @@ _pyccn_la_SOURCES = \
 	objects.c \
 	util.c
 
-_pyccn_la_CFLAGS = -std=c99 -pedantic -O3 -ggdb3 -Wall -Wextra \
-	-Wswitch-default -Wswitch-enum -Wfloat-equal
-_pyccn_la_CPPFLAGS = @PYTHON_CPPFLAGS@ @CCN_INCLUDES@
+#_pyccn_la_SOURCES += $(noinst_HEADERS:.h=.h.gch)
+
+#-O3 -pedantic -Wall -Wextra -fdiagnostics-show-option -Winvalid-pch
+_pyccn_la_CPPFLAGS = -std=c99 -Wall -Wextra -fdiagnostics-show-option -Winvalid-pch
+_pyccn_la_CPPFLAGS += @PYTHON_CPPFLAGS@ @CCN_INCLUDES@
 _pyccn_la_LDFLAGS = -avoid-version -module @PYTHON_LDFLAGS@ \
 	@CCN_LDFLAGS@ @CCN_LIBS@ @OPENSSL_LIBS@
+
+.h.h.gch:
+	$(CC) -c $<
+
+SUFFIXES = .h .h.gch

@@ -13,7 +13,7 @@ class Closure(object):
 
 	def upcall(self, kind, upcallInfo):
 		# override to be call
-		print 'upcall', self, kind, upcallInfo
+		print('upcall', self, kind, upcallInfo)
 
 class UpcallInfo(object):
 	def __init__(self):

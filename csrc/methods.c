@@ -28,7 +28,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Python.h>
+#include "python.h"
 #include <ccn/ccn.h>
 #include <ccn/hashtb.h>
 #include <ccn/reg_mgmt.h>
@@ -39,8 +39,6 @@
 #include "methods_contentobject.h"
 #include "methods_interest.h"
 #include "methods_key.h"
-#include "methods_name.h"
-#include "methods_signature.h"
 #include "methods_signedinfo.h"
 #include "objects.h"
 #include "util.h"
@@ -55,7 +53,7 @@
 // arguments: none
 // returns:  CObject that is an opaque reference to the ccn handle
 
-static PyObject * // CCN
+PyObject *
 _pyccn_ccn_create(PyObject *UNUSED(self), PyObject *UNUSED(args))
 {
 	struct ccn *ccn_handle = ccn_create();
@@ -76,7 +74,7 @@ _pyccn_ccn_create(PyObject *UNUSED(self), PyObject *UNUSED(args))
 // returns:    integer, non-negative if ok (file descriptor)
 //
 
-static PyObject *
+PyObject *
 _pyccn_ccn_connect(PyObject *UNUSED(self), PyObject *py_ccn_handle)
 {
 	struct ccn *handle;
@@ -102,7 +100,7 @@ _pyccn_ccn_connect(PyObject *UNUSED(self), PyObject *py_ccn_handle)
 // returns: None
 //
 
-static PyObject *
+PyObject *
 _pyccn_ccn_disconnect(PyObject *UNUSED(self), PyObject *py_ccn_handle)
 {
 	struct ccn *handle;
@@ -124,7 +122,7 @@ _pyccn_ccn_disconnect(PyObject *UNUSED(self), PyObject *py_ccn_handle)
 	Py_RETURN_NONE;
 }
 
-static PyObject *
+PyObject *
 _pyccn_ccn_run(PyObject *UNUSED(self), PyObject *args)
 {
 	int r;
@@ -176,7 +174,7 @@ _pyccn_ccn_run(PyObject *UNUSED(self), PyObject *args)
 	Py_RETURN_NONE;
 }
 
-static PyObject *
+PyObject *
 _pyccn_ccn_set_run_timeout(PyObject *UNUSED(self), PyObject *args)
 {
 	int r;
@@ -230,7 +228,7 @@ obj_UpcallInfo_from_ccn(enum ccn_upcall_kind upcall_kind,
 	Py_DECREF(py_o);
 	JUMP_IF_NEG(r, error);
 
-	py_o = PyInt_FromLong(ui->matched_comps);
+	py_o = _pyccn_Int_FromLong(ui->matched_comps);
 	r = PyObject_SetAttrString(py_obj_UpcallInfo, "matchedComps", py_o);
 	Py_DECREF(py_o);
 	JUMP_IF_NULL(py_o, error);
@@ -350,7 +348,7 @@ ccn_upcall_handler(struct ccn_closure *selfp,
 		CCNObject_Complete_Closure(py_selfp);
 	 */
 
-	long r = PyInt_AsLong(result);
+	long r = _pyccn_Int_AsLong(result);
 
 	/* releasing lock */
 	_pyccn_thread_state = PyEval_SaveThread();
@@ -378,7 +376,7 @@ error:
 
 // Registering callbacks
 
-static PyObject *
+PyObject *
 _pyccn_ccn_express_interest(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_o, *py_ccn, *py_name, *py_closure, *py_templ;
@@ -467,7 +465,7 @@ _pyccn_ccn_express_interest(PyObject *UNUSED(self), PyObject *args)
 	Py_RETURN_NONE;
 }
 
-static PyObject *
+PyObject *
 _pyccn_ccn_set_interest_filter(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_ccn, *py_name, *py_closure, *py_o;
@@ -533,7 +531,7 @@ _pyccn_ccn_set_interest_filter(PyObject *UNUSED(self), PyObject *args)
 
 // Simple get/put
 
-static PyObject *
+PyObject *
 _pyccn_ccn_get(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_CCN, *py_Name, *py_Interest = Py_None;
@@ -617,7 +615,7 @@ exit:
 	return py_co;
 }
 
-static PyObject * // int
+PyObject * // int
 _pyccn_ccn_put(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_ccn, *py_content_object;
@@ -660,8 +658,8 @@ _pyccn_ccn_put(PyObject *UNUSED(self), PyObject *args)
 // TODO: Revise to make a method of CCN?
 //
 // args:  Key to fill, CCN Handle
-
-static PyObject *
+#pragma message "TODO: rewrite _pyccn_ccn_get_default_key"
+PyObject *
 _pyccn_ccn_get_default_key(PyObject *UNUSED(self), PyObject *py_obj_CCN)
 {
 	struct ccn_keystore *keystore;
@@ -771,62 +769,90 @@ _pyccn_ccn_get_public_key(PyObject* self, PyObject* args) {
 // TODO: Revise Python library to make a method of Key?
 //
 
-static PyObject*
+PyObject *
 _pyccn_generate_RSA_key(PyObject *UNUSED(self), PyObject *args)
 {
-	PyObject *py_key, *p;
-	long keylen = 0;
+	PyObject *py_key, *py_o;
+	long keylen;
 	struct ccn_pkey *private_key, *public_key;
-	unsigned char* public_key_digest;
+	unsigned char *public_key_digest;
+	PyObject *py_private_key = NULL, *py_public_key = NULL,
+			*py_public_key_digest = NULL;
 	size_t public_key_digest_len;
-	int result;
+	int r;
 
 	if (!PyArg_ParseTuple(args, "Ol", &py_key, &keylen))
-		return Py_BuildValue("i", -1); //TODO: Throw an error
+		return NULL;
 
 	if (strcmp(py_key->ob_type->tp_name, "Key")) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a Key");
 		return NULL;
 	}
 
-	generate_key(keylen, &private_key, &public_key, &public_key_digest, &public_key_digest_len);
+	r = generate_key(keylen, &private_key, &public_key, &public_key_digest,
+			&public_key_digest_len);
+	if (r < 0) {
+		PyErr_SetString(g_PyExc_CCNKeyError, "Unable to genearate a key");
+		return NULL;
+	}
 
-	// privateKey
-	// Don't free these here, python will call destructor
-	p = CCNObject_New(PKEY, private_key);
-	PyObject_SetAttrString(py_key, "ccn_data_private", p);
-	Py_DECREF(p);
+	py_private_key = CCNObject_New(PKEY, private_key);
+	JUMP_IF_NULL(py_private_key, error_pre_object);
+	private_key = NULL;
 
-	// publicKey
-	// Don't free this here, python will call destructor
-	p = CCNObject_New(PKEY, public_key);
-	PyObject_SetAttrString(py_key, "ccn_data_public", p);
-	Py_DECREF(p);
+	py_public_key = CCNObject_New(PKEY, public_key);
+	JUMP_IF_NULL(py_public_key, error_pre_object);
+	public_key = NULL;
 
-	// type
-	p = PyString_FromString("RSA");
-	PyObject_SetAttrString(py_key, "type", p);
-	Py_DECREF(p);
+	py_public_key_digest = PyByteArray_FromStringAndSize(
+			(char*) public_key_digest, public_key_digest_len);
+	JUMP_IF_NULL(py_public_key_digest, error_pre_object);
+	public_key_digest = NULL;
 
-	// publicKeyID
-	p = PyByteArray_FromStringAndSize((char*) public_key_digest, public_key_digest_len);
-	PyObject_SetAttrString(py_key, "publicKeyID", p);
-	Py_DECREF(p);
-	free(public_key_digest);
+	r = PyObject_SetAttrString(py_key, "ccn_data_private", py_private_key);
+	Py_CLEAR(py_private_key);
+	JUMP_IF_NEG(r, error);
 
-	// publicKeyIDsize
-	p = PyInt_FromLong(public_key_digest_len);
-	PyObject_SetAttrString(py_key, "publicKeyIDsize", p);
-	Py_DECREF(p);
+	r = PyObject_SetAttrString(py_key, "ccn_data_public", py_public_key);
+	Py_CLEAR(py_public_key);
+	JUMP_IF_NEG(r, error);
+
+	py_o = PyUnicode_FromString("RSA");
+	JUMP_IF_NULL(py_o, error);
+	r = PyObject_SetAttrString(py_key, "type", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
+
+	r = PyObject_SetAttrString(py_key, "publicKeyID", py_public_key_digest);
+	Py_DECREF(py_public_key_digest);
+	JUMP_IF_NEG(r, error);
+
+	py_o = _pyccn_Int_FromLong(public_key_digest_len);
+	JUMP_IF_NULL(py_o, error);
+	r = PyObject_SetAttrString(py_key, "publicKeyIDsize", py_o);
+	Py_DECREF(py_o);
+	JUMP_IF_NEG(r, error);
 
 	// pubID
 	// TODO: pubID not implemented
-	p = Py_None;
-	PyObject_SetAttrString(py_key, "pubID", p);
+	py_o = Py_None;
+	r = PyObject_SetAttrString(py_key, "pubID", py_o);
+	JUMP_IF_NEG(r, error);
 
-	result = 0;
+	Py_RETURN_NONE;
 
-	return Py_BuildValue("i", result);
+error_pre_object:
+	if (private_key)
+		ccn_pubkey_free(private_key);
+	if (public_key)
+		ccn_pubkey_free(public_key);
+	if (public_key_digest)
+		free(public_key_digest);
+error:
+	Py_XDECREF(py_public_key_digest);
+	Py_XDECREF(py_public_key);
+	Py_XDECREF(py_private_key);
+	return NULL;
 }
 
 
@@ -873,7 +899,7 @@ _pyccn_ccn_signed_info_create(PyObject* self, PyObject* args) {
 // Pointer to a struct ccn_signing_params
 //
 
-static PyObject*
+static PyObject *
 obj_SigningParams_from_ccn(PyObject *py_signing_params)
 {
 	struct ccn_signing_params *signing_params;
@@ -900,25 +926,25 @@ obj_SigningParams_from_ccn(PyObject *py_signing_params)
 	// 3) Parse c structure and fill python attributes
 	//    using PyObject_SetAttrString
 
-	py_o = PyInt_FromLong(signing_params->sp_flags);
+	py_o = _pyccn_Int_FromLong(signing_params->sp_flags);
 	JUMP_IF_NULL(py_o, error);
 	r = PyObject_SetAttrString(py_obj_SigningParams, "flags", py_o);
 	Py_DECREF(py_o);
 	JUMP_IF_NEG(r, error);
 
-	py_o = PyInt_FromLong(signing_params->type);
+	py_o = _pyccn_Int_FromLong(signing_params->type);
 	JUMP_IF_NULL(py_o, error);
 	r = PyObject_SetAttrString(py_obj_SigningParams, "type", py_o);
 	Py_DECREF(py_o);
 	JUMP_IF_NEG(r, error);
 
-	py_o = PyInt_FromLong(signing_params->freshness);
+	py_o = _pyccn_Int_FromLong(signing_params->freshness);
 	JUMP_IF_NULL(py_o, error);
 	r = PyObject_SetAttrString(py_obj_SigningParams, "freshness", py_o);
 	Py_DECREF(py_o);
 	JUMP_IF_NEG(r, error);
 
-	py_o = PyInt_FromLong(signing_params->api_version);
+	py_o = _pyccn_Int_FromLong(signing_params->api_version);
 	JUMP_IF_NULL(py_o, error);
 	r = PyObject_SetAttrString(py_obj_SigningParams, "apiVersion", py_o);
 	Py_DECREF(py_o);
@@ -969,7 +995,7 @@ error:
 	return NULL;
 }
 
-static PyObject*
+PyObject *
 _pyccn_SigningParams_from_ccn(PyObject *UNUSED(self),
 		PyObject *py_signing_params)
 {
@@ -987,7 +1013,7 @@ _pyccn_SigningParams_from_ccn(PyObject *UNUSED(self),
  * ever have need to store it. If it indeed is needed, we need to make copy
  * of the struct and also write routine in destructor
  */
-static PyObject *
+PyObject *
 _pyccn_UpcallInfo_from_ccn(PyObject *UNUSED(self), PyObject *py_upcall_info)
 {
 	struct ccn_upcall_info *upcall_info;
@@ -1002,103 +1028,4 @@ _pyccn_UpcallInfo_from_ccn(PyObject *UNUSED(self), PyObject *py_upcall_info)
 	assert(0);
 	//TODO: we need kind of interest as well!
 	return obj_UpcallInfo_from_ccn(CCN_UPCALL_FINAL, upcall_info);
-}
-
-// DECLARATION OF PYTHON-ACCESSIBLE FUNCTIONS
-//
-
-static PyMethodDef _module_methods[] = {
-	// ** Methods of CCN
-	//
-	{"_pyccn_ccn_create", _pyccn_ccn_create, METH_NOARGS, NULL},
-	{"_pyccn_ccn_connect", _pyccn_ccn_connect, METH_O, NULL},
-	{"_pyccn_ccn_disconnect", _pyccn_ccn_disconnect, METH_O, NULL},
-	{"_pyccn_ccn_run", _pyccn_ccn_run, METH_VARARGS, NULL},
-	{"_pyccn_ccn_set_run_timeout", _pyccn_ccn_set_run_timeout, METH_VARARGS,
-		NULL},
-	{"_pyccn_ccn_express_interest", _pyccn_ccn_express_interest, METH_VARARGS,
-		NULL},
-	{"_pyccn_ccn_set_interest_filter", _pyccn_ccn_set_interest_filter,
-		METH_VARARGS, NULL},
-	{"_pyccn_ccn_get", _pyccn_ccn_get, METH_VARARGS, NULL},
-	{"_pyccn_ccn_put", _pyccn_ccn_put, METH_VARARGS, NULL},
-	{"_pyccn_ccn_get_default_key", _pyccn_ccn_get_default_key, METH_O, NULL},
-#if 0
-	{"_pyccn_ccn_load_default_key", _pyccn_ccn_load_default_key, METH_VARARGS,
-		""},
-	{"_pyccn_ccn_load_private_key", _pyccn_ccn_load_private_key, METH_VARARGS,
-		""},
-	{"_pyccn_ccn_get_public_key", _pyccn_ccn_get_public_key, METH_VARARGS,
-		""},
-#endif
-	{"_pyccn_generate_RSA_key", _pyccn_generate_RSA_key, METH_VARARGS,
-		""},
-
-	// ** Methods of ContentObject
-	//
-	{"content_to_bytearray", _pyccn_content_to_bytearray, METH_O, NULL},
-#if 0
-	{"_pyccn_ccn_encode_content_object", _pyccn_ccn_encode_content_object, METH_VARARGS,
-		""},
-	{"_pyccn_ccn_verify_content", _pyccn_ccn_verify_content, METH_VARARGS,
-		""},
-	{"_pyccn_ccn_content_matches_interest", _pyccn_ccn_content_matches_interest, METH_VARARGS,
-		""},
-#endif
-#if 0
-	{"_pyccn_ccn_chk_signing_params", _pyccn_ccn_chk_signing_params, METH_VARARGS,
-		""},
-	{"_pyccn_ccn_signed_info_create", _pyccn_ccn_signed_info_create, METH_VARARGS,
-		""},
-#endif
-	// Naming
-#if 0
-	{"_pyccn_ccn_name_init", _pyccn_ccn_name_init, METH_VARARGS,
-		""},
-	{"_pyccn_ccn_name_append_nonce", _pyccn_ccn_name_append_nonce, METH_VARARGS,
-		""},
-	{"_pyccn_ccn_compare_names", _pyccn_ccn_compare_names, METH_VARARGS,
-		""},
-#endif
-	// Converters
-	{"_pyccn_Name_to_ccn", _pyccn_Name_to_ccn, METH_O, NULL},
-	{"_pyccn_Name_from_ccn", _pyccn_Name_from_ccn, METH_O, NULL},
-	{"_pyccn_Interest_to_ccn", _pyccn_Interest_to_ccn, METH_O, NULL},
-	{"_pyccn_Interest_from_ccn", _pyccn_Interest_from_ccn, METH_VARARGS,
-		""},
-	{"_pyccn_ContentObject_to_ccn", _pyccn_ContentObject_to_ccn, METH_VARARGS,
-		""},
-#if 0
-	{"_pyccn_ContentObject_from_ccn", _pyccn_ContentObject_from_ccn, METH_VARARGS,
-		""},
-#endif
-	{"_pyccn_Key_to_ccn_public", _pyccn_Key_to_ccn_public, METH_O, NULL},
-	{"_pyccn_Key_to_ccn_private", _pyccn_Key_to_ccn_private, METH_O, NULL},
-	{"_pyccn_Key_from_ccn", _pyccn_Key_from_ccn, METH_O, NULL},
-	{"_pyccn_KeyLocator_to_ccn", (PyCFunction) _pyccn_KeyLocator_to_ccn,
-		METH_VARARGS | METH_KEYWORDS, NULL},
-	{"_pyccn_KeyLocator_from_ccn", _pyccn_KeyLocator_from_ccn, METH_O, NULL},
-	{"_pyccn_Signature_to_ccn", _pyccn_Signature_to_ccn, METH_O, NULL},
-	{"_pyccn_Signature_from_ccn", _pyccn_Signature_from_ccn, METH_O, NULL},
-	{"_pyccn_SignedInfo_to_ccn", (PyCFunction) _pyccn_SignedInfo_to_ccn,
-		METH_VARARGS | METH_KEYWORDS, NULL},
-	{"_pyccn_SignedInfo_from_ccn", _pyccn_SignedInfo_from_ccn, METH_O, NULL},
-#if 0
-	{"_pyccn_SignedInfo_to_ccn", _pyccn_SigningParams_to_ccn, METH_VARARGS,
-		""},
-#endif
-	{"_pyccn_SignedInfo_from_ccn", _pyccn_SigningParams_from_ccn, METH_O, NULL},
-	{"_pyccn_ExclusionFilter_to_ccn", _pyccn_ExclusionFilter_to_ccn, METH_O,
-		NULL},
-	{"_pyccn_ExclusionFilter_from_ccn", _pyccn_ExclusionFilter_from_ccn, METH_O,
-		NULL},
-	{"_pyccn_UpcallInfo_from_ccn", _pyccn_UpcallInfo_from_ccn, METH_O, NULL},
-
-	{NULL, NULL, 0, NULL} /* Sentinel */
-};
-
-PyObject *
-initialize_methods(const char* name)
-{
-	return Py_InitModule(name, _module_methods);
 }

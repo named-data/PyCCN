@@ -1,4 +1,4 @@
-import _pyccn
+from . import _pyccn
 
 # Fronts ccn
 

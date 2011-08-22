@@ -28,7 +28,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Python.h>
+#include "python.h"
 #include <ccn/ccn.h>
 #include <ccn/signing.h>
 #include <openssl/evp.h>
@@ -38,6 +38,7 @@
 #include "methods_key.h"
 #include "methods_name.h"
 #include "objects.h"
+#include "util.h"
 
 #if 0
 
@@ -207,7 +208,7 @@ Key_from_ccn(struct ccn_pkey *key_ccn)
 	// in ccn_client, but *for now* it boils down to the same thing.
 
 	/* type */
-	py_o = PyString_FromString("RSA");
+	py_o = PyUnicode_FromString("RSA");
 	JUMP_IF_NULL(py_o, error);
 	r = PyObject_SetAttrString(py_obj_Key, "type", py_o);
 	Py_DECREF(py_o);
@@ -223,7 +224,7 @@ Key_from_ccn(struct ccn_pkey *key_ccn)
 
 	//free (public_key_digest); -- this is the job of python
 	// publicKeyIDsize
-	py_o = PyInt_FromLong(public_key_digest_len);
+	py_o = _pyccn_Int_FromLong(public_key_digest_len);
 	JUMP_IF_NULL(py_o, error);
 	r = PyObject_SetAttrString(py_obj_Key, "publicKeyIDsize", py_o);
 	Py_DECREF(py_o);
@@ -292,7 +293,8 @@ KeyLocator_from_ccn(PyObject *py_keylocator)
 	assert(d); //should always succeed
 
 	if (!ccn_buf_match_dtag(d, CCN_DTAG_KeyLocator)) {
-		PyErr_SetString(g_PyExc_CCNError, "The input isn't a valid KeyLocator");
+		PyErr_SetString(g_PyExc_CCNKeyLocatorError, "The input isn't a valid"
+				" KeyLocator");
 		return NULL;
 	}
 	ccn_buf_advance(d);

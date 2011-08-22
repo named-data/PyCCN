@@ -28,12 +28,13 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Python.h>
+#include "python.h"
 #include <ccn/ccn.h>
 
 #include "pyccn.h"
 #include "methods_name.h"
 #include "objects.h"
+#include "util.h"
 
 // ************
 // ExclusionFilter
@@ -78,29 +79,30 @@ obj_ExclusionFilter_to_ccn(PyObject *py_obj_ExclusionFilter)
 
 	while ((py_item = PyIter_Next(py_iterator))) {
 		if (PyByteArray_Check(py_item)) {
-			blob = PyByteArray_AsString(py_item);
-			JUMP_IF_NULL(blob, error);
+			blob = PyByteArray_AS_STRING(py_item);
 			blobsize = PyByteArray_GET_SIZE(py_item);
 
 			r = ccnb_append_tagged_blob(exclude, CCN_DTAG_Component, blob,
 					blobsize);
 			JUMP_IF_NEG_MEM(r, error);
-		} else if (PyString_Check(py_item)) { // Unicode or UTF-8?
-			r = PyString_AsStringAndSize(py_item, &blob, &blobsize);
-			JUMP_IF_NEG(r, error);
+		} else if (_pyccn_STRING_CHECK(py_item)) {
+			py_o = _pyccn_unicode_to_utf8(py_item, &blob, &blobsize);
+			JUMP_IF_NULL(py_o, error);
 			r = ccnb_append_tagged_blob(exclude, CCN_DTAG_Component, blob,
 					blobsize);
+			Py_DECREF(py_o);
 			JUMP_IF_NEG_MEM(r, error);
 
 			// Note, we choose to convert numbers to their string
 			// representation; if we want numeric encoding, use a
 			// byte array and do it explicitly.
 		} else if (PyFloat_Check(py_item) || PyLong_Check(py_item)
-				|| PyInt_Check(py_item)) {
+				|| _pyccn_Int_Check(py_item)) {
 			py_o = PyObject_Str(py_item);
 			JUMP_IF_NULL(py_o, error);
 
-			r = PyString_AsStringAndSize(py_o, &blob, &blobsize);
+			/* Since it is a number, don't bother with UTF8 */
+			r = PyBytes_AsStringAndSize(py_o, &blob, &blobsize);
 			if (r < 0) {
 				Py_DECREF(py_o);
 				goto error;
@@ -213,7 +215,7 @@ process_long_attribute(struct ccn_charbuf *interest, enum ccn_dtag tag,
 	if (r <= 0)
 		return r;
 
-	val = PyInt_AsLong(py_attr);
+	val = _pyccn_Int_AsLong(py_attr);
 	Py_DECREF(py_attr);
 	if (PyErr_Occurred())
 		return -1;
@@ -428,7 +430,7 @@ Interest_from_ccn_parsed(PyObject *py_interest, PyObject *py_parsed_interest)
 			goto error;
 		}
 
-		py_o = PyInt_FromLong(r);
+		py_o = _pyccn_Int_FromLong(r);
 		JUMP_IF_NULL(py_o, error);
 
 		r = PyObject_SetAttrString(py_obj_Interest, "minSuffixComponents",
@@ -450,7 +452,7 @@ Interest_from_ccn_parsed(PyObject *py_interest, PyObject *py_parsed_interest)
 			goto error;
 		}
 
-		py_o = PyInt_FromLong(r);
+		py_o = _pyccn_Int_FromLong(r);
 		JUMP_IF_NULL(py_o, error);
 
 		r = PyObject_SetAttrString(py_obj_Interest, "maxSuffixComponents",
@@ -518,7 +520,7 @@ Interest_from_ccn_parsed(PyObject *py_interest, PyObject *py_parsed_interest)
 			goto error;
 		}
 
-		py_o = PyInt_FromLong(r);
+		py_o = _pyccn_Int_FromLong(r);
 		JUMP_IF_NULL(py_o, error);
 
 		r = PyObject_SetAttrString(py_obj_Interest, "childSelector", py_o);
@@ -539,7 +541,7 @@ Interest_from_ccn_parsed(PyObject *py_interest, PyObject *py_parsed_interest)
 			goto error;
 		}
 
-		py_o = PyInt_FromLong(r);
+		py_o = _pyccn_Int_FromLong(r);
 		JUMP_IF_NULL(py_o, error);
 
 		r = PyObject_SetAttrString(py_obj_Interest, "answerOriginKind", py_o);
@@ -558,7 +560,7 @@ Interest_from_ccn_parsed(PyObject *py_interest, PyObject *py_parsed_interest)
 			goto error;
 		}
 
-		py_o = PyInt_FromLong(r);
+		py_o = _pyccn_Int_FromLong(r);
 		JUMP_IF_NULL(py_o, error);
 
 		r = PyObject_SetAttrString(py_obj_Interest, "scope", py_o);

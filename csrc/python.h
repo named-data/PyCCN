@@ -28,28 +28,20 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef METHODS_H
-#  define	METHODS_H
+#ifndef PYTHON_H
+#  define	PYTHON_H
 
-PyObject *_pyccn_ccn_create(PyObject *UNUSED(self), PyObject *UNUSED(args));
-PyObject *_pyccn_ccn_connect(PyObject *UNUSED(self), PyObject *py_ccn_handle);
-PyObject *_pyccn_ccn_disconnect(PyObject *UNUSED(self),
-		PyObject *py_ccn_handle);
-PyObject *_pyccn_ccn_run(PyObject *UNUSED(self), PyObject *args);
-PyObject *_pyccn_ccn_set_run_timeout(PyObject *UNUSED(self), PyObject *args);
-PyObject *_pyccn_ccn_express_interest(PyObject *UNUSED(self),
-		PyObject *args);
-PyObject *_pyccn_ccn_set_interest_filter(PyObject *UNUSED(self),
-		PyObject *args);
-PyObject *_pyccn_ccn_get(PyObject *UNUSED(self), PyObject *args);
-PyObject *_pyccn_ccn_put(PyObject *UNUSED(self), PyObject *args);
-PyObject *_pyccn_ccn_get_default_key(PyObject *UNUSED(self),
-		PyObject *py_obj_CCN);
-PyObject *_pyccn_generate_RSA_key(PyObject *UNUSED(self), PyObject *args);
-PyObject *_pyccn_SigningParams_from_ccn(PyObject *UNUSED(self),
-		PyObject *py_signing_params);
-PyObject *_pyccn_UpcallInfo_from_ccn(PyObject *UNUSED(self),
-		PyObject *py_upcall_info);
+/* Python 3.2.1 throws bunch of warnings when compiling with -Wextra */
 
-#endif	/* METHODS_H */
+#  if defined(__GNUC__)
+#    pragma GCC diagnostic ignored "-Wunused-parameter"
+#  endif
+
+#  include <Python.h>
+
+#  if defined(__GNUC__)
+#    pragma GCC diagnostic warning "-Wunused-parameter"
+#  endif
+
+#endif	/* PYTHON_H */
 

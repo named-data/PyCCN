@@ -28,7 +28,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Python.h>
+#include "python.h"
+
 #include <ccn/ccn.h>
 #include <ccn/hashtb.h>
 #include <ccn/uri.h>
@@ -37,27 +38,30 @@
 #include "pyccn.h"
 #include "key_utils.h"
 #include "methods.h"
+#include "methods_contentobject.h"
+#include "methods_interest.h"
+#include "methods_key.h"
+#include "methods_name.h"
+#include "methods_signature.h"
+#include "methods_signedinfo.h"
 #include "util.h"
 
-PyThreadState *_pyccn_thread_state = NULL;
+#if PY_MAJOR_VERSION >= 3
+#    define INITERROR return NULL
+#    define MODINIT(name) \
+PyMODINIT_FUNC \
+PyInit_ ## name(void)
+#else
 
-// Primary types for the Python libraries,
-// taken directly from the CCNx wire format
-PyObject *g_type_Name;
-PyObject *g_type_CCN;
-PyObject *g_type_Interest;
-PyObject *g_type_ContentObject;
-PyObject *g_type_Closure;
-PyObject *g_type_Key;
+struct pyccn_state _pyccn_state;
 
-// Plus some secondary helper types, which
-// are declared as inner classes.
-PyObject *g_type_ExclusionFilter;
-PyObject *g_type_KeyLocator;
-PyObject *g_type_Signature;
-PyObject *g_type_SignedInfo;
-PyObject *g_type_SigningParams;
-PyObject *g_type_UpcallInfo;
+#    define INITERROR return
+#    define MODINIT(name) \
+PyMODINIT_FUNC \
+init ## name(void)
+#endif
+
+PyObject *_pyccn_module;
 
 // Exceptions
 PyObject *g_PyExc_CCNError;
@@ -69,42 +73,119 @@ PyObject *g_PyExc_CCNInterestError;
 PyObject *g_PyExc_CCNExclusionFilterError;
 PyObject *g_PyExc_CCNKeyError;
 
-static PyObject *
-import_module(PyObject **module, const char *name)
-{
-	assert(module);
-	assert(name);
+static PyMethodDef g_module_methods[] = {
+	{"_pyccn_ccn_create", _pyccn_ccn_create, METH_NOARGS, NULL},
+	{"_pyccn_ccn_connect", _pyccn_ccn_connect, METH_O, NULL},
+	{"_pyccn_ccn_disconnect", _pyccn_ccn_disconnect, METH_O, NULL},
+	{"_pyccn_ccn_run", _pyccn_ccn_run, METH_VARARGS, NULL},
+	{"_pyccn_ccn_set_run_timeout", _pyccn_ccn_set_run_timeout, METH_VARARGS,
+		NULL},
+	{"_pyccn_ccn_express_interest", _pyccn_ccn_express_interest, METH_VARARGS,
+		NULL},
+	{"_pyccn_ccn_set_interest_filter", _pyccn_ccn_set_interest_filter,
+		METH_VARARGS, NULL},
+	{"_pyccn_ccn_get", _pyccn_ccn_get, METH_VARARGS, NULL},
+	{"_pyccn_ccn_put", _pyccn_ccn_put, METH_VARARGS, NULL},
+	{"_pyccn_ccn_get_default_key", _pyccn_ccn_get_default_key, METH_O, NULL},
+#if 0
+	{"_pyccn_ccn_load_default_key", _pyccn_ccn_load_default_key, METH_VARARGS,
+		""},
+	{"_pyccn_ccn_load_private_key", _pyccn_ccn_load_private_key, METH_VARARGS,
+		""},
+	{"_pyccn_ccn_get_public_key", _pyccn_ccn_get_public_key, METH_VARARGS,
+		""},
+#endif
+	{"_pyccn_generate_RSA_key", _pyccn_generate_RSA_key, METH_VARARGS,
+		""},
 
-	*module = PyImport_ImportModule(name);
-	if (*module)
-		return *module;
+	// ** Methods of ContentObject
+	//
+	{"content_to_bytearray", _pyccn_content_to_bytearray, METH_O, NULL},
+#if 0
+	{"_pyccn_ccn_encode_content_object", _pyccn_ccn_encode_content_object, METH_VARARGS,
+		""},
+	{"_pyccn_ccn_verify_content", _pyccn_ccn_verify_content, METH_VARARGS,
+		""},
+	{"_pyccn_ccn_content_matches_interest", _pyccn_ccn_content_matches_interest, METH_VARARGS,
+		""},
+#endif
+#if 0
+	{"_pyccn_ccn_chk_signing_params", _pyccn_ccn_chk_signing_params, METH_VARARGS,
+		""},
+	{"_pyccn_ccn_signed_info_create", _pyccn_ccn_signed_info_create, METH_VARARGS,
+		""},
+#endif
+	// Naming
+#if 0
+	{"_pyccn_ccn_name_init", _pyccn_ccn_name_init, METH_VARARGS,
+		""},
+	{"_pyccn_ccn_name_append_nonce", _pyccn_ccn_name_append_nonce, METH_VARARGS,
+		""},
+	{"_pyccn_ccn_compare_names", _pyccn_ccn_compare_names, METH_VARARGS,
+		""},
+#endif
+	// Converters
+	{"_pyccn_Name_to_ccn", _pyccn_Name_to_ccn, METH_O, NULL},
+	{"_pyccn_Name_from_ccn", _pyccn_Name_from_ccn, METH_O, NULL},
+	{"_pyccn_Interest_to_ccn", _pyccn_Interest_to_ccn, METH_O, NULL},
+	{"_pyccn_Interest_from_ccn", _pyccn_Interest_from_ccn, METH_VARARGS,
+		""},
+	{"_pyccn_ContentObject_to_ccn", _pyccn_ContentObject_to_ccn, METH_VARARGS,
+		""},
+#if 0
+	{"_pyccn_ContentObject_from_ccn", _pyccn_ContentObject_from_ccn, METH_VARARGS,
+		""},
+#endif
+	{"_pyccn_Key_to_ccn_public", _pyccn_Key_to_ccn_public, METH_O, NULL},
+	{"_pyccn_Key_to_ccn_private", _pyccn_Key_to_ccn_private, METH_O, NULL},
+	{"_pyccn_Key_from_ccn", _pyccn_Key_from_ccn, METH_O, NULL},
+	{"_pyccn_KeyLocator_to_ccn", (PyCFunction) _pyccn_KeyLocator_to_ccn,
+		METH_VARARGS | METH_KEYWORDS, NULL},
+	{"_pyccn_KeyLocator_from_ccn", _pyccn_KeyLocator_from_ccn, METH_O, NULL},
+	{"_pyccn_Signature_to_ccn", _pyccn_Signature_to_ccn, METH_O, NULL},
+	{"_pyccn_Signature_from_ccn", _pyccn_Signature_from_ccn, METH_O, NULL},
+	{"_pyccn_SignedInfo_to_ccn", (PyCFunction) _pyccn_SignedInfo_to_ccn,
+		METH_VARARGS | METH_KEYWORDS, NULL},
+	{"_pyccn_SignedInfo_from_ccn", _pyccn_SignedInfo_from_ccn, METH_O, NULL},
+#if 0
+	{"_pyccn_SignedInfo_to_ccn", _pyccn_SigningParams_to_ccn, METH_VARARGS,
+		""},
+#endif
+	{"_pyccn_SignedInfo_from_ccn", _pyccn_SigningParams_from_ccn, METH_O, NULL},
+	{"_pyccn_ExclusionFilter_to_ccn", _pyccn_ExclusionFilter_to_ccn, METH_O,
+		NULL},
+	{"_pyccn_ExclusionFilter_from_ccn", _pyccn_ExclusionFilter_from_ccn, METH_O,
+		NULL},
+	{"_pyccn_UpcallInfo_from_ccn", _pyccn_UpcallInfo_from_ccn, METH_O, NULL},
 
-	fprintf(stderr, "Unable to import %s\n", name);
+	{NULL, NULL, 0, NULL} /* Sentinel */
+};
 
-	return NULL;
-}
+#if PY_MAJOR_VERSION >= 3
+static struct PyModuleDef g_moduledef = {
+	PyModuleDef_HEAD_INIT,
+	"pyccn._pyccn",
+	NULL,
+	sizeof(struct pyccn_state),
+	g_module_methods,
+	NULL,
+	NULL,
+	NULL,
+	NULL
+};
+#endif
 
 #define NEW_EXCEPTION(NAME, DESC, BASE) \
 do { \
 	g_PyExc_ ## NAME = \
 		PyErr_NewExceptionWithDoc("_pyccn." #NAME, DESC, BASE, NULL); \
 	Py_INCREF(g_PyExc_ ## NAME); /* PyModule_AddObject steals reference */ \
-	PyModule_AddObject(module, #NAME, g_PyExc_ ## NAME); \
+	PyModule_AddObject(_pyccn_module, #NAME, g_PyExc_ ## NAME); \
 } while(0)
 
-PyMODINIT_FUNC
-init_pyccn(void)
+static int
+initialize_exceptions()
 {
-	PyObject *module;
-	PyObject *py_module_Name, *py_module_CCN, *py_module_Interest;
-	PyObject *py_module_ContentObject, *py_module_Closure, *py_module_Key;
-
-	module = initialize_methods("pyccn._pyccn");
-	if (!module) {
-		fprintf(stderr, "Unable to initialize PyCCN module\n");
-		return;
-	}
-
 	NEW_EXCEPTION(CCNError, "General CCN Exception", NULL);
 	NEW_EXCEPTION(CCNNameError, "CCN Name Exception", g_PyExc_CCNError);
 	NEW_EXCEPTION(CCNKeyLocatorError, "CCN KeyLocator Exception",
@@ -119,76 +200,86 @@ init_pyccn(void)
 			g_PyExc_CCNInterestError);
 	NEW_EXCEPTION(CCNKeyError, "CCN Key Exception", g_PyExc_CCNKeyError);
 
-	if (!import_module(&py_module_CCN, "pyccn.CCN"))
-		return; //XXX: How to uninitialize methods?
+	return 0;
+}
 
-	if (!import_module(&py_module_Interest, "pyccn.Interest"))
-		goto unload_ccn;
+PyObject *
+_pyccn_get_type(enum e_class_type type)
+{
+	PyObject *py_module, *py_dict, *py_type;
+	struct pyccn_state *state;
 
-	if (!import_module(&py_module_ContentObject, "pyccn.ContentObject"))
-		goto unload_interest;
+	static struct modules {
+		enum e_class_type type;
+		const char *module;
+		const char *class;
+	} modules[] = {
+		{CCN, "pyccn.CCN", "CCN"},
+		{Closure, "pyccn.Closure", "Closure"},
+		{ContentObject, "pyccn.ContentObject", "ContentObject"},
+		{ExclusionFilter, "pyccn.Interest", "ExclusionFilter"},
+		{Interest, "pyccn.Interest", "Interest"},
+		{Key, "pyccn.Key", "Key"},
+		{KeyLocator, "pyccn.Key", "KeyLocator"},
+		{Name, "pyccn.Name", "Name"},
+		{Signature, "pyccn.ContentObject", "Signature"},
+		{SignedInfo, "pyccn.ContentObject", "SignedInfo"},
+		{SigningParams, "pyccn.ContentObject", "SigningParams"},
+		{UpcallInfo, "pyccn.Closure", "UpcallInfo"},
+		{CLASS_TYPE_COUNT, NULL, NULL}
+	};
+	struct modules *p;
 
-	if (!import_module(&py_module_Closure, "pyccn.Closure"))
-		goto unload_contentobject;
+	assert(_pyccn_module);
 
-	if (!import_module(&py_module_Key, "pyccn.Key"))
-		goto unload_closure;
+	state = GETSTATE(_pyccn_module);
+	assert(state);
 
-	if (!import_module(&py_module_Name, "pyccn.Name"))
-		goto unload_key;
+	p = &modules[type];
+	assert(p->type == type);
 
-	PyObject *py_dict_CCN, *py_dict_Interest, *py_dict_ContentObject;
-	PyObject *py_dict_Closure, *py_dict_Key, *py_dict_Name;
+	if (state->class_type[type]) {
+		debug("Type: %s [%d] exists, returning.\n", p->class, type);
+		return state->class_type[type];
+	}
 
-	py_dict_CCN = PyModule_GetDict(py_module_CCN);
-	py_dict_Interest = PyModule_GetDict(py_module_Interest);
-	py_dict_ContentObject = PyModule_GetDict(py_module_ContentObject);
-	py_dict_Closure = PyModule_GetDict(py_module_Closure);
-	py_dict_Key = PyModule_GetDict(py_module_Key);
-	py_dict_Name = PyModule_GetDict(py_module_Name);
+	py_module = PyImport_ImportModule(p->module);
+	if (!py_module)
+		return NULL;
 
-	// These are used to instantiate new objects in C code
-	g_type_CCN = PyDict_GetItemString(py_dict_CCN, "CCN");
-	assert(g_type_CCN);
-	g_type_Interest = PyDict_GetItemString(py_dict_Interest, "Interest");
-	assert(g_type_Interest);
-	g_type_ContentObject = PyDict_GetItemString(py_dict_ContentObject,
-			"ContentObject");
-	assert(g_type_ContentObject);
-	g_type_Closure = PyDict_GetItemString(py_dict_Closure, "Closure");
-	assert(g_type_Closure);
-	g_type_Key = PyDict_GetItemString(py_dict_Key, "Key");
-	assert(g_type_Key);
-	g_type_Name = PyDict_GetItemString(py_dict_Name, "Name");
-	assert(g_type_Name);
+	py_dict = PyModule_GetDict(py_module);
+	assert(py_dict);
 
-	// Additional
-	g_type_KeyLocator = PyDict_GetItemString(py_dict_Key, "KeyLocator");
-	assert(g_type_KeyLocator);
-	g_type_ExclusionFilter = PyDict_GetItemString(py_dict_Interest,
-			"ExclusionFilter");
-	assert(g_type_ExclusionFilter);
-	g_type_Signature = PyDict_GetItemString(py_dict_ContentObject, "Signature");
-	assert(g_type_Signature);
-	g_type_SignedInfo = PyDict_GetItemString(py_dict_ContentObject,
-			"SignedInfo");
-	assert(g_type_SignedInfo);
-	g_type_SigningParams = PyDict_GetItemString(py_dict_ContentObject,
-			"SigningParams");
-	assert(g_type_SigningParams);
-	g_type_UpcallInfo = PyDict_GetItemString(py_dict_Closure, "UpcallInfo");
-	assert(g_type_UpcallInfo);
+	py_type = PyDict_GetItemString(py_dict, p->class);
+	if (!py_type) {
+		PyErr_Format(PyExc_SystemError, "Error obtaining type for %s [%d]", p->class, type);
+		return NULL;
+	}
 
+	Py_INCREF(py_type);
+	state->class_type[type] = py_type;
+
+	debug("Successfully obtained type for %s [%d]\n", p->class, type);
+	return py_type;
+}
+
+MODINIT(_pyccn)
+{
+#if PY_MAJOR_VERSION >= 3
+	_pyccn_module = PyModule_Create(&g_moduledef);
+#else
+	_pyccn_module = Py_InitModule("pyccn._pyccn", g_module_methods);
+#endif
+	if (!_pyccn_module) {
+		fprintf(stderr, "Unable to initialize PyCCN module\n");
+		INITERROR;
+	}
+
+	initialize_exceptions();
+
+#if PY_MAJOR_VERSION >= 3
+	return _pyccn_module;
+#else
 	return;
-
-unload_key:
-	Py_DECREF(py_module_Key);
-unload_closure:
-	Py_DECREF(py_module_Closure);
-unload_contentobject:
-	Py_DECREF(py_module_ContentObject);
-unload_interest:
-	Py_DECREF(py_module_Interest);
-unload_ccn:
-	Py_DECREF(py_module_CCN);
+#endif
 }

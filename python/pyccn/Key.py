@@ -1,5 +1,5 @@
 # Fronts ccn_pkey.
-import _pyccn
+from . import _pyccn
 
 class Key(object):
 	def __init__(self):

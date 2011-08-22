@@ -17,7 +17,7 @@ c = CCN.CCN()
 c.run(0)
 
 def change_timeout():
-	print "Changing timeout!"
+	print("Changing timeout!")
 	c.setRunTimeout(1000)
 
 t = Timer(0.1, change_timeout)
@@ -34,6 +34,6 @@ while True:
 
 	if diff.seconds * 1000000 + diff.microseconds > 500000:
 		break
-	print "working: ", diff
+	print("working: ", diff)
 
 del c
