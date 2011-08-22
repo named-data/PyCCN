@@ -1,0 +1,88 @@
+PyCCN - CCN bindings for Python
+
+This is intended to be a rather "thin" implementation, which supports Python
+objects corresponding to the major CCNx entities - Interest, ContentObject, and
+so on, as well as some support objects.  The C code is mostly just responsible
+for marshaling data back and forth between the formats, though there are some
+useful functions for key generation/access included.
+
+These are mapped more or less directly from the CCNx wire format, and the
+Python objects are, in fact, backed by a cached version of the wire format
+or native c object, a Python CObject kept in self.ccn_data. Accessing the
+attribute regenerates this backing CObject if necessary - those mechanics
+are in the Python code.
+
+The Interest and ContentObject objects also cache their parsed versions
+as well
+
+=================================================
+1. Build and install instructions
+=================================================
+
+
+1.1 GENERATING CONFIGURE FILE
+
+This step should be already done for you, but if configure file is not present
+you might need to perform following operations:
+
+  mkdir build-aux
+  autoreconf -i
+
+Later when you fetch new version of files you can just simply use autoreconf
+with no options.
+
+
+1.2 CONFIGURING AND BUILDING
+
+Run ./configure script.
+
+Relevant options:
+* --with-openssl=DIR - if you have OpenSSL installed in not standard place
+* --with-ccn=DIR - path to CCNx distribution directory
+* PYTHON=<python interpreter> - path to python interpreter you want to use
+                                In some cases you might need to specify
+                                LDFLAGS=-L/usr/lib
+
+Then do `make` to compile the code.
+
+
+1.3 TESTING
+
+To run tests for the suite:
+
+  make check
+
+
+1.4 INSTALLING
+
+The package will be installed in site-packages of the selected python.
+
+  make install
+
+or
+
+  make install-strip (to strip any debugging symbols)
+
+==================================================
+2. Using the Python bindings
+==================================================
+
+All of the files are contained inside of pyccn package. To use you can call:
+
+  import pyccn
+
+==================================================
+3. ToDo
+==================================================
+
+- Fill in help text python method declaration
+- Update for new key functions in the current branch Nick B has
+- Unit test and debug against C and Java APIs
+- Lots of interesting high-level stuff in Python may require new support code here.
+
+Long-term:
+- Most key- and signing-related functions are hardcoded
+  for RSA and SHA256 because the wire format and/or libraries
+  provide no other examples.  Need to keep an eye on API support
+  and update.
+
