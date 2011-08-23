@@ -21,14 +21,20 @@ class Key(object):
 	def toDER(self, cobjkey):
 		pass
 
-	def toPEM(self, cobjkey):
-		pass
+	def toPEM(self, filename):
+		f = open(filename, 'w')
+		_pyccn.PEM_write_private_key(self.ccn_data_private, f)
+		f.close()
 
 	def fromDER(self, cobjkey):
 		pass
 
-	def fromPEM(self, cobjkey):
-		pass
+	def fromPEM(self, filename):
+		f = open(filename, 'r')
+		(self.ccn_data_private, self.ccn_data_public, \
+			self.publicKeyID, self.publicKeyIDsize) = \
+			_pyccn.PEM_read_private_key(f)
+		f.close()
 
 # plus library helper functions to generate and serialize keys?
 

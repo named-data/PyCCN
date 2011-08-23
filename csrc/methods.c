@@ -774,12 +774,9 @@ _pyccn_generate_RSA_key(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_key, *py_o;
 	long keylen;
-	struct ccn_pkey *private_key, *public_key;
-	unsigned char *public_key_digest;
 	PyObject *py_private_key = NULL, *py_public_key = NULL,
 			*py_public_key_digest = NULL;
-	size_t public_key_digest_len;
-	int r;
+	int public_key_digest_len, r;
 
 	if (!PyArg_ParseTuple(args, "Ol", &py_key, &keylen))
 		return NULL;
@@ -789,25 +786,12 @@ _pyccn_generate_RSA_key(PyObject *UNUSED(self), PyObject *args)
 		return NULL;
 	}
 
-	r = generate_key(keylen, &private_key, &public_key, &public_key_digest,
-			&public_key_digest_len);
+	r = generate_key(keylen, &py_private_key, &py_public_key,
+			&py_public_key_digest, &public_key_digest_len);
 	if (r < 0) {
 		PyErr_SetString(g_PyExc_CCNKeyError, "Unable to genearate a key");
 		return NULL;
 	}
-
-	py_private_key = CCNObject_New(PKEY, private_key);
-	JUMP_IF_NULL(py_private_key, error_pre_object);
-	private_key = NULL;
-
-	py_public_key = CCNObject_New(PKEY, public_key);
-	JUMP_IF_NULL(py_public_key, error_pre_object);
-	public_key = NULL;
-
-	py_public_key_digest = PyByteArray_FromStringAndSize(
-			(char*) public_key_digest, public_key_digest_len);
-	JUMP_IF_NULL(py_public_key_digest, error_pre_object);
-	public_key_digest = NULL;
 
 	r = PyObject_SetAttrString(py_key, "ccn_data_private", py_private_key);
 	Py_CLEAR(py_private_key);
@@ -841,13 +825,6 @@ _pyccn_generate_RSA_key(PyObject *UNUSED(self), PyObject *args)
 
 	Py_RETURN_NONE;
 
-error_pre_object:
-	if (private_key)
-		ccn_pubkey_free(private_key);
-	if (public_key)
-		ccn_pubkey_free(public_key);
-	if (public_key_digest)
-		free(public_key_digest);
 error:
 	Py_XDECREF(py_public_key_digest);
 	Py_XDECREF(py_public_key);

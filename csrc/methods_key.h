@@ -42,6 +42,8 @@ PyObject *_pyccn_KeyLocator_to_ccn(PyObject *self, PyObject *args,
 		PyObject *kwds);
 PyObject *_pyccn_KeyLocator_from_ccn(PyObject *self,
 		PyObject *py_keylocator);
+PyObject *_pyccn_PEM_read_private_key(PyObject *self, PyObject *args);
+PyObject *_pyccn_PEM_write_private_key(PyObject *self, PyObject *args);
 
 #endif	/* METHODS_KEY_H */
 

@@ -97,6 +97,9 @@ static PyMethodDef g_module_methods[] = {
 #endif
 	{"_pyccn_generate_RSA_key", _pyccn_generate_RSA_key, METH_VARARGS,
 		""},
+	{"PEM_read_private_key", _pyccn_PEM_read_private_key, METH_VARARGS, NULL},
+	{"PEM_write_private_key", _pyccn_PEM_write_private_key, METH_VARARGS, NULL},
+
 
 	// ** Methods of ContentObject
 	//
