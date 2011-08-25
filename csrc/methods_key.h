@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2011, Regents of the University of California
  * All rights reserved.
- * Written by: Jeff Burke <jburke@ucla.edu>
- *             Derek Kulinski <takeda@takeda.tk>
+ * Written by: Derek Kulinski <takeda@takeda.tk>
+ *             Jeff Burke <jburke@ucla.edu>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,8 +42,9 @@ PyObject *_pyccn_KeyLocator_to_ccn(PyObject *self, PyObject *args,
 		PyObject *kwds);
 PyObject *_pyccn_KeyLocator_from_ccn(PyObject *self,
 		PyObject *py_keylocator);
-PyObject *_pyccn_PEM_read_private_key(PyObject *self, PyObject *args);
-PyObject *_pyccn_PEM_write_private_key(PyObject *self, PyObject *args);
+PyObject *_pyccn_PEM_read_key(PyObject *self, PyObject *args);
+PyObject *_pyccn_PEM_write_key(PyObject *self, PyObject *args,
+		PyObject *py_kwrds);
 
 #endif	/* METHODS_KEY_H */
 

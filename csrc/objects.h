@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2011, Regents of the University of California
  * All rights reserved.
- * Written by: Jeff Burke <jburke@ucla.edu>
- *             Derek Kulinski <takeda@takeda.tk>
+ * Written by: Derek Kulinski <takeda@takeda.tk>
+ *             Jeff Burke <jburke@ucla.edu>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -50,7 +50,8 @@ enum _pyccn_capsules {
 	NAME,
 	PARSED_CONTENT_OBJECT,
 	PARSED_INTEREST,
-	PKEY,
+	PKEY_PRIV,
+	PKEY_PUB,
 	SIGNATURE,
 	SIGNED_INFO,
 	SIGNING_PARAMS,

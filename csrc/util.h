@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2011, Regents of the University of California
  * All rights reserved.
- * Written by: Jeff Burke <jburke@ucla.edu>
- *             Derek Kulinski <takeda@takeda.tk>
+ * Written by: Derek Kulinski <takeda@takeda.tk>
+ *             Jeff Burke <jburke@ucla.edu>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -49,5 +49,7 @@ void panic(const char *message);
 void print_object(const PyObject *object);
 PyObject *_pyccn_unicode_to_utf8(PyObject *string, char **buffer,
 		Py_ssize_t *length);
+FILE *_pyccn_open_file_handle(PyObject *py_file, const char *mode);
+int _pyccn_close_file_handle(FILE *fh);
 
 #endif	/* _UTIL_H_ */

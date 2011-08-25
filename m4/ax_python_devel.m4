@@ -33,6 +33,7 @@
 #
 # LICENSE
 #
+#   Copyright (c) 2011 Derek Kulinski <takeda@takeda.tk>
 #   Copyright (c) 2009 Sebastian Huber <sebastian-huber@web.de>
 #   Copyright (c) 2009 Alan W. Irwin <irwin@beluga.phys.uvic.ca>
 #   Copyright (c) 2009 Rafael Laboissiere <rafael@laboissiere.net>
@@ -196,60 +197,26 @@ EOD`
 		AC_DEFINE_UNQUOTED([HAVE_PYTHON], ["$ac_python_version"],
                                    [If available, contains the Python version number currently in use.])
 
-		# First, the library directory:
-		ac_python_libdir=`cat<<EOD | $PYTHON -
-
-# There should be only one
-import distutils.sysconfig
-for e in distutils.sysconfig.get_config_vars ('LIBDIR'):
-	if e != None:
-		print (e)
-		break
-EOD`
-
-		# Before checking for libpythonX.Y, we need to know
-		# the extension the OS we're on uses for libraries
-		# (we take the first one, if there's more than one fix me!):
-		ac_python_soext=`$PYTHON -c \
-		  "import distutils.sysconfig; \
-		  print (distutils.sysconfig.get_config_vars('SO')[[0]])"`
-
-		# Now, for the library:
-		ac_python_soname=`$PYTHON -c \
-		  "import distutils.sysconfig; \
-		  print (distutils.sysconfig.get_config_vars('LDLIBRARY')[[0]])"`
-
-		# Strip away extension from the end to canonicalize its name:
-		ac_python_library=`echo "$ac_python_soname" | sed "s/${ac_python_soext}$//"`
-
-		# This small piece shamelessly adapted from PostgreSQL python macro;
-		# credits goes to momjian, I think. I'd like to put the right name
-		# in the credits, if someone can point me in the right direction... ?
-		#
-		if test -n "$ac_python_libdir" -a -n "$ac_python_library" \
-			-a x"$ac_python_library" != x"$ac_python_soname"
-		then
-			# use the official shared library
-			ac_python_library=`echo "$ac_python_library" | sed "s/^lib//"`
-			PYTHON_LDFLAGS="-L$ac_python_libdir -l$ac_python_library"
-		else
-			# old way: use libpython from python_configdir
-			ac_python_libdir=`$PYTHON -c \
-			  "from distutils.sysconfig import get_python_lib as f; \
-			  import os; \
-			  print (os.path.join(f(plat_specific=1, standard_lib=1), 'config'));"`
-			PYTHON_LDFLAGS="-L$ac_python_libdir -lpython$ac_python_version"
-		fi
-
-		if test -z "PYTHON_LDFLAGS"; then
-			AC_MSG_ERROR([
-  Cannot determine location of your Python DSO. Please check it was installed with
-  dynamic libraries enabled, or try setting PYTHON_LDFLAGS by hand.
-			])
-		fi
+		PYTHON_LDFLAGS=`$PYTHON -c \
+		  "from distutils.sysconfig import get_config_var as config; \
+		  libdir = config('LIBDIR'); \
+		  ldversion = config('LDVERSION') or config('VERSION'); \
+		  syslibs = config('SYSLIBS'); \
+		  print('-L%s -lpython%s %s' % (libdir, ldversion, syslibs))"`
 	fi
 	AC_MSG_RESULT([$PYTHON_LDFLAGS])
 	AC_SUBST([PYTHON_LDFLAGS])
+
+	#
+	# Check for installation prefix
+	#
+	AC_MSG_CHECKING([for given installation prefix])
+	if test "${prefix}" = "NONE"; then
+		ac_python_prefix=${ac_default_prefix}
+	else
+		ac_python_prefix=${prefix}
+	fi
+	AC_MSG_RESULT([${ac_python_prefix}])
 
 	#
 	# Check for site packages
@@ -257,10 +224,25 @@ EOD`
 	AC_MSG_CHECKING([for Python site-packages path])
 	if test -z "$PYTHON_SITE_PKG"; then
 		PYTHON_SITE_PKG=`$PYTHON -c "import distutils.sysconfig; \
-			print (distutils.sysconfig.get_python_lib(0,0));"`
+			print (distutils.sysconfig.get_python_lib(True, False, '${ac_python_prefix}'));"`
 	fi
 	AC_MSG_RESULT([$PYTHON_SITE_PKG])
 	AC_SUBST([PYTHON_SITE_PKG])
+
+	#
+	# Check if site package is valid
+	#
+	AC_MSG_CHECKING([if Python site-packages path is valid])
+	ac_python_site_pkg_valid=`$PYTHON -c "import sys; \
+	  print('yes' if '${PYTHON_SITE_PKG}' in sys.path else 'no')"`
+	if test "${ac_python_site_pkg_valid}" = "yes"; then
+		AC_MSG_RESULT([yes])
+	else
+		AC_MSG_RESULT([no])
+		AC_MSG_WARN([${PYTHON_SITE_PKG} is not in Python's default PYTHONPATH.
+You will need to specify PYTHONPATH before starting python, or rerun ./configure
+with different --prefix value or specify PYTHON_SITE_PKG])
+	fi
 
 	#
 	# libraries which must be linked in when embedding

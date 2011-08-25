@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2011, Regents of the University of California
  * All rights reserved.
- * Written by: Jeff Burke <jburke@ucla.edu>
- *             Derek Kulinski <takeda@takeda.tk>
+ * Written by: Derek Kulinski <takeda@takeda.tk>
+ *             Jeff Burke <jburke@ucla.edu>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -57,7 +57,8 @@ static struct type_to_name {
 	{NAME, "Name_ccn_data"},
 	{PARSED_CONTENT_OBJECT, "ParsedContentObject_ccn_data"},
 	{PARSED_INTEREST, "ParsedInterest_ccn_data"},
-	{PKEY, "PKEY_ccn_data"},
+	{PKEY_PRIV, "PKEY_PRIV_ccn_data"},
+	{PKEY_PUB, "PKEY_PUB_ccn_data"},
 	{SIGNATURE, "Signature_ccn_data"},
 	{SIGNED_INFO, "SignedInfo_ccn_data"},
 	{SIGNING_PARAMS, "SigningParams_ccn_data"},
@@ -144,10 +145,11 @@ pyccn_Capsule_Destructor(PyObject *capsule)
 	case PARSED_INTEREST:
 		free(pointer);
 		break;
-	case PKEY:
+	case PKEY_PRIV:
+	case PKEY_PUB:
 	{
 		struct ccn_pkey *p = pointer;
-		ccn_pubkey_free(p); // what about private keys?
+		ccn_pubkey_free(p);
 	}
 		break;
 	case CONTENT_OBJECT:

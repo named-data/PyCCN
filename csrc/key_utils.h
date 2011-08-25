@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2011, Regents of the University of California
  * All rights reserved.
- * Written by: Jeff Burke <jburke@ucla.edu>
- *             Derek Kulinski <takeda@takeda.tk>
+ * Written by: Derek Kulinski <takeda@takeda.tk>
+ *             Jeff Burke <jburke@ucla.edu>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -59,7 +59,8 @@ struct keypair {
 
 int create_public_key_digest(RSA *private_key_rsa,
 		PyObject **py_public_key_digest, int *public_key_digest_len);
-int ccn_keypair_from_rsa(RSA *private_key_rsa, PyObject **py_private_key_ccn,
+int ccn_keypair_from_rsa(int public_only, RSA *private_key_rsa,
+		PyObject **py_private_key_ccn,
 		PyObject **py_public_key_ccn);
 
 int generate_key(int length, PyObject **private_key_ccn,

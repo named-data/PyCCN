@@ -2,12 +2,6 @@
 
 set -x
 
-mkdir build-aux
-
-aclocal -I build-aux -I m4
-autoconf
-autoheader
-
-libtoolize -i
-automake -a
+mkdir -p build-aux
+autoreconf -i
 

@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2011, Regents of the University of California
  * All rights reserved.
- * Written by: Jeff Burke <jburke@ucla.edu>
- *             Derek Kulinski <takeda@takeda.tk>
+ * Written by: Derek Kulinski <takeda@takeda.tk>
+ *             Jeff Burke <jburke@ucla.edu>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -110,7 +110,8 @@ create_public_key_digest(RSA *private_key_rsa,
 		PyObject **py_public_key_digest, int *public_key_digest_len)
 {
 	unsigned int err;
-	unsigned char *public_key_der = NULL, *digest;
+	unsigned char *public_key_der = NULL;
+	unsigned char digest[SHA256_DIGEST_LENGTH];
 	PyObject *py_digest = NULL;
 	int der_len;
 
@@ -120,17 +121,12 @@ create_public_key_digest(RSA *private_key_rsa,
 	der_len = i2d_RSAPublicKey(private_key_rsa, &public_key_der);
 	JUMP_IF_NEG(der_len, openssl_error);
 
-	/* we could also specify NULL, but maybe it'll make code less thread safe? */
-	digest = calloc(1, SHA256_DIGEST_LENGTH);
-	JUMP_IF_NULL_MEM(digest, error);
-
 	SHA256(public_key_der, der_len, digest);
 	free(public_key_der);
 	public_key_der = NULL;
 
 	py_digest = PyByteArray_FromStringAndSize((char *) digest,
 			SHA256_DIGEST_LENGTH);
-	free(digest);
 	JUMP_IF_NULL(py_digest, error);
 
 	*py_public_key_digest = py_digest;
@@ -150,8 +146,8 @@ error:
 }
 
 int
-ccn_keypair_from_rsa(RSA *private_key_rsa, PyObject **py_private_key_ccn,
-		PyObject **py_public_key_ccn)
+ccn_keypair_from_rsa(int public_only, RSA *private_key_rsa,
+		PyObject **py_private_key_ccn, PyObject **py_public_key_ccn)
 {
 	struct ccn_pkey *private_key = NULL, *public_key = NULL;
 	PyObject *py_private_key = NULL, *py_public_key = NULL;
@@ -159,11 +155,11 @@ ccn_keypair_from_rsa(RSA *private_key_rsa, PyObject **py_private_key_ccn,
 	int r;
 	RSA *public_key_rsa;
 
-	if (py_private_key_ccn) {
+	if (!public_only && py_private_key_ccn) {
 		private_key = (struct ccn_pkey *) EVP_PKEY_new();
 		JUMP_IF_NULL(private_key, openssl_error);
 
-		py_private_key = CCNObject_New(PKEY, private_key);
+		py_private_key = CCNObject_New(PKEY_PRIV, private_key);
 		JUMP_IF_NULL(py_private_key, error);
 
 		r = EVP_PKEY_set1_RSA((EVP_PKEY*) private_key, private_key_rsa);
@@ -174,7 +170,7 @@ ccn_keypair_from_rsa(RSA *private_key_rsa, PyObject **py_private_key_ccn,
 		public_key = (struct ccn_pkey *) EVP_PKEY_new();
 		JUMP_IF_NULL(public_key, openssl_error);
 
-		py_public_key = CCNObject_New(PKEY, public_key);
+		py_public_key = CCNObject_New(PKEY_PUB, public_key);
 		JUMP_IF_NULL(py_public_key, error);
 
 		public_key_rsa = RSAPublicKey_dup(private_key_rsa);
@@ -185,8 +181,11 @@ ccn_keypair_from_rsa(RSA *private_key_rsa, PyObject **py_private_key_ccn,
 		JUMP_IF_NULL(r, error);
 	}
 
-	if (py_private_key_ccn)
-		*py_private_key_ccn = py_private_key;
+	if (py_private_key_ccn) {
+		*py_private_key_ccn = public_only ? (Py_INCREF(Py_None), Py_None) :
+				py_private_key;
+	}
+
 	if (py_public_key_ccn)
 		*py_public_key_ccn = py_public_key;
 
@@ -261,7 +260,7 @@ generate_key(int length, PyObject **py_private_key_ccn,
 		return -1;
 	}
 
-	r = ccn_keypair_from_rsa(private_key_rsa, py_private_key_ccn,
+	r = ccn_keypair_from_rsa(0, private_key_rsa, py_private_key_ccn,
 			py_public_key_ccn);
 	if (r < 0)
 		return -1;
@@ -319,12 +318,28 @@ write_key_pem(FILE *fp, struct ccn_pkey *private_key_ccn)
 }
 
 int
-write_key_pem_public(FILE *fp, struct ccn_pkey* private_key_ccn)
+write_key_pem_public(FILE *fp, struct ccn_pkey *private_key_ccn)
 {
-	RSA* private_key_rsa = EVP_PKEY_get1_RSA((EVP_PKEY*) private_key_ccn);
-	//PEM_write_RSAPrivateKey(fp, private_key_rsa, NULL, NULL, 0, NULL, NULL);
-	PEM_write_RSAPublicKey(fp, private_key_rsa);
+	RSA *private_key_rsa;
+	unsigned long err;
+
+	private_key_rsa = EVP_PKEY_get1_RSA((EVP_PKEY*) private_key_ccn);
+	if (!private_key_rsa) {
+		err = ERR_get_error();
+		PyErr_Format(g_PyExc_CCNKeyError, "Unable to obtain EVP PKEY: %s",
+				ERR_reason_error_string(err));
+		return -1;
+	}
+
+	if (!PEM_write_RSAPublicKey(fp, private_key_rsa)) {
+		err = ERR_get_error();
+		RSA_free(private_key_rsa);
+		PyErr_Format(g_PyExc_CCNKeyError, "Unable to write Public Key: %s",
+				ERR_reason_error_string(err));
+		return -1;
+	}
 	RSA_free(private_key_rsa);
+
 	return 0;
 }
 
@@ -352,23 +367,56 @@ get_key_pem_public(char** buf, int* length, struct ccn_pkey* private_key_ccn)
 //
 
 int
-read_key_pem(FILE *fp, PyObject ** py_private_key_ccn,
+read_key_pem(FILE *fp, PyObject **py_private_key_ccn,
 		PyObject **py_public_key_ccn, PyObject **py_public_key_digest,
 		int *public_key_digest_len)
 {
 	RSA *private_key_rsa = NULL;
 	PyObject *py_private_key = NULL, *py_public_key = NULL;
-	unsigned long err;
+	unsigned long err, reason;
+	fpos_t fpos;
 	int r;
+	int public_only;
 
-	if (!PEM_read_RSAPrivateKey(fp, &private_key_rsa, NULL, NULL)) {
+	r = fgetpos(fp, &fpos);
+	JUMP_IF_NEG(r, errno_error);
+
+	private_key_rsa = PEM_read_RSAPrivateKey(fp, NULL, NULL, NULL);
+	if (private_key_rsa) {
+		public_only = 0;
+		goto success;
+	}
+
+	err = ERR_get_error();
+	reason = ERR_GET_REASON(err);
+
+	/* 108 was meaning that start line isn't recognized */
+	if (reason == 108) {
+		r = fsetpos(fp, &fpos);
+		JUMP_IF_NEG(r, errno_error);
+
+		private_key_rsa = PEM_read_RSAPublicKey(fp, NULL, NULL, NULL);
+		if (private_key_rsa) {
+			public_only = 1;
+			goto success;
+		}
+
 		err = ERR_get_error();
+		reason = ERR_GET_REASON(err);
+	}
+
+	{
+		char buf[256];
+
+		ERR_error_string_n(err, buf, sizeof(buf));
 		PyErr_Format(g_PyExc_CCNKeyError, "Unable to read Private Key: %s",
-				ERR_reason_error_string(err));
+				buf);
 		goto error;
 	}
 
-	r = ccn_keypair_from_rsa(private_key_rsa, py_private_key_ccn,
+success:
+
+	r = ccn_keypair_from_rsa(public_only, private_key_rsa, py_private_key_ccn,
 			py_public_key_ccn);
 	JUMP_IF_NEG(r, error);
 
@@ -380,6 +428,8 @@ read_key_pem(FILE *fp, PyObject ** py_private_key_ccn,
 
 	return 0;
 
+errno_error:
+	PyErr_SetFromErrno(PyExc_IOError);
 error:
 	Py_XDECREF(py_private_key);
 	Py_XDECREF(py_public_key);

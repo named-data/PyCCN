@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2011, Regents of the University of California
  * All rights reserved.
- * Written by: Jeff Burke <jburke@ucla.edu>
- *             Derek Kulinski <takeda@takeda.tk>
+ * Written by: Derek Kulinski <takeda@takeda.tk>
+ *             Jeff Burke <jburke@ucla.edu>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,6 +37,8 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+
+#include "pyccn.h"
 
 void
 dump_charbuf(struct ccn_charbuf *c, FILE * fp)
@@ -101,4 +103,35 @@ _pyccn_unicode_to_utf8(PyObject *string, char **buffer, Py_ssize_t *length)
 	}
 
 	return py_utf8;
+}
+
+FILE *
+_pyccn_open_file_handle(PyObject *py_file, const char *mode)
+{
+	FILE *handle;
+	int ofd, fd = -1;
+
+	ofd = PyObject_AsFileDescriptor(py_file);
+	JUMP_IF_NEG(ofd, error);
+
+	fd = dup(ofd);
+	JUMP_IF_NEG(fd, errno_error);
+
+	handle = fdopen(fd, mode);
+	JUMP_IF_NULL(handle, errno_error);
+
+	return handle;
+
+errno_error:
+	PyErr_SetFromErrno(PyExc_IOError);
+error:
+	if (fd > -1)
+		close(fd);
+	return NULL;
+}
+
+int
+_pyccn_close_file_handle(FILE *fh)
+{
+	return fclose(fh);
 }

@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2011, Regents of the University of California
  * All rights reserved.
- * Written by: Jeff Burke <jburke@ucla.edu>
- *             Derek Kulinski <takeda@takeda.tk>
+ * Written by: Derek Kulinski <takeda@takeda.tk>
+ *             Jeff Burke <jburke@ucla.edu>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -123,12 +123,12 @@ KeyLocator_key_to_ccn(struct ccn_charbuf *keylocator, PyObject *py_key)
 	struct ccn_pkey *key;
 	int r;
 
-	if (!CCNObject_IsValid(PKEY, py_key)) {
+	if (!CCNObject_IsValid(PKEY_PUB, py_key)) {
 		PyErr_SetString(PyExc_TypeError, "Argument needs to be of type CCN Key");
 		return -1;
 	}
 
-	key = CCNObject_Get(PKEY, py_key);
+	key = CCNObject_Get(PKEY_PUB, py_key);
 
 	r = ccn_charbuf_append_tt(keylocator, CCN_DTAG_Key, CCN_DTAG);
 	JUMP_IF_NEG_MEM(r, error);
@@ -154,7 +154,7 @@ Key_to_ccn_private(PyObject *py_key)
 
 	capsule = PyObject_GetAttrString(py_key, "ccn_data_private");
 	assert(capsule);
-	key = CCNObject_Get(PKEY, capsule);
+	key = CCNObject_Get(PKEY_PRIV, capsule);
 	Py_DECREF(capsule);
 
 	return key;
@@ -201,7 +201,8 @@ Key_from_ccn(struct ccn_pkey *key_ccn)
 		goto error;
 	}
 
-	r = ccn_keypair_from_rsa(private_key_rsa, &py_private_key_ccn,
+#pragma message "TODO: handle situation when we only have public key"
+	r = ccn_keypair_from_rsa(0, private_key_rsa, &py_private_key_ccn,
 			&py_public_key_ccn);
 	JUMP_IF_NEG(r, error);
 
@@ -405,13 +406,14 @@ _pyccn_Key_to_ccn_private(PyObject *UNUSED(self), PyObject *py_key)
 PyObject *
 _pyccn_Key_from_ccn(PyObject *UNUSED(self), PyObject *cobj_key)
 {
-	if (!CCNObject_IsValid(PKEY, cobj_key)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a CCN PKEY object");
+	if (CCNObject_IsValid(PKEY_PRIV, cobj_key))
+		return Key_from_ccn(CCNObject_Get(PKEY_PRIV, cobj_key));
 
-		return NULL;
-	}
+	if (!CCNObject_IsValid(PKEY_PUB, cobj_key))
+		return Key_from_ccn(CCNObject_Get(PKEY_PUB, cobj_key));
 
-	return Key_from_ccn(CCNObject_Get(PKEY, cobj_key));
+	PyErr_SetString(PyExc_TypeError, "Must pass a CCN PKEY object");
+	return NULL;
 }
 
 PyObject *
@@ -474,7 +476,7 @@ _pyccn_KeyLocator_from_ccn(PyObject *UNUSED(self), PyObject *py_keylocator)
 }
 
 PyObject *
-_pyccn_PEM_read_private_key(PyObject *UNUSED(self), PyObject *args)
+_pyccn_PEM_read_key(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_file;
 	PyObject *py_private_key, *py_public_key, *py_digest, *py_ret;
@@ -486,14 +488,13 @@ _pyccn_PEM_read_private_key(PyObject *UNUSED(self), PyObject *args)
 	if (!PyArg_ParseTuple(args, "O", &py_file))
 		return NULL;
 
-	fin = PyFile_AsFile(py_file);
-	if (!fin) {
-		PyErr_SetString(PyExc_TypeError, "Argument needs to be a file");
+	fin = _pyccn_open_file_handle(py_file, "r");
+	if (!fin)
 		return NULL;
-	}
 
 	r = read_key_pem(fin, &py_private_key, &py_public_key, &py_digest,
 			&digest_len);
+	_pyccn_close_file_handle(fin);
 	if (r < 0)
 		return NULL;
 
@@ -507,31 +508,48 @@ _pyccn_PEM_read_private_key(PyObject *UNUSED(self), PyObject *args)
 }
 
 PyObject *
-_pyccn_PEM_write_private_key(PyObject *UNUSED(self), PyObject *args)
+_pyccn_PEM_write_key(PyObject *UNUSED(self), PyObject *args,
+		PyObject *py_kwds)
 {
-	PyObject *py_pkey, *py_file;
+	PyObject *py_pkey, *py_file = Py_None;
 	struct ccn_pkey *pkey;
 	FILE *of;
 	int r;
+	int private = -1;
 
-	if (!PyArg_ParseTuple(args, "OO", &py_pkey, &py_file))
+	static char *kwlist[] = {"key", "file", NULL};
+
+	if (!PyArg_ParseTupleAndKeywords(args, py_kwds, "O|O", kwlist, &py_pkey,
+			&py_file))
 		return NULL;
 
-	if (!CCNObject_IsValid(PKEY, py_pkey)) {
+	if (CCNObject_IsValid(PKEY_PRIV, py_pkey)) {
+		private = 1;
+		pkey = CCNObject_Get(PKEY_PRIV, py_pkey);
+	} else if (CCNObject_IsValid(PKEY_PUB, py_pkey)) {
+		private = 0;
+		pkey = CCNObject_Get(PKEY_PUB, py_pkey);
+	} else {
 		PyErr_SetString(PyExc_TypeError, "Argument needs to be a CCN PKEY");
 		return NULL;
 	}
-	pkey = CCNObject_Get(PKEY, py_pkey);
 
-	of = PyFile_AsFile(py_file);
-	if (!of) {
-		PyErr_SetString(PyExc_TypeError, "Argument needs to be a file");
-		return NULL;
+	assert(private >= 0 && private <= 1);
+
+	if (py_file != Py_None) {
+		of = _pyccn_open_file_handle(py_file, "w");
+		if (!of)
+			return NULL;
+
+		if (private)
+			r = write_key_pem(of, pkey);
+		else
+			r = write_key_pem_public(of, pkey);
+
+		_pyccn_close_file_handle(of);
+		if (r < 0)
+			return NULL;
 	}
-
-	r = write_key_pem(of, pkey);
-	if (r < 0)
-		return NULL;
 
 	Py_RETURN_NONE;
 }

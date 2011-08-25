@@ -1,0 +1,56 @@
+import os, filecmp
+from base64 import b64encode, b64decode
+from pyccn import Key, _pyccn
+
+print(os.getcwd())
+
+root = os.path.join("tmp")
+private_pem1 = os.path.join(root, 'private1.pem')
+public_pem1 = os.path.join(root, 'public1.pem')
+private_pem2 = os.path.join(root, 'private2.pem')
+public_pem2 = os.path.join(root, 'public2.pem')
+
+def rm_files(*list):
+	for file in list:
+		if os.path.exists(file):
+			os.remove(file)
+
+rm_files(private_pem1, public_pem1, private_pem2, public_pem2)
+
+k = Key.Key()
+k.generateRSA(1024)
+
+k.privateToPEM(filename=private_pem1)
+k.publicToPEM(filename=public_pem1)
+
+k2 = Key.Key()
+k2.fromPEM(filename=private_pem1)
+
+k2.privateToPEM(filename=private_pem2)
+k2.publicToPEM(filename=public_pem2)
+
+assert(filecmp.cmp(private_pem1, private_pem2))
+assert(filecmp.cmp(public_pem1, public_pem2))
+print(b64encode(k.publicKeyID))
+print(b64encode(k2.publicKeyID))
+assert(k.publicKeyID == k2.publicKeyID)
+
+del(k2)
+rm_files(private_pem2, public_pem2)
+
+k2 = Key.Key()
+k2.fromPEM(filename=public_pem1)
+
+try:
+	k2.privateToPEM(filename=private_pem2)
+except:
+	pass
+else:
+	raise AssertionError("This should fail - this is not a private key")
+
+k2.publicToPEM(filename=public_pem2)
+
+assert(filecmp.cmp(public_pem1, public_pem2))
+assert(k.publicKeyID == k2.publicKeyID)
+
+rm_files(private_pem1, public_pem1, private_pem2, public_pem2)

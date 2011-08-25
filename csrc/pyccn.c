@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2011, Regents of the University of California
  * All rights reserved.
- * Written by: Jeff Burke <jburke@ucla.edu>
- *             Derek Kulinski <takeda@takeda.tk>
+ * Written by: Derek Kulinski <takeda@takeda.tk>
+ *             Jeff Burke <jburke@ucla.edu>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,6 +34,8 @@
 #include <ccn/hashtb.h>
 #include <ccn/uri.h>
 #include <ccn/signing.h>
+
+#include <openssl/err.h>
 
 #include "pyccn.h"
 #include "key_utils.h"
@@ -97,9 +99,9 @@ static PyMethodDef g_module_methods[] = {
 #endif
 	{"_pyccn_generate_RSA_key", _pyccn_generate_RSA_key, METH_VARARGS,
 		""},
-	{"PEM_read_private_key", _pyccn_PEM_read_private_key, METH_VARARGS, NULL},
-	{"PEM_write_private_key", _pyccn_PEM_write_private_key, METH_VARARGS, NULL},
-
+	{"PEM_read_key", _pyccn_PEM_read_key, METH_VARARGS, NULL},
+	{"PEM_write_key", (PyCFunction) _pyccn_PEM_write_key,
+		METH_VARARGS | METH_KEYWORDS, NULL},
 
 	// ** Methods of ContentObject
 	//
@@ -279,6 +281,9 @@ MODINIT(_pyccn)
 	}
 
 	initialize_exceptions();
+
+	/* needed so openssl's errors make sense to humans */
+	ERR_load_crypto_strings();
 
 #if PY_MAJOR_VERSION >= 3
 	return _pyccn_module;

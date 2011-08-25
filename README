@@ -28,9 +28,21 @@ you might need to perform following operations:
   mkdir build-aux
   autoreconf -i
 
+or just run:
+
+  ./bootstrap
+
 Later when you fetch new version of files you can just simply use autoreconf
 with no options.
 
+
+1.2 DEPENDENCIES
+
+- GNU automake 1.11
+- GNU libtool (not sure of minimum version, using 2.2.6b)
+- CCNx 0.4
+- OpenSSL
+- Python 2.7+ (tested with 2.7.0 and 3.2.1)
 
 1.2 CONFIGURING AND BUILDING
 
@@ -42,6 +54,7 @@ Relevant options:
 * PYTHON=<python interpreter> - path to python interpreter you want to use
                                 In some cases you might need to specify
                                 LDFLAGS=-L/usr/lib
+* PYTHON_SITE_PKG=<path> - custom path where pyccn should be installed
 
 Then do `make` to compile the code.
 
