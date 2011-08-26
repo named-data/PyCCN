@@ -11,7 +11,8 @@ TESTS = \
 	defaultKey.py \
 	ContentObject.py \
 	key.py \
-	keyExport.py \
+	keyExportPEM.py \
+	keyExportDER.py \
 	signing.py \
 	simpleCommunication.py \
 	receiving.py

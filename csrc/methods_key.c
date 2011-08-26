@@ -542,13 +542,115 @@ _pyccn_PEM_write_key(PyObject *UNUSED(self), PyObject *args,
 			return NULL;
 
 		if (private)
-			r = write_key_pem(of, pkey);
+			r = write_key_pem_private(of, pkey);
 		else
 			r = write_key_pem_public(of, pkey);
 
 		_pyccn_close_file_handle(of);
 		if (r < 0)
 			return NULL;
+	}
+
+	Py_RETURN_NONE;
+}
+
+PyObject *
+_pyccn_DER_read_key(PyObject *UNUSED(self), PyObject *args,
+		PyObject *py_kwds)
+{
+	PyObject *py_private_der = Py_None, *py_public_der = Py_None;
+	PyObject *py_der;
+	PyObject *py_private_key, *py_public_key, *py_digest, *py_ret;
+	int digest_len, r;
+	int is_public_only = -1, is_file = -1;
+
+	static char *kwlist[] = {"private", "public", NULL};
+
+	if (!PyArg_ParseTupleAndKeywords(args, py_kwds, "|OO", kwlist,
+			&py_private_der, &py_public_der))
+		return NULL;
+
+	assert(py_private_der);
+	assert(py_public_der);
+
+	if (py_private_der != Py_None) {
+		py_der = py_private_der;
+		is_public_only = 0;
+		is_file = 0;
+		goto do_work;
+	} else if (py_public_der != Py_None) {
+		py_der = py_public_der;
+		is_public_only = 1;
+		is_file = 0;
+		goto do_work;
+	}
+
+	PyErr_SetString(PyExc_ValueError, "expected value with one of the"
+			" arguments: private, public, private_file, public_file");
+	return NULL;
+
+do_work:
+	assert(is_public_only == 0 || is_public_only == 1);
+	assert(is_file == 0 || is_file == 1);
+
+	if (!is_file) {
+		if (!PyBytes_Check(py_der)) {
+			PyErr_SetString(PyExc_TypeError, "expected bytes type");
+			return NULL;
+		}
+
+		r = put_key_der(is_public_only, py_der, &py_private_key, &py_public_key,
+				&py_digest, &digest_len);
+	}
+	if (r < 0)
+		return NULL;
+
+	py_ret = Py_BuildValue("(OOOi)", py_private_key, py_public_key, py_digest,
+			digest_len);
+	Py_DECREF(py_private_key);
+	Py_DECREF(py_public_key);
+	Py_DECREF(py_digest);
+
+	return py_ret;
+}
+
+PyObject *
+_pyccn_DER_write_key(PyObject *UNUSED(self), PyObject *args,
+		PyObject *py_kwds)
+{
+	PyObject *py_pkey;
+	struct ccn_pkey *pkey;
+	PyObject *py_file = Py_None;
+	int isprivate = -1;
+	FILE *of;
+
+	static char *kwlist[] = {"key", "file", NULL};
+
+	if (!PyArg_ParseTupleAndKeywords(args, py_kwds, "O|O", kwlist, &py_pkey,
+			&py_file))
+		return NULL;
+
+	if (CCNObject_IsValid(PKEY_PRIV, py_pkey)) {
+		isprivate = 1;
+		pkey = CCNObject_Get(PKEY_PRIV, py_pkey);
+	} else if (CCNObject_IsValid(PKEY_PUB, py_pkey)) {
+		isprivate = 0;
+		pkey = CCNObject_Get(PKEY_PUB, py_pkey);
+	} else {
+		PyErr_SetString(PyExc_TypeError, "Argument needs to be a CCN PKEY");
+		return NULL;
+	}
+
+	assert(isprivate >= 0 && isprivate <= 1);
+	assert(py_file);
+
+	if (py_file != Py_None) {
+		PyErr_SetNone(PyExc_NotImplementedError);
+		return NULL;
+	} else {
+		if (isprivate)
+			return get_key_der_private(pkey);
+		return get_key_der_public(pkey);
 	}
 
 	Py_RETURN_NONE;

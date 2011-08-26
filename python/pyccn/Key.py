@@ -48,8 +48,13 @@ class Key(object):
 	def generateRSA(self, numbits):
 		_pyccn._pyccn_generate_RSA_key(self, numbits)
 
-	def toDER(self, cobjkey):
-		pass
+	def privateToDER(self):
+		if not self.ccn_data_private:
+			raise _pyccn.CCNKeyError("Key is not private")
+		return _pyccn.DER_write_key(self.ccn_data_private)
+
+	def publicToDER(self):
+		return _pyccn.DER_write_key(self.ccn_data_public)
 
 	def privateToPEM(self, filename = None):
 		if not self.ccn_data_private:
@@ -66,8 +71,15 @@ class Key(object):
 			_pyccn.PEM_write_key(self.ccn_data_public, file=f)
 			f.close()
 
-	def fromDER(self, cobjkey):
-		pass
+	def fromDER(self, private = None, public = None):
+		if private:
+			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID, \
+				self.publicKeyIDsize) = _pyccn.DER_read_key(private=private)
+			return
+		if public:
+			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID, \
+				self.publicKeyIDsize) = _pyccn.DER_read_key(public=public)
+			return
 
 	def fromPEM(self, filename = None):
 		if filename:

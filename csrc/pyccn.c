@@ -102,6 +102,10 @@ static PyMethodDef g_module_methods[] = {
 	{"PEM_read_key", _pyccn_PEM_read_key, METH_VARARGS, NULL},
 	{"PEM_write_key", (PyCFunction) _pyccn_PEM_write_key,
 		METH_VARARGS | METH_KEYWORDS, NULL},
+	{"DER_read_key", (PyCFunction) _pyccn_DER_read_key,
+		METH_VARARGS | METH_KEYWORDS, NULL},
+	{"DER_write_key", (PyCFunction) _pyccn_DER_write_key,
+		METH_VARARGS | METH_KEYWORDS, NULL},
 
 	// ** Methods of ContentObject
 	//

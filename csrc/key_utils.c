@@ -290,7 +290,7 @@ generate_keypair(int length, struct keypair** KP)
 //
 
 int
-write_key_pem(FILE *fp, struct ccn_pkey *private_key_ccn)
+write_key_pem_private(FILE *fp, struct ccn_pkey *private_key_ccn)
 {
 	RSA *private_key_rsa;
 	unsigned long err;
@@ -361,6 +361,71 @@ get_key_pem_public(char** buf, int* length, struct ccn_pkey* private_key_ccn)
 	return 0;
 }
 
+PyObject *
+get_key_der_private(struct ccn_pkey *private_key_ccn)
+{
+	PyObject *result;
+	RSA *private_key_rsa;
+	unsigned long err;
+	unsigned char *private_key_der = NULL;
+	int der_len;
+
+	assert(private_key_ccn);
+
+	private_key_rsa = EVP_PKEY_get1_RSA((EVP_PKEY *) private_key_ccn);
+	JUMP_IF_NULL(private_key_rsa, openssl_error);
+
+	der_len = i2d_RSAPrivateKey(private_key_rsa, &private_key_der);
+	JUMP_IF_NEG(der_len, openssl_error);
+
+	result = PyBytes_FromStringAndSize((char *) private_key_der, der_len);
+	RSA_free(private_key_rsa);
+	private_key_rsa = NULL;
+	JUMP_IF_NULL(result, error);
+
+	return result;
+
+openssl_error:
+	err = ERR_get_error();
+	PyErr_Format(g_PyExc_CCNKeyError, "Unable to write Private Key: %s",
+			ERR_reason_error_string(err));
+error:
+	RSA_free(private_key_rsa);
+	return NULL;
+}
+
+PyObject *
+get_key_der_public(struct ccn_pkey *public_key_ccn)
+{
+	PyObject *result;
+	RSA *public_key_rsa;
+	unsigned long err;
+	unsigned char *public_key_der = NULL;
+	int der_len;
+
+	public_key_rsa = EVP_PKEY_get1_RSA((EVP_PKEY *) public_key_ccn);
+	JUMP_IF_NULL(public_key_rsa, openssl_error);
+
+	//i2d_RSAPublicKey() is also valid, but openssl doesn't
+	//seem to understand it
+	der_len = i2d_RSA_PUBKEY(public_key_rsa, &public_key_der);
+	JUMP_IF_NEG(der_len, openssl_error);
+
+	result = PyBytes_FromStringAndSize((char *) public_key_der, der_len);
+	RSA_free(public_key_rsa);
+	public_key_rsa = NULL;
+	JUMP_IF_NULL(result, error);
+
+	return result;
+
+openssl_error:
+	err = ERR_get_error();
+	PyErr_Format(g_PyExc_CCNKeyError, "Unable to write Public Key: %s",
+			ERR_reason_error_string(err));
+error:
+	RSA_free(public_key_rsa);
+	return NULL;
+}
 
 //
 // Reads without decryption
@@ -437,6 +502,57 @@ error:
 		RSA_free(private_key_rsa);
 	return -1;
 }
+
+int
+put_key_der(int is_public_only, PyObject *py_key_der,
+		PyObject **py_private_key_ccn, PyObject **py_public_key_ccn,
+		PyObject **py_public_key_digest, int *public_key_digest_len)
+{
+	RSA *key_rsa = NULL;
+	const unsigned char *key_der;
+	Py_ssize_t der_len;
+	int r;
+	unsigned long err;
+
+	r = PyBytes_AsStringAndSize(py_key_der, (char **) &key_der, &der_len);
+	JUMP_IF_NEG(r, error);
+
+	if (is_public_only)
+		key_rsa = d2i_RSA_PUBKEY(NULL, &key_der, der_len);
+	else
+		key_rsa = d2i_RSAPrivateKey(NULL, &key_der, der_len);
+
+	//above changes the key_der, so we set it to NULL for safety to not use it
+	key_der = NULL;
+	JUMP_IF_NULL(key_rsa, openssl_error);
+
+	r = ccn_keypair_from_rsa(is_public_only, key_rsa, py_private_key_ccn,
+			py_public_key_ccn);
+	JUMP_IF_NEG(r, error);
+
+	r = create_public_key_digest(key_rsa, py_public_key_digest,
+			public_key_digest_len);
+	JUMP_IF_NEG(r, error);
+
+	RSA_free(key_rsa);
+
+	return 0;
+
+openssl_error:
+	err = ERR_get_error();
+	{
+		char buf[256];
+
+		ERR_error_string_n(err, buf, sizeof(buf));
+		PyErr_Format(g_PyExc_CCNKeyError, "Unable to read Private Key: %s",
+				buf);
+	}
+
+error:
+	RSA_free(key_rsa);
+	return -1;
+}
+
 #if 0
 
 int
