@@ -275,7 +275,7 @@ error:
 //
 
 PyObject *
-KeyLocator_from_ccn(PyObject *py_keylocator)
+KeyLocator_obj_from_ccn(PyObject *py_keylocator)
 {
 	struct ccn_buf_decoder decoder, *d;
 	struct ccn_charbuf *keylocator;
@@ -472,7 +472,7 @@ _pyccn_KeyLocator_from_ccn(PyObject *UNUSED(self), PyObject *py_keylocator)
 		return NULL;
 	}
 
-	return KeyLocator_from_ccn(py_keylocator);
+	return KeyLocator_obj_from_ccn(py_keylocator);
 }
 
 PyObject *

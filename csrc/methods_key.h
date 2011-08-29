@@ -33,7 +33,7 @@
 
 struct ccn_pkey *Key_to_ccn_private(PyObject *py_key);
 PyObject *Key_from_ccn(struct ccn_pkey *key_ccn);
-PyObject *KeyLocator_from_ccn(PyObject *py_keylocator);
+PyObject *KeyLocator_obj_from_ccn(PyObject *py_keylocator);
 
 PyObject *_pyccn_Key_to_ccn_public(PyObject *self, PyObject *py_key);
 PyObject *_pyccn_Key_to_ccn_private(PyObject *self, PyObject *py_key);

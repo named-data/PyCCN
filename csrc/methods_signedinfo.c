@@ -227,7 +227,7 @@ SignedInfo_obj_from_ccn(PyObject *py_signed_info)
 		struct ccn_charbuf* keyLocator = ccn_charbuf_create();
 		ccn_charbuf_append(keyLocator, d->buf + start, stop - start);
 		//    self.keyLocator = None
-		py_o = KeyLocator_from_ccn(keyLocator); // it will free
+		py_o = KeyLocator_obj_from_ccn(keyLocator); // it will free
 		PyObject_SetAttrString(py_obj_SignedInfo, "keyLocator", py_o);
 		Py_INCREF(py_o);
 	}
@@ -275,7 +275,7 @@ SignedInfo_obj_from_ccn(PyObject *py_signed_info)
 		}
 
 		//    self.keyLocator = None
-		py_o = KeyLocator_from_ccn(py_key_locator);
+		py_o = KeyLocator_obj_from_ccn(py_key_locator);
 		Py_DECREF(py_key_locator);
 		JUMP_IF_NULL(py_o, error);
 		r = PyObject_SetAttrString(py_obj_SignedInfo, "keyLocator", py_o);

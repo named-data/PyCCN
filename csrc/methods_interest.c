@@ -404,7 +404,7 @@ Interest_from_ccn_parsed(PyObject *py_interest, PyObject *py_parsed_interest)
 				len);
 		JUMP_IF_NEG_MEM(r, error);
 
-		py_o = Name_from_ccn(py_cname);
+		py_o = Name_obj_from_ccn(py_cname);
 		Py_DECREF(py_cname);
 		JUMP_IF_NULL(py_o, error);
 

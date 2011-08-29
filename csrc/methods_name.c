@@ -197,59 +197,7 @@ _pyccn_Name_from_ccn(PyObject *UNUSED(self), PyObject *py_cname)
 }
 
 PyObject *
-Name_from_ccn_parsed(PyObject *py_content_object,
-		PyObject *py_parsed_content_object)
-{
-	struct ccn_charbuf *content_object;
-	struct ccn_parsed_ContentObject *parsed_content_object;
-	PyObject *py_ccn_name;
-	PyObject *py_Name;
-	struct ccn_charbuf *name;
-	size_t name_begin, name_end, s;
-	int r;
-
-	assert(CCNObject_IsValid(CONTENT_OBJECT, py_content_object));
-	assert(CCNObject_IsValid(PARSED_CONTENT_OBJECT, py_parsed_content_object));
-
-	content_object = CCNObject_Get(CONTENT_OBJECT, py_content_object);
-	parsed_content_object = CCNObject_Get(PARSED_CONTENT_OBJECT,
-			py_parsed_content_object);
-
-	name_begin = parsed_content_object->offset[CCN_PCO_B_Name];
-	name_end = parsed_content_object->offset[CCN_PCO_E_Name];
-	s = name_end - name_begin;
-
-	debug("ContentObject_from_ccn_parsed Name len=%zd\n", s);
-	if (parsed_content_object->name_ncomps <= 0) {
-		PyErr_SetString(g_PyExc_CCNNameError, "No name stored (or name is"
-				" invalid) in parsed content object");
-		return NULL;
-	}
-
-	py_ccn_name = CCNObject_New_charbuf(NAME, &name);
-	if (!py_ccn_name)
-		return NULL;
-
-	r = ccn_charbuf_append(name, &content_object->buf[name_begin], s);
-	if (r < 0) {
-		Py_DECREF(py_ccn_name);
-		return PyErr_NoMemory();
-	}
-
-#if DEBUG_MSG
-	debug("Name: ");
-	dump_charbuf(name, stderr);
-	debug("\n");
-#endif
-
-	py_Name = Name_from_ccn(py_ccn_name);
-	Py_DECREF(py_ccn_name);
-
-	return py_Name;
-}
-
-PyObject *
-Name_from_ccn(PyObject *py_cname)
+Name_obj_from_ccn(PyObject *py_cname)
 {
 	PyObject *py_Name = NULL, *py_components;
 	int r;
@@ -379,7 +327,7 @@ Name_from_ccn_tagged_bytearray(const unsigned char *buf, size_t size)
 	}
 
 	r = ccn_charbuf_append(name, buf, size);
-	py_name = r < 0 ? PyErr_NoMemory() : Name_from_ccn(py_cname);
+	py_name = r < 0 ? PyErr_NoMemory() : Name_obj_from_ccn(py_cname);
 	Py_DECREF(py_cname);
 
 	return py_name;
