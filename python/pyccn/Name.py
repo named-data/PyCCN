@@ -82,8 +82,8 @@ class Name(object):
 			ret += self.separator
 			if type(c) is str:
 				ret += c
-			elif type(c) is bytearray or type(c) is bytes:
-				ret += c.decode()
+			elif type(c) is bytes or type(c) is bytearray:
+				ret += c.decode(errors='replace')
 			else:
 				ret += str(c)
 

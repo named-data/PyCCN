@@ -90,7 +90,7 @@ class ContentObject(object):
 
 	def __str__(self):
 		ret = "Name: %s" % self.name
-		ret += "\nContent: %s" % self.content
+		ret += "\nContent: %s" % self.content.decode(errors='replace')
 		ret += "\nDigestAlg: %s" % self.digestAlgorithm
 		ret += "\nSignedInfo: %s" % self.signedInfo
 		return ret

@@ -9,8 +9,11 @@ name1 = _pyccn._pyccn_Name_from_ccn(ccn_name1)
 locator1 = _pyccn._pyccn_KeyLocator_to_ccn(name=ccn_name1)
 print(locator1)
 
-ccn_name2 = _pyccn._pyccn_KeyLocator_from_ccn(locator1)
-name2 = _pyccn._pyccn_Name_from_ccn(ccn_name2)
+locator1_obj = _pyccn._pyccn_KeyLocator_from_ccn(locator1)
+print(locator1_obj)
+print(locator1_obj.keyName)
+
+name2 = _pyccn._pyccn_Name_from_ccn(locator1_obj.keyName.ccn_data)
 print(name2)
 
 for comp1, comp2 in zip(name1, name2):
@@ -23,7 +26,8 @@ key1.generateRSA(1024)
 locator2 = _pyccn._pyccn_KeyLocator_to_ccn(key=key1.ccn_data_public)
 print(locator2)
 
-key2 = _pyccn._pyccn_KeyLocator_from_ccn(locator2)
+locator2_obj = _pyccn._pyccn_KeyLocator_from_ccn(locator2)
+key2 = locator2_obj.key
 print(key2)
 
 print(key1.ccn_data_public)

@@ -104,7 +104,9 @@ KeyLocator_name_to_ccn(struct ccn_charbuf *keylocator, PyObject *py_name)
 	r = ccn_charbuf_append_tt(keylocator, CCN_DTAG_KeyName, CCN_DTAG);
 	JUMP_IF_NEG_MEM(r, error);
 
-	r = ccnb_append_tagged_blob(keylocator, CCN_DTAG_Name, name->buf, name->length); // check
+	// Looks like name already has all necessary tags
+	// r = ccnb_append_tagged_blob(keylocator, CCN_DTAG_Name, name->buf, name->length); // check
+	r = ccn_charbuf_append_charbuf(keylocator, name);
 	JUMP_IF_NEG_MEM(r, error);
 
 	r = ccn_charbuf_append_closer(keylocator); /* </KeyName> */
@@ -166,7 +168,7 @@ Key_to_ccn_private(PyObject *py_key)
 // so that we can do the key hash
 
 PyObject *
-Key_from_ccn(struct ccn_pkey *key_ccn)
+Key_obj_from_ccn(struct ccn_pkey *key_ccn)
 {
 	PyObject *py_obj_Key;
 	RSA *private_key_rsa;
@@ -283,7 +285,8 @@ KeyLocator_obj_from_ccn(PyObject *py_keylocator)
 	struct ccn_pkey *pubkey;
 	size_t start, stop;
 	int r;
-	PyObject *py_res;
+	PyObject *py_o;
+	PyObject *py_KeyLocator_obj = NULL;
 
 	keylocator = CCNObject_Get(KEY_LOCATOR, py_keylocator);
 
@@ -302,38 +305,62 @@ KeyLocator_obj_from_ccn(PyObject *py_keylocator)
 	if (ccn_buf_match_dtag(d, CCN_DTAG_KeyName)) {
 		const unsigned char *bname;
 		size_t bname_size;
+		PyObject *py_name_obj;
 
 		ccn_buf_advance(d);
 
 		start = d->decoder.token_index;
-		r = ccn_parse_required_tagged_BLOB(d, CCN_DTAG_Name, 1, -1);
+		r = ccn_parse_Name(d, NULL);
 		stop = d->decoder.token_index;
 		if (r < 0)
 			return PyErr_Format(g_PyExc_CCNKeyLocatorError, "Error finding"
 				" CCN_DTAG_Name for KeyName (decoder state: %d)",
 				d->decoder.state);
 
+		assert(stop > start);
+		bname_size = stop - start;
+		bname = d->buf + start;
+/*
 		r = ccn_ref_tagged_BLOB(CCN_DTAG_Name, d->buf, start, stop, &bname,
 				&bname_size);
 		if (r < 0)
 			return PyErr_Format(g_PyExc_CCNKeyLocatorError, "Error getting"
 				" CCN_DTAG_Name BLOB for KeyName (decoder state: %d)",
 				d->decoder.state);
+*/
 
 		debug("Parse CCN_DTAG_Name inside KeyName, len=%zd\n", bname_size);
 
-		py_res = CCNObject_New_charbuf(NAME, &name);
-		if (!py_res)
+		py_o = CCNObject_New_charbuf(NAME, &name);
+		if (!py_o)
 			return NULL;
 
 		r = ccn_charbuf_append(name, bname, bname_size);
 		if (r < 0) {
-			Py_DECREF(py_res);
+			Py_DECREF(py_o);
 			return PyErr_NoMemory();
 		}
+
+		py_name_obj = Name_obj_from_ccn(py_o);
+		Py_DECREF(py_o);
+		if (!py_name_obj)
+			return NULL;
+
+		py_KeyLocator_obj = PyObject_CallObject(g_type_KeyLocator, NULL);
+		if (!py_KeyLocator_obj) {
+			Py_DECREF(py_name_obj);
+			goto error;
+		}
+
+		r = PyObject_SetAttrString(py_KeyLocator_obj, "keyName", py_name_obj);
+		Py_DECREF(py_name_obj);
+		JUMP_IF_NEG(r, error);
+
+#pragma message "Parse and add digest to the keylocator"
 	} else if (ccn_buf_match_dtag(d, CCN_DTAG_Key)) {
 		const unsigned char *dkey;
 		size_t dkey_size;
+		PyObject *py_key_obj;
 
 		start = d->decoder.token_index;
 		r = ccn_parse_required_tagged_BLOB(d, CCN_DTAG_Key, 1, -1);
@@ -357,10 +384,20 @@ KeyLocator_obj_from_ccn(PyObject *py_keylocator)
 					" internal representation");
 			return NULL;
 		}
-		py_res = Key_from_ccn(pubkey); // Now the key object must destroy it.s
+		py_key_obj = Key_obj_from_ccn(pubkey); // Now the key object must destroy it.s
 		ccn_pubkey_free(pubkey);
-		if (!py_res)
+		if (!py_key_obj)
 			return NULL;
+
+		py_KeyLocator_obj = PyObject_CallObject(g_type_KeyLocator, NULL);
+		if (!py_KeyLocator_obj) {
+			Py_DECREF(py_key_obj);
+			goto error;
+		}
+
+		r = PyObject_SetAttrString(py_KeyLocator_obj, "key", py_key_obj);
+		Py_DECREF(py_key_obj);
+		JUMP_IF_NEG(r, error);
 	} else if (ccn_buf_match_dtag(d, CCN_DTAG_Certificate)) {
 		PyErr_SetString(PyExc_NotImplementedError, "Found certificate DTAG,"
 				" which currently is unsupported");
@@ -372,7 +409,11 @@ KeyLocator_obj_from_ccn(PyObject *py_keylocator)
 
 	ccn_buf_check_close(d); // we don't really check the parser, though-
 
-	return py_res;
+	return py_KeyLocator_obj;
+
+error:
+	Py_XDECREF(py_KeyLocator_obj);
+	return NULL;
 }
 
 /*
@@ -407,10 +448,10 @@ PyObject *
 _pyccn_Key_from_ccn(PyObject *UNUSED(self), PyObject *cobj_key)
 {
 	if (CCNObject_IsValid(PKEY_PRIV, cobj_key))
-		return Key_from_ccn(CCNObject_Get(PKEY_PRIV, cobj_key));
+		return Key_obj_from_ccn(CCNObject_Get(PKEY_PRIV, cobj_key));
 
 	if (!CCNObject_IsValid(PKEY_PUB, cobj_key))
-		return Key_from_ccn(CCNObject_Get(PKEY_PUB, cobj_key));
+		return Key_obj_from_ccn(CCNObject_Get(PKEY_PUB, cobj_key));
 
 	PyErr_SetString(PyExc_TypeError, "Must pass a CCN PKEY object");
 	return NULL;
@@ -420,13 +461,14 @@ PyObject *
 _pyccn_KeyLocator_to_ccn(PyObject *UNUSED(self), PyObject *args,
 		PyObject *kwds)
 {
-	static char *kwlist[] = {"name", "key", "cert", NULL};
-	PyObject *py_name = Py_None, *py_key = Py_None, *py_cert = Py_None;
+	static char *kwlist[] = {"name", "digest", "key", "cert", NULL};
+	PyObject *py_name = Py_None, *py_digest = Py_None, *py_key = Py_None,
+			*py_cert = Py_None;
 	struct ccn_charbuf *keylocator;
 	int r;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOO", kwlist, &py_name,
-			&py_key, &py_cert))
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOOO", kwlist, &py_name,
+			&py_digest, &py_key, &py_cert))
 		return NULL;
 
 	keylocator = ccn_charbuf_create();
@@ -436,6 +478,7 @@ _pyccn_KeyLocator_to_ccn(PyObject *UNUSED(self), PyObject *args,
 	JUMP_IF_NEG_MEM(r, error);
 
 	if (py_name != Py_None) {
+		//TODO: add digest as well
 		r = KeyLocator_name_to_ccn(keylocator, py_name);
 		JUMP_IF_NEG(r, error);
 	} else if (py_key != Py_None) {

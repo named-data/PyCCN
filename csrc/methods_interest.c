@@ -220,14 +220,27 @@ process_long_attribute(struct ccn_charbuf *interest, enum ccn_dtag tag,
 	if (PyErr_Occurred())
 		return -1;
 
-	r = ccnb_tagged_putf(interest, tag, "%dl", val);
-	if (r < 0) {
-		PyErr_NoMemory();
+	r = ccn_charbuf_append_tt(interest, tag, CCN_DTAG);
+	JUMP_IF_NEG_MEM(r, error);
 
-		return -1;
-	}
+	r = ccnb_append_number(interest, val);
+	JUMP_IF_NEG_MEM(r, error);
+
+	r = ccn_charbuf_append_closer(interest); /* </Tag> */
+	JUMP_IF_NEG_MEM(r, error);
+
+	/*
+		r = ccnb_tagged_putf(interest, tag, "%dl", val);
+		if (r < 0) {
+			PyErr_NoMemory();
+
+			return -1;
+		}
+	 */
 
 	return 1;
+error:
+	return -1;
 }
 
 static PyObject *

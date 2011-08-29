@@ -736,7 +736,7 @@ _pyccn_ccn_get_default_key(PyObject *UNUSED(self), PyObject *py_obj_CCN)
 	}
 	hashtb_end(e);
 
-	return Key_from_ccn((struct ccn_pkey*) private_key);
+	return Key_obj_from_ccn((struct ccn_pkey*) private_key);
 
 error:
 	Py_XDECREF(py_handle);
