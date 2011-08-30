@@ -56,7 +56,7 @@ Content_from_ccn_parsed(struct ccn_charbuf *content_object,
 		return NULL;
 	}
 
-	py_content = PyByteArray_FromStringAndSize(value, size);
+	py_content = PyBytes_FromStringAndSize(value, size);
 	if (!py_content)
 		return NULL;
 
@@ -292,6 +292,35 @@ _pyccn_content_to_bytearray(PyObject *UNUSED(self), PyObject *arg)
 }
 
 PyObject *
+_pyccn_content_to_bytes(PyObject *UNUSED(self), PyObject *arg)
+{
+	PyObject *str;
+
+	if (arg == Py_None)
+		Py_RETURN_NONE;
+	else if (PyFloat_Check(arg) || PyLong_Check(arg) || _pyccn_Int_Check(arg)) {
+		PyObject *py_o;
+
+		py_o = PyObject_Str(arg);
+		if (!py_o)
+			return NULL;
+
+#if PY_MAJOR_VERSION >= 3
+		str = PyUnicode_EncodeUTF8(PyUnicode_AS_UNICODE(py_o),
+				PyUnicode_GET_SIZE(py_o), NULL);
+		Py_DECREF(py_o);
+#else
+		str = py_o;
+#endif
+		return str;
+	} else if (PyUnicode_Check(arg))
+		return PyUnicode_EncodeUTF8(PyUnicode_AS_UNICODE(arg),
+			PyUnicode_GET_SIZE(arg), NULL);
+
+	return PyObject_Bytes(arg);
+}
+
+PyObject *
 _pyccn_ContentObject_to_ccn(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_content_object, *py_name, *py_content, *py_signed_info,
@@ -318,15 +347,16 @@ _pyccn_ContentObject_to_ccn(PyObject *UNUSED(self), PyObject *args)
 	} else
 		name = CCNObject_Get(NAME, py_name);
 
-	if (py_content != Py_None && !PyByteArray_Check(py_content)) {
+	if (py_content != Py_None && !PyBytes_Check(py_content)) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a ByteArray as arg 3");
 		return NULL;
 	} else if (py_content == Py_None) {
 		content = NULL;
 		content_len = 0;
 	} else {
-		content = PyByteArray_AS_STRING(py_content);
-		content_len = PyByteArray_GET_SIZE(py_content);
+		r = PyBytes_AsStringAndSize(py_content, &content, &content_len);
+		if (r < 0)
+			return NULL;
 	}
 
 	if (!CCNObject_IsValid(SIGNED_INFO, py_signed_info)) {

@@ -41,17 +41,22 @@ from . import _pyccn
 from . import Name
 
 class Interest(object):
-	def __init__(self):
-		self.name = None  # Start from None to use for templates?
-		self.minSuffixComponents = None  # default 0
-		self.maxSuffixComponents = None  # default infinity
-		self.publisherPublicKeyDigest = None   # SHA256 hash
-		self.exclude = None
-		self.childSelector = None
-		self.answerOriginKind = None
-		self.scope  = None
-		self.interestLifetime = None
-		self.nonce = None
+	def __init__(self, name=None, minSuffixComponents=None, \
+				 maxSuffixComponents=None, publisherPublicKeyDigest=None, \
+				 exclude=None, childSelector=None, answerOriginKind=None, \
+				 scope=None, interestLifetime=None, nonce=None):
+
+		self.name = name  # Start from None to use for templates?
+		self.minSuffixComponents = minSuffixComponents  # default 0
+		self.maxSuffixComponents = maxSuffixComponents  # default infinity
+		self.publisherPublicKeyDigest = publisherPublicKeyDigest  # SHA256 hash
+		self.exclude = exclude
+		self.childSelector = childSelector
+		self.answerOriginKind = answerOriginKind
+		self.scope  = scope
+		self.interestLifetime = interestLifetime
+		self.nonce = nonce
+
 		# pyccn
 		self.ccn = None # Reference to CCN object
 		self.ccn_data_dirty = True

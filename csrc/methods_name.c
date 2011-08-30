@@ -130,19 +130,29 @@ _pyccn_Name_to_ccn(PyObject *UNUSED(self), PyObject *py_name_components)
 	// convert them to C objects
 	//
 	while ((item = PyIter_Next(iterator))) {
-		if (PyByteArray_Check(item)) {
+		if (PyUnicode_Check(item)) {
+			char *s;
+			Py_ssize_t len;
+
+			py_o = _pyccn_unicode_to_utf8(item, &s, &len);
+			JUMP_IF_NULL(py_o, error);
+
+			r = ccn_name_append(name, s, len);
+			Py_DECREF(py_o);
+			JUMP_IF_NEG_MEM(r, error);
+		} else if (PyBytes_Check(item)) {
+			char *b;
+			Py_ssize_t n;
+
+			r = PyBytes_AsStringAndSize(item, &b, &n);
+			JUMP_IF_NEG(r, error);
+
+			r = ccn_name_append(name, b, n);
+			JUMP_IF_NEG_MEM(r, error);
+		} else if (PyByteArray_Check(item)) {
 			Py_ssize_t n = PyByteArray_Size(item);
 			char *b = PyByteArray_AsString(item);
 			r = ccn_name_append(name, b, n);
-			JUMP_IF_NEG_MEM(r, error);
-		} else if (_pyccn_STRING_CHECK(item)) {
-			char *s;
-
-			py_o = _pyccn_unicode_to_utf8(item, &s, NULL);
-			JUMP_IF_NULL(py_o, error);
-
-			r = ccn_name_append_str(name, s);
-			Py_DECREF(py_o);
 			JUMP_IF_NEG_MEM(r, error);
 
 			// Note, we choose to convert numbers to their string

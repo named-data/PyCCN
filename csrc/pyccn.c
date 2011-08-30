@@ -110,6 +110,7 @@ static PyMethodDef g_module_methods[] = {
 	// ** Methods of ContentObject
 	//
 	{"content_to_bytearray", _pyccn_content_to_bytearray, METH_O, NULL},
+	{"content_to_bytes", _pyccn_content_to_bytes, METH_O, NULL},
 #if 0
 	{"_pyccn_ccn_encode_content_object", _pyccn_ccn_encode_content_object, METH_VARARGS,
 		""},

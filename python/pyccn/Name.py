@@ -45,6 +45,9 @@ from . import _pyccn
 
 # incorporate ccn_compare_names for canonical ordering?
 #
+
+from copy import copy
+
 class Name(object):
 	def __init__(self, components=list()):
 		self.version = None      # need put/get handlers for attr
@@ -56,10 +59,12 @@ class Name(object):
 		self.ccn_data_dirty = True
 		self.ccn_data = None  # backing charbuf
 
-		if type(components) is str:
+		if isinstance(components, self.__class__):
+			self.components = copy(components.components)
+		elif type(components) is str:
 			self.setURI(components)
 		else:
-			self.components = components  # list of blobs
+			self.components = copy(components)  # list of blobs
 
 	def setURI(self, uri):
 		self.ccn_data_dirty = True
@@ -68,6 +73,11 @@ class Name(object):
 			uri = uri[len(self.scheme):]
 
 		self.components = uri.strip(self.separator).split(self.separator)
+
+	def appendKeyID(self, digest):
+		component = b'\xc1.M.K\x00'
+		component += digest
+		self.components.append(component)
 
 	# can we do this in python
 	def appendNonce(self):
@@ -83,7 +93,7 @@ class Name(object):
 			if type(c) is str:
 				ret += c
 			elif type(c) is bytes or type(c) is bytearray:
-				ret += c.decode(errors='replace')
+				ret += c.decode("utf-8", errors='replace')
 			else:
 				ret += str(c)
 

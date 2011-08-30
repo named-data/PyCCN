@@ -47,7 +47,7 @@ dump_charbuf(struct ccn_charbuf *c, FILE * fp)
 		if (isprint(c->buf[i]))
 			putc(c->buf[i], fp);
 		else
-			fprintf(fp, "\\(%i)", c->buf[i]);
+			fprintf(fp, "\\x%.2x", c->buf[i]);
 	}
 }
 
@@ -80,6 +80,8 @@ _pyccn_unicode_to_utf8(PyObject *string, char **buffer, Py_ssize_t *length)
 
 #if PY_MAJOR_VERSION < 3
 	if (!PyUnicode_Check(string)) {
+		assert(PyString_Check(string));
+
 		r = PyString_AsStringAndSize(string, buffer, length);
 		if (r < 0)
 			return NULL;

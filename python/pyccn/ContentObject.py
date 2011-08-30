@@ -76,7 +76,7 @@ class ContentObject(object):
 			self.ccn_data_dirty=True
 
 		if name == 'content':
-			object.__setattr__(self, name, _pyccn.content_to_bytearray(value))
+			object.__setattr__(self, name, _pyccn.content_to_bytes(value))
 		else:
 			object.__setattr__(self, name, value)
 
@@ -90,7 +90,7 @@ class ContentObject(object):
 
 	def __str__(self):
 		ret = "Name: %s" % self.name
-		ret += "\nContent: %s" % self.content.decode(errors='replace')
+		ret += "\nContent: %s" % self.content.decode("utf-8", errors='replace')
 		ret += "\nDigestAlg: %s" % self.digestAlgorithm
 		ret += "\nSignedInfo: %s" % self.signedInfo
 		return ret

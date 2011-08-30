@@ -31,8 +31,6 @@
 #ifndef _PYCCN_H_
 #  define _PYCCN_H_
 
-#  define DEBUG_MSG 1
-
 enum e_class_type {
 	CCN,
 	Closure,
