@@ -146,13 +146,13 @@ _pyccn_ccn_run(PyObject *UNUSED(self), PyObject *args)
 	}
 
 	/* Enable threads */
+	debug("Entering ccn_run()\n");
 	_pyccn_thread_state = PyEval_SaveThread();
 
-	debug("Entering ccn_run()\n");
 	r = ccn_run(handle, timeoutms);
-	debug("Exiting ccn_run()\n");
 
 	/* disable threads */
+	debug("Exiting ccn_run()\n");
 	assert(_pyccn_thread_state);
 	PyEval_RestoreThread(_pyccn_thread_state);
 	_pyccn_thread_state = NULL;
@@ -277,7 +277,7 @@ obj_UpcallInfo_from_ccn(enum ccn_upcall_kind upcall_kind,
 				ui->pi->offset[CCN_PI_E]);
 		JUMP_IF_NEG_MEM(r, error);
 
-		py_o = obj_Interest_from_ccn(py_data);
+		py_o = Interest_obj_from_ccn(py_data);
 		Py_CLEAR(py_data);
 		JUMP_IF_NULL(py_o, error);
 
@@ -590,9 +590,10 @@ _pyccn_ccn_get(PyObject *UNUSED(self), PyObject *args)
 	py_comps = CCNObject_New_ContentObjectComponents(&comps);
 	JUMP_IF_NULL(py_comps, exit);
 
-	Py_BEGIN_ALLOW_THREADS
+	//XXX: Temporarily until we solve races
+	//Py_BEGIN_ALLOW_THREADS
 	r = ccn_get(handle, name, interest, timeout, data, pco, comps, 0);
-	Py_END_ALLOW_THREADS
+	//Py_END_ALLOW_THREADS
 
 	debug("ccn_get result=%d\n", r);
 
@@ -649,6 +650,10 @@ _pyccn_ccn_put(PyObject *UNUSED(self), PyObject *args)
 	assert(content_object);
 
 	r = ccn_put(handle, content_object->buf, content_object->length);
+	if (r < 0) {
+		int err = ccn_geterror(handle);
+		return PyErr_Format(PyExc_IOError, "%s [%d]", strerror(err), err);
+	}
 
 	return Py_BuildValue("i", r);
 }
@@ -658,7 +663,9 @@ _pyccn_ccn_put(PyObject *UNUSED(self), PyObject *args)
 // TODO: Revise to make a method of CCN?
 //
 // args:  Key to fill, CCN Handle
-#pragma message "TODO: rewrite _pyccn_ccn_get_default_key"
+
+#if 0
+
 PyObject *
 _pyccn_ccn_get_default_key(PyObject *UNUSED(self), PyObject *py_obj_CCN)
 {
@@ -740,6 +747,47 @@ _pyccn_ccn_get_default_key(PyObject *UNUSED(self), PyObject *py_obj_CCN)
 
 error:
 	Py_XDECREF(py_handle);
+	return NULL;
+}
+#endif
+
+PyObject *
+_pyccn_ccn_get_default_key(PyObject *UNUSED(self), PyObject *UNUSED(arg))
+{
+	struct ccn_keystore *keystore = NULL;
+	struct ccn_charbuf *buf = NULL;
+	const struct ccn_pkey *key;
+	int r;
+	PyObject *py_Key_obj;
+
+	buf = ccn_charbuf_create();
+	JUMP_IF_NULL_MEM(buf, error);
+
+	r = ccn_charbuf_putf(buf, "%s/.ccnx/.ccnx_keystore", getenv("HOME"));
+	JUMP_IF_NEG_MEM(r, error);
+
+	keystore = ccn_keystore_create();
+	JUMP_IF_NULL_MEM(keystore, error);
+
+	r = ccn_keystore_init(keystore, ccn_charbuf_as_string(buf),
+			"Th1s1sn0t8g00dp8ssw0rd.");
+	ccn_charbuf_destroy(&buf);
+	if (r < 0) {
+		PyErr_Format(g_PyExc_CCNError, "Failed to initialize keystore (%d)", r);
+		goto error;
+	}
+
+	key = ccn_keystore_private_key(keystore);
+	assert(key);
+
+	py_Key_obj = Key_obj_from_ccn(key);
+	ccn_keystore_destroy(&keystore);
+
+	return py_Key_obj;
+
+error:
+	ccn_keystore_destroy(&keystore);
+	ccn_charbuf_destroy(&buf);
 	return NULL;
 }
 

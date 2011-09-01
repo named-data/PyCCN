@@ -75,6 +75,20 @@ class Interest(object):
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)
 
+	def matches_name(self, name):
+		i_name = self.name.components
+		o_name = name.components
+
+		# requested name is longer than ours
+		if len(i_name) > len(o_name):
+			return False
+
+		# at least one of given components don't match
+		if not all(i == j for i, j in zip(i_name, o_name)):
+			return False
+
+		return True
+
 # Bloom filters will be deprecated, so we do not support them.
 class ExclusionFilter(object):
 	def __init__(self):

@@ -88,7 +88,8 @@ static PyMethodDef g_module_methods[] = {
 		METH_VARARGS, NULL},
 	{"_pyccn_ccn_get", _pyccn_ccn_get, METH_VARARGS, NULL},
 	{"_pyccn_ccn_put", _pyccn_ccn_put, METH_VARARGS, NULL},
-	{"_pyccn_ccn_get_default_key", _pyccn_ccn_get_default_key, METH_O, NULL},
+	{"_pyccn_ccn_get_default_key", _pyccn_ccn_get_default_key, METH_NOARGS,
+		NULL},
 #if 0
 	{"_pyccn_ccn_load_default_key", _pyccn_ccn_load_default_key, METH_VARARGS,
 		""},

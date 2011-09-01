@@ -357,7 +357,7 @@ _pyccn_SignedInfo_to_ccn(PyObject *UNUSED(self), PyObject *args,
 
 	r = ccn_signed_info_create(si, publisher_key_id, publisher_key_id_size,
 			timestamp, type, freshness, finalblockid, key_locator);
-	fprintf(stderr, "ccn_signed_info_create res=%d\n", r);
+	debug("ccn_signed_info_create res=%d\n", r);
 
 	if (r < 0) {
 		ccn_charbuf_destroy(&si);

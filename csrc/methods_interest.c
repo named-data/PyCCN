@@ -42,7 +42,7 @@
 //
 
 static PyObject *
-obj_ExclusionFilter_to_ccn(PyObject *py_obj_ExclusionFilter)
+ExclusionFilter_obj_to_ccn(PyObject *py_obj_ExclusionFilter)
 {
 	PyObject *py_iterator = NULL, *py_item = NULL, *py_o;
 	PyObject *py_exclude;
@@ -136,7 +136,7 @@ error:
 // Can be called directly from c library
 
 static PyObject *
-obj_ExclusionFilter_from_ccn(PyObject *py_exclusion_filter)
+ExclusionFilter_obj_from_ccn(PyObject *py_exclusion_filter)
 {
 	PyObject *py_obj_ExclusionFilter;
 	struct ccn_charbuf *exclusion_filter;
@@ -244,7 +244,7 @@ error:
 }
 
 static PyObject *
-Interest_to_ccn(PyObject *py_obj_Interest)
+Interest_obj_to_ccn(PyObject *py_obj_Interest)
 {
 	struct ccn_charbuf *interest;
 	PyObject *py_interest, *py_o;
@@ -320,7 +320,7 @@ Interest_to_ccn(PyObject *py_obj_Interest)
 		PyObject *py_exclusion_filter;
 		struct ccn_charbuf *exclusion_filter;
 
-		py_exclusion_filter = obj_ExclusionFilter_to_ccn(py_o);
+		py_exclusion_filter = ExclusionFilter_obj_to_ccn(py_o);
 		Py_DECREF(py_o);
 		JUMP_IF_NULL(exclusion_filter, error);
 
@@ -369,7 +369,8 @@ error:
 // Can be called directly from c library
 
 static PyObject*
-Interest_from_ccn_parsed(PyObject *py_interest, PyObject *py_parsed_interest)
+Interest_obj_from_ccn_parsed(PyObject *py_interest,
+		PyObject *py_parsed_interest)
 {
 	struct ccn_charbuf *interest;
 	struct ccn_parsed_interest *pi;
@@ -400,7 +401,7 @@ Interest_from_ccn_parsed(PyObject *py_interest, PyObject *py_parsed_interest)
 
 	ssize_t len;
 	const unsigned char *blob;
-	size_t blob_size;
+	size_t blob_size, start, end;
 	struct ccn_charbuf * cb;
 
 	// Best decoding examples are in packet-ccn.c for wireshark plugin?
@@ -475,15 +476,15 @@ Interest_from_ccn_parsed(PyObject *py_interest, PyObject *py_parsed_interest)
 	}
 
 	//        self.publisherPublicKeyDigest = None   # SHA256 hash
-	// TODO: what is CN_PI_B_PublisherID? -- I think is a structure containing
-	//                                       KeyDigest, probably to allow other
-	//                                       ways of identifying the data -- dk
-	len = pi->offset[CCN_PI_E_PublisherIDKeyDigest] -
-			pi->offset[CCN_PI_B_PublisherIDKeyDigest];
+	// TODO: what is CN_PI_B_PublisherID? -- looks like it is the data including
+	//                                       the tags while PublisherIDKeyDigest
+	//                                       is just the raw digest -- dk
+	start = pi->offset[CCN_PI_B_PublisherID];
+	end = pi->offset[CCN_PI_E_PublisherID];
+	len = end - start;
 	if (len > 0) {
 		r = ccn_ref_tagged_BLOB(CCN_DTAG_PublisherPublicKeyDigest,
-				interest->buf, pi->offset[CCN_PI_B_PublisherIDKeyDigest],
-				pi->offset[CCN_PI_E_PublisherIDKeyDigest], &blob, &blob_size);
+				interest->buf, start, end, &blob, &blob_size);
 		if (r < 0) {
 			PyErr_SetString(g_PyExc_CCNInterestError, "Invalid"
 					" PublisherPublicKeyDigest value");
@@ -511,7 +512,7 @@ Interest_from_ccn_parsed(PyObject *py_interest, PyObject *py_parsed_interest)
 				len);
 		JUMP_IF_NEG_MEM(r, error);
 
-		py_o = obj_ExclusionFilter_from_ccn(py_exclusion_filter);
+		py_o = ExclusionFilter_obj_from_ccn(py_exclusion_filter);
 		Py_DECREF(py_exclusion_filter);
 		JUMP_IF_NULL(py_o, error);
 
@@ -644,7 +645,7 @@ error:
 // Can be called directly from c library
 
 PyObject *
-obj_Interest_from_ccn(PyObject *py_interest)
+Interest_obj_from_ccn(PyObject *py_interest)
 {
 	struct ccn_charbuf *interest;
 	struct ccn_parsed_interest *parsed_interest;
@@ -671,7 +672,7 @@ obj_Interest_from_ccn(PyObject *py_interest)
 				" interest; result = %d", r);
 	}
 
-	py_o = Interest_from_ccn_parsed(py_interest, py_parsed_interest);
+	py_o = Interest_obj_from_ccn_parsed(py_interest, py_parsed_interest);
 	Py_DECREF(py_parsed_interest);
 
 	return py_o;
@@ -696,7 +697,7 @@ _pyccn_Interest_to_ccn(PyObject *UNUSED(self), PyObject *py_obj_Interest)
 	}
 
 	//  Build an interest
-	py_interest = Interest_to_ccn(py_obj_Interest);
+	py_interest = Interest_obj_to_ccn(py_obj_Interest);
 	JUMP_IF_NULL(py_interest, exit);
 	interest = CCNObject_Get(INTEREST, py_interest);
 
@@ -738,7 +739,7 @@ _pyccn_Interest_from_ccn(PyObject *UNUSED(self), PyObject *args)
 	}
 
 	if (py_parsed_interest == Py_None) {
-		return obj_Interest_from_ccn(py_interest);
+		return Interest_obj_from_ccn(py_interest);
 	} else {
 		if (!CCNObject_IsValid(PARSED_INTEREST, py_parsed_interest)) {
 			PyErr_SetString(PyExc_TypeError, "Must pass a CCN Parsed Interest"
@@ -747,7 +748,7 @@ _pyccn_Interest_from_ccn(PyObject *UNUSED(self), PyObject *args)
 			return NULL;
 		}
 
-		return Interest_from_ccn_parsed(py_interest, py_parsed_interest);
+		return Interest_obj_from_ccn_parsed(py_interest, py_parsed_interest);
 	}
 }
 
@@ -761,7 +762,7 @@ _pyccn_ExclusionFilter_to_ccn(PyObject *UNUSED(self),
 		return NULL;
 	}
 
-	return obj_ExclusionFilter_to_ccn(py_obj_ExclusionFilter);
+	return ExclusionFilter_obj_to_ccn(py_obj_ExclusionFilter);
 }
 
 PyObject *
@@ -773,5 +774,5 @@ _pyccn_ExclusionFilter_from_ccn(PyObject *UNUSED(self),
 		return NULL;
 	}
 
-	return obj_ExclusionFilter_from_ccn(py_exclusion_filter);
+	return ExclusionFilter_obj_from_ccn(py_exclusion_filter);
 }

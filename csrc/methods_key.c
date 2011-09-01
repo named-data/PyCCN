@@ -168,7 +168,7 @@ Key_to_ccn_private(PyObject *py_key)
 // so that we can do the key hash
 
 PyObject *
-Key_obj_from_ccn(struct ccn_pkey *key_ccn)
+Key_obj_from_ccn(const struct ccn_pkey *key_ccn)
 {
 	PyObject *py_obj_Key;
 	RSA *private_key_rsa;
@@ -491,8 +491,8 @@ _pyccn_KeyLocator_to_ccn(PyObject *UNUSED(self), PyObject *args,
 		ccn_charbuf_append_closer(keylocator); /* </Certificate> */
 #endif
 
-		PyErr_SetString(PyExc_NotImplementedError, "Certificate key locator is not"
-				" implemented");
+		PyErr_SetString(PyExc_NotImplementedError, "Certificate key locator is"
+				" not implemented");
 		goto error;
 	}
 

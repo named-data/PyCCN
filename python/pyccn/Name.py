@@ -47,6 +47,7 @@ from . import _pyccn
 #
 
 from copy import copy
+import time, struct
 
 class Name(object):
 	def __init__(self, components=list()):
@@ -77,6 +78,14 @@ class Name(object):
 	def appendKeyID(self, digest):
 		component = b'\xc1.M.K\x00'
 		component += digest
+		self.components.append(component)
+
+	def appendVersion(self, version=None):
+		if not version:
+			inttime = int(time.time() * 4096 + 0.5)
+			bintime = struct.pack("!Q", inttime)
+			version = bintime.lstrip('\x00')
+		component = b'\xfd' + version
 		self.components.append(component)
 
 	# can we do this in python

@@ -43,8 +43,7 @@ PyObject *_pyccn_ccn_set_interest_filter(PyObject *UNUSED(self),
 		PyObject *args);
 PyObject *_pyccn_ccn_get(PyObject *UNUSED(self), PyObject *args);
 PyObject *_pyccn_ccn_put(PyObject *UNUSED(self), PyObject *args);
-PyObject *_pyccn_ccn_get_default_key(PyObject *UNUSED(self),
-		PyObject *py_obj_CCN);
+PyObject *_pyccn_ccn_get_default_key(PyObject *self, PyObject *arg);
 PyObject *_pyccn_generate_RSA_key(PyObject *UNUSED(self), PyObject *args);
 PyObject *_pyccn_SigningParams_from_ccn(PyObject *UNUSED(self),
 		PyObject *py_signing_params);
