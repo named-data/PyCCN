@@ -590,10 +590,9 @@ _pyccn_ccn_get(PyObject *UNUSED(self), PyObject *args)
 	py_comps = CCNObject_New_ContentObjectComponents(&comps);
 	JUMP_IF_NULL(py_comps, exit);
 
-	//XXX: Temporarily until we solve races
-	//Py_BEGIN_ALLOW_THREADS
+	Py_BEGIN_ALLOW_THREADS
 	r = ccn_get(handle, name, interest, timeout, data, pco, comps, 0);
-	//Py_END_ALLOW_THREADS
+	Py_END_ALLOW_THREADS
 
 	debug("ccn_get result=%d\n", r);
 

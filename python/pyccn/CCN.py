@@ -38,19 +38,19 @@ import threading, dummy_threading
 class CCN(object):
 	def __init__(self):
 		#self.handle_lock = threading.Lock()
-		self.handle_lock = dummy_threading.Lock()
+		#self.handle_lock = dummy_threading.Lock()
 		self.ccn_data = _pyccn._pyccn_ccn_create()   # CObject of ccn handle
 		_pyccn._pyccn_ccn_connect(self.ccn_data)
 
 	def run(self, timeoutms):
-		self.handle_lock.acquire()
+		#self.handle_lock.acquire()
 		_pyccn._pyccn_ccn_run(self.ccn_data, timeoutms)
-		self.handle_lock.release()
+		#self.handle_lock.release()
 
 	def setRunTimeout(self, timeoutms):
-		self.handle_lock.acquire()
+		#self.handle_lock.acquire()
 		_pyccn._pyccn_ccn_set_run_timeout(self.ccn_data, timeoutms)
-		self.handle_lock.release()
+		#self.handle_lock.release()
 
 	def __del__(self):
 		del self.ccn_data
@@ -58,36 +58,36 @@ class CCN(object):
 	# Application-focused methods
 	#
 	def expressInterest(self, name, closure, template=None):
-		self.handle_lock.acquire()
-		try:
+		#self.handle_lock.acquire()
+		#try:
 			return _pyccn._pyccn_ccn_express_interest(self, name, closure, template)
-		finally:
-			self.handle_lock.release()
+		#finally:
+			#self.handle_lock.release()
 
 	def setInterestFilter(self, name, closure, flags = None):
-		self.handle_lock.acquire()
-		try:
+		#self.handle_lock.acquire()
+		#try:
 			if flags is None:
 				return _pyccn._pyccn_ccn_set_interest_filter(self.ccn_data, name.ccn_data, closure)
 			else:
 				return _pyccn._pyccn_ccn_set_interest_filter(self.ccn_data, name.ccn_data, closure, flags)
-		finally:
-			self.handle_lock.release()
+		#finally:
+		#	self.handle_lock.release()
 
 	# Blocking!
 	def get(self, name, template = None, timeoutms = 3000):
-		self.handle_lock.acquire()
-		try:
+		#self.handle_lock.acquire()
+		#try:
 			return _pyccn._pyccn_ccn_get(self, name, template, timeoutms)
-		finally:
-			self.handle_lock.release()
+		#finally:
+		#	self.handle_lock.release()
 
 	def put(self, contentObject):
-		self.handle_lock.acquire()
-		try:
+		#self.handle_lock.acquire()
+		#try:
 			return _pyccn._pyccn_ccn_put(self, contentObject)
-		finally:
-			self.handle_lock.release()
+		#finally:
+		#	self.handle_lock.release()
 
 	def getDefaultKey(self):
 		return _pyccn._pyccn_ccn_get_default_key()
