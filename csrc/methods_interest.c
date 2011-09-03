@@ -36,20 +36,39 @@
 #include "objects.h"
 #include "util.h"
 
+static int
+is_attr_set(PyObject *py_obj, const char *attr, PyObject **value)
+{
+	PyObject *py_attr;
+
+	assert(value);
+
+	py_attr = PyObject_GetAttrString(py_obj, attr);
+	if (!py_attr)
+		return -1;
+
+	if (py_attr == Py_None) {
+		Py_DECREF(py_attr);
+		return 0;
+	}
+
+	*value = py_attr;
+
+	return 1;
+}
+
 // ************
 // ExclusionFilter
 //
 //
 
 static PyObject *
-ExclusionFilter_obj_to_ccn(PyObject *py_obj_ExclusionFilter)
+ExclusionFilter_names_to_ccn(PyObject *py_obj_Names)
 {
-	PyObject *py_iterator = NULL, *py_item = NULL, *py_o;
-	PyObject *py_exclude;
-	struct ccn_charbuf *exclude;
+	PyObject *py_iterator = NULL, *py_item = NULL;
+	PyObject *py_exclude, *py_o;
+	struct ccn_charbuf *exclude, *name;
 	int r;
-	char *blob;
-	Py_ssize_t blobsize;
 
 
 	//  Build exclusion list - This uses explicit exclusion rather than
@@ -60,12 +79,12 @@ ExclusionFilter_obj_to_ccn(PyObject *py_obj_ExclusionFilter)
 	//              in which shortest components go first.
 	// This sorting is expected to be handled on the Python side, not here.
 
-	assert(py_obj_ExclusionFilter);
+	assert(py_obj_Names);
 
 	py_exclude = CCNObject_New_charbuf(EXCLUSION_FILTER, &exclude);
 	JUMP_IF_NULL(py_exclude, error);
 
-	if (py_obj_ExclusionFilter == Py_None)
+	if (py_obj_Names == Py_None)
 		return py_exclude;
 
 	r = ccn_charbuf_append_tt(exclude, CCN_DTAG_Exclude, CCN_DTAG);
@@ -74,49 +93,28 @@ ExclusionFilter_obj_to_ccn(PyObject *py_obj_ExclusionFilter)
 	// This code is similar to what's used in Name;
 	// could probably be generalized.
 
-	py_iterator = PyObject_GetIter(py_obj_ExclusionFilter);
+	py_iterator = PyObject_GetIter(py_obj_Names);
 	JUMP_IF_NULL(py_iterator, error);
 
 	while ((py_item = PyIter_Next(py_iterator))) {
-		if (PyByteArray_Check(py_item)) {
-			blob = PyByteArray_AS_STRING(py_item);
-			blobsize = PyByteArray_GET_SIZE(py_item);
+		r = is_attr_set(py_item, "ccn_data", &py_o);
+		JUMP_IF_NEG(r, error);
+		assert(r); /* If this fails, probably python code is wrong */
 
-			r = ccnb_append_tagged_blob(exclude, CCN_DTAG_Component, blob,
-					blobsize);
-			JUMP_IF_NEG_MEM(r, error);
-		} else if (_pyccn_STRING_CHECK(py_item)) {
-			py_o = _pyccn_unicode_to_utf8(py_item, &blob, &blobsize);
-			JUMP_IF_NULL(py_o, error);
-			r = ccnb_append_tagged_blob(exclude, CCN_DTAG_Component, blob,
-					blobsize);
+		if (!CCNObject_IsValid(NAME, py_o)) {
 			Py_DECREF(py_o);
-			JUMP_IF_NEG_MEM(r, error);
-
-			// Note, we choose to convert numbers to their string
-			// representation; if we want numeric encoding, use a
-			// byte array and do it explicitly.
-		} else if (PyFloat_Check(py_item) || PyLong_Check(py_item)
-				|| _pyccn_Int_Check(py_item)) {
-			py_o = PyObject_Str(py_item);
-			JUMP_IF_NULL(py_o, error);
-
-			/* Since it is a number, don't bother with UTF8 */
-			r = PyBytes_AsStringAndSize(py_o, &blob, &blobsize);
-			if (r < 0) {
-				Py_DECREF(py_o);
-				goto error;
-			}
-
-			r = ccnb_append_tagged_blob(exclude, CCN_DTAG_Component, blob,
-					blobsize);
-			Py_DECREF(py_o);
-			JUMP_IF_NEG_MEM(r, error);
-		} else {
-			PyErr_SetString(g_PyExc_CCNExclusionFilterError, "Can't encode"
-					" component, type unknown.");
+			PyErr_SetString(PyExc_TypeError, "Expected CCN Name");
 			goto error;
 		}
+
+		name = CCNObject_Get(NAME, py_o);
+
+		/* append without CCN name tag */
+		assert(name->length >= 4);
+		r = ccn_charbuf_append(exclude, name->buf + 1, name->length - 2);
+		Py_DECREF(py_o);
+		JUMP_IF_NEG_MEM(r, error);
+
 		Py_CLEAR(py_item);
 	}
 	Py_CLEAR(py_iterator);
@@ -181,27 +179,6 @@ error:
 // Interest
 //
 //
-
-static int
-is_attr_set(PyObject *py_obj, const char *attr, PyObject **value)
-{
-	PyObject *py_attr;
-
-	assert(value);
-
-	py_attr = PyObject_GetAttrString(py_obj, attr);
-	if (!py_attr)
-		return -1;
-
-	if (py_attr == Py_None) {
-		Py_DECREF(py_attr);
-		return 0;
-	}
-
-	*value = py_attr;
-
-	return 1;
-}
 
 static int
 process_int_attribute(struct ccn_charbuf *interest, enum ccn_dtag tag,
@@ -310,20 +287,24 @@ Interest_obj_to_ccn(PyObject *py_obj_Interest)
 
 	r = is_attr_set(py_obj_Interest, "exclude", &py_o);
 	JUMP_IF_NEG(r, error);
-
 	if (r) {
-		PyObject *py_exclusion_filter;
+		PyObject *py_exclusions;
 		struct ccn_charbuf *exclusion_filter;
 
-		py_exclusion_filter = ExclusionFilter_obj_to_ccn(py_o);
+		if (!PyObject_IsInstance(py_o, g_type_ExclusionFilter)) {
+			Py_DECREF(py_o);
+			PyErr_SetString(PyExc_TypeError, "Expected ExclusionFilter");
+			goto error;
+		}
+
+		r = is_attr_set(py_o, "ccn_data", &py_exclusions);
 		Py_DECREF(py_o);
-		JUMP_IF_NULL(exclusion_filter, error);
+		JUMP_IF_NEG(r, error);
 
-		exclusion_filter = CCNObject_Get(EXCLUSION_FILTER, py_exclusion_filter);
+		exclusion_filter = CCNObject_Get(EXCLUSION_FILTER, py_exclusions);
 		r = ccn_charbuf_append_charbuf(interest, exclusion_filter);
-		JUMP_IF_NEG_MEM(r, error);
-
-		ccn_charbuf_destroy(&exclusion_filter);
+		Py_DECREF(py_exclusions);
+		JUMP_IF_NEG(r, error);
 	}
 
 	r = process_int_attribute(interest, CCN_DTAG_ChildSelector,
@@ -338,7 +319,7 @@ Interest_obj_to_ccn(PyObject *py_obj_Interest)
 			"scope");
 	JUMP_IF_NEG(r, error);
 
-#pragma message "FIXIT: Interest lifetime parsing is wrong"
+#pragma message "FIXME: Interest lifetime parsing is wrong"
 	/*
 						unsigned char buf[3] = { 0 };
 						unsigned lifetime;
@@ -762,16 +743,14 @@ _pyccn_Interest_from_ccn(PyObject *UNUSED(self), PyObject *args)
 }
 
 PyObject *
-_pyccn_ExclusionFilter_to_ccn(PyObject *UNUSED(self),
-		PyObject *py_obj_ExclusionFilter)
+_pyccn_ExclusionFilter_to_ccn(PyObject *UNUSED(self), PyObject *py_names)
 {
-	if (strcmp(py_obj_ExclusionFilter->ob_type->tp_name, "ExclusionFilter")) {
-		PyErr_SetString(PyExc_TypeError, "Must pass an ExclusionFilter");
-
+	if (!PyList_Check(py_names)) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a list of CCN names");
 		return NULL;
 	}
 
-	return ExclusionFilter_obj_to_ccn(py_obj_ExclusionFilter);
+	return ExclusionFilter_names_to_ccn(py_names);
 }
 
 PyObject *

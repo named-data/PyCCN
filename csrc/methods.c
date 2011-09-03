@@ -205,7 +205,7 @@ _pyccn_ccn_set_run_timeout(PyObject *UNUSED(self), PyObject *args)
 // Can be called directly from c library
 
 static PyObject *
-obj_UpcallInfo_from_ccn(enum ccn_upcall_kind upcall_kind,
+UpcallInfo_obj_from_ccn(enum ccn_upcall_kind upcall_kind,
 		struct ccn_upcall_info *ui)
 {
 	PyObject *py_obj_UpcallInfo;
@@ -268,9 +268,11 @@ obj_UpcallInfo_from_ccn(enum ccn_upcall_kind upcall_kind,
 		JUMP_IF_NEG(r, error);
 	}
 
-	if (upcall_kind == CCN_UPCALL_INTEREST ||
+	if (upcall_kind == CCN_UPCALL_CONTENT ||
+			upcall_kind == CCN_UPCALL_CONTENT_UNVERIFIED ||
+			upcall_kind == CCN_UPCALL_CONTENT_BAD ||
+			upcall_kind == CCN_UPCALL_INTEREST ||
 			upcall_kind == CCN_UPCALL_CONSUMED_INTEREST) {
-
 		py_data = CCNObject_New_charbuf(INTEREST, &data);
 		JUMP_IF_NULL(py_data, error);
 		r = ccn_charbuf_append(data, ui->interest_ccnb,
@@ -328,7 +330,7 @@ ccn_upcall_handler(struct ccn_closure *selfp,
 	JUMP_IF_NULL(upcall_method, error);
 
 	debug("Generating UpcallInfo\n");
-	py_upcall_info = obj_UpcallInfo_from_ccn(upcall_kind, info);
+	py_upcall_info = UpcallInfo_obj_from_ccn(upcall_kind, info);
 	JUMP_IF_NULL(py_upcall_info, error);
 	debug("Done generating UpcallInfo\n");
 
@@ -790,32 +792,6 @@ error:
 	return NULL;
 }
 
-// We do not use these because working with the key storage
-// in the library requires objects to have a handle to a CCN
-// library, which is unnecessary.  Also, the hashtable storing
-// keys in the library and keystore type itself is opaque to
-// applications.
-// So, Python users will have to come up with their own keystores.
-/*
-
- static PyObject* // int
-_pyccn_ccn_load_default_key(PyObject* self, PyObject* args) {
-	return 0;
-}
-static PyObject*  // publisherID
- _pyccn_ccn_load_private_key(PyObject* self, PyObject* args) {
-		// PyObject* key) {
-	return 0; // publisher ID
-}
-static PyObject*  // pkey
-_pyccn_ccn_get_public_key(PyObject* self, PyObject* args) {
-	return 0;
-}
- */
-
-// TODO: Revise Python library to make a method of Key?
-//
-
 PyObject *
 _pyccn_generate_RSA_key(PyObject *UNUSED(self), PyObject *args)
 {
@@ -1051,5 +1027,5 @@ _pyccn_UpcallInfo_from_ccn(PyObject *UNUSED(self), PyObject *py_upcall_info)
 
 	assert(0);
 	//TODO: we need kind of interest as well!
-	return obj_UpcallInfo_from_ccn(CCN_UPCALL_FINAL, upcall_info);
+	return UpcallInfo_obj_from_ccn(CCN_UPCALL_FINAL, upcall_info);
 }

@@ -39,6 +39,7 @@ PyObject *Name_from_ccn_tagged_bytearray(const unsigned char *buf,
 		size_t size);
 PyObject *_pyccn_name_from_uri(PyObject *self, PyObject *py_uri);
 PyObject *_pyccn_name_to_uri(PyObject *self, PyObject *py_name);
+PyObject *_pyccn_compare_names(PyObject *self, PyObject *args);
 
 #endif	/* METHODS_NAME_H */
 

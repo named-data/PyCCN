@@ -135,8 +135,20 @@ class Name(object):
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)
 
-	# Should be called if ccn_name is accessed and ccn_name_dirty is true
-	def __get_ccn(self):
-		# name_init()
-		# and so on...
-		pass
+	def __lt__(self, other):
+		return _pyccn.compare_names(self.ccn_data, other.ccn_data) < 0
+
+	def __gt__(self, other):
+		return _pyccn.compare_names(self.ccn_data, other.ccn_data) > 0
+
+	def __eq__(self, other):
+		return _pyccn.compare_names(self.ccn_data, other.ccn_data) == 0
+
+	def __le__(self, other):
+		return _pyccn.compare_names(self.ccn_data, other.ccn_data) <= 0
+
+	def __ge__(self, other):
+		return _pyccn.compare_names(self.ccn_data, other.ccn_data) >= 0
+
+	def __ne__(self, other):
+		return _pyccn.compare_names(self.ccn_data, other.ccn_data) != 0

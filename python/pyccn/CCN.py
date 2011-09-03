@@ -29,7 +29,7 @@
 #
 
 from . import _pyccn
-import threading, dummy_threading
+#import threading, dummy_threading
 
 # Fronts ccn
 

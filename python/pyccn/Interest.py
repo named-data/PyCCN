@@ -92,10 +92,30 @@ class Interest(object):
 # Bloom filters will be deprecated, so we do not support them.
 class ExclusionFilter(object):
 	def __init__(self):
-		self.data = None        # should this be a list?
+		self.names = []
 		# pyccn
 		self.ccn_data_dirty = False
 		self.ccn_data = None  # backing charbuf
 
-	def __get_ccn(self):
-		pass
+	def reset(self):
+		self.names = []
+
+	def add_name(self, name):
+		if not type(name) is Name.Name:
+			raise TypeError("Name type required")
+
+		self.ccn_data_dirty = True
+		self.names.append(name)
+		self.names.sort()
+
+	def __setattr__(self, name, value):
+		if name != "ccn_data_dirty":
+			self.ccn_data_dirty = True
+		object.__setattr__(self, name, value)
+
+	def __getattribute__(self, name):
+		if name == "ccn_data":
+			if object.__getattribute__(self, 'ccn_data_dirty'):
+				self.ccn_data = _pyccn._pyccn_ExclusionFilter_to_ccn(self.names)
+				self.ccn_data_dirty = False
+		return object.__getattribute__(self, name)

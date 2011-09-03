@@ -426,3 +426,34 @@ error:
 	ccn_charbuf_destroy(&uri);
 	return NULL;
 }
+
+PyObject *
+_pyccn_compare_names(PyObject *UNUSED(self), PyObject *args)
+{
+	PyObject *py_name1, *py_name2;
+	struct ccn_charbuf *name1, *name2;
+	int diff;
+
+	if (!PyArg_ParseTuple(args, "OO", &py_name1, &py_name2))
+		return NULL;
+
+	if (!CCNObject_IsValid(NAME, py_name1)) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a CCN name as 1st"
+				" argument");
+		return NULL;
+	}
+
+	if (!CCNObject_IsValid(NAME, py_name2)) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a CCN name as 2nd"
+				" argument");
+		return NULL;
+	}
+
+	name1 = CCNObject_Get(NAME, py_name1);
+	name2 = CCNObject_Get(NAME, py_name2);
+
+	diff = ccn_compare_names(name1->buf, name1->length, name2->buf,
+			name2->length);
+
+	return Py_BuildValue("i", diff);
+}

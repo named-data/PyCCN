@@ -49,9 +49,12 @@ class Closure(object):
 		self.ccn_data_dirty = False
 		pass
 
+	#If you're getting strange errors in upcall()
+	#check your code whether you're returning a value
 	def upcall(self, kind, upcallInfo):
 		# override to be call
 		print('upcall', self, kind, upcallInfo)
+		return 0
 
 class UpcallInfo(object):
 	def __init__(self):
