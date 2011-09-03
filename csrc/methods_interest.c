@@ -204,12 +204,11 @@ is_attr_set(PyObject *py_obj, const char *attr, PyObject **value)
 }
 
 static int
-process_long_attribute(struct ccn_charbuf *interest, enum ccn_dtag tag,
+process_int_attribute(struct ccn_charbuf *interest, enum ccn_dtag tag,
 		PyObject *py_obj_Interest, const char *attr_name)
 {
 	PyObject *py_attr;
-	long val;
-	int r;
+	int val, r;
 
 	r = is_attr_set(py_obj_Interest, attr_name, &py_attr);
 	if (r <= 0)
@@ -220,6 +219,7 @@ process_long_attribute(struct ccn_charbuf *interest, enum ccn_dtag tag,
 	if (PyErr_Occurred())
 		return -1;
 
+#if 0
 	r = ccn_charbuf_append_tt(interest, tag, CCN_DTAG);
 	JUMP_IF_NEG_MEM(r, error);
 
@@ -228,15 +228,10 @@ process_long_attribute(struct ccn_charbuf *interest, enum ccn_dtag tag,
 
 	r = ccn_charbuf_append_closer(interest); /* </Tag> */
 	JUMP_IF_NEG_MEM(r, error);
+#endif
 
-	/*
-		r = ccnb_tagged_putf(interest, tag, "%dl", val);
-		if (r < 0) {
-			PyErr_NoMemory();
-
-			return -1;
-		}
-	 */
+	r = ccnb_tagged_putf(interest, tag, "%d", val);
+	JUMP_IF_NEG_MEM(r, error);
 
 	return 1;
 error:
@@ -286,11 +281,11 @@ Interest_obj_to_ccn(PyObject *py_obj_Interest)
 		}
 	}
 
-	r = process_long_attribute(interest, CCN_DTAG_MinSuffixComponents,
+	r = process_int_attribute(interest, CCN_DTAG_MinSuffixComponents,
 			py_obj_Interest, "minSuffixComponents");
 	JUMP_IF_NEG(r, error);
 
-	r = process_long_attribute(interest, CCN_DTAG_MaxSuffixComponents,
+	r = process_int_attribute(interest, CCN_DTAG_MaxSuffixComponents,
 			py_obj_Interest, "maxSuffixComponents");
 	JUMP_IF_NEG(r, error);
 
@@ -331,19 +326,33 @@ Interest_obj_to_ccn(PyObject *py_obj_Interest)
 		ccn_charbuf_destroy(&exclusion_filter);
 	}
 
-	r = process_long_attribute(interest, CCN_DTAG_ChildSelector,
+	r = process_int_attribute(interest, CCN_DTAG_ChildSelector,
 			py_obj_Interest, "childSelector");
 	JUMP_IF_NEG(r, error);
 
-	r = process_long_attribute(interest, CCN_DTAG_AnswerOriginKind,
+	r = process_int_attribute(interest, CCN_DTAG_AnswerOriginKind,
 			py_obj_Interest, "answerOriginKind");
 	JUMP_IF_NEG(r, error);
 
-	r = process_long_attribute(interest, CCN_DTAG_Scope, py_obj_Interest,
+	r = process_int_attribute(interest, CCN_DTAG_Scope, py_obj_Interest,
 			"scope");
 	JUMP_IF_NEG(r, error);
 
-	r = process_long_attribute(interest, CCN_DTAG_InterestLifetime,
+#pragma message "FIXIT: Interest lifetime parsing is wrong"
+	/*
+						unsigned char buf[3] = { 0 };
+						unsigned lifetime;
+						int i;
+						if (timeout_ms > 60000)
+								lifetime = 30 << 12;
+						else {
+								lifetime = timeout_ms * 2 / 5 * 4096 / 1000;
+						}
+						for (i = sizeof(buf) - 1; i >= 0; i--, lifetime >>= 8)
+								buf[i] = lifetime & 0xff;
+						ccnb_append_tagged_blob(templ, CCN_DTAG_InterestLifetime, buf, sizeof(buf));
+	 */
+	r = process_int_attribute(interest, CCN_DTAG_InterestLifetime,
 			py_obj_Interest, "interestLifetime");
 	JUMP_IF_NEG(r, error);
 
