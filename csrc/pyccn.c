@@ -127,6 +127,8 @@ static PyMethodDef g_module_methods[] = {
 		""},
 #endif
 	// Naming
+	{"name_from_uri", _pyccn_name_from_uri, METH_O, NULL},
+	{"name_to_uri", _pyccn_name_to_uri, METH_O, NULL},
 #if 0
 	{"_pyccn_ccn_name_init", _pyccn_ccn_name_init, METH_VARARGS,
 		""},

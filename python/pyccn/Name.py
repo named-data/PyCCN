@@ -68,12 +68,15 @@ class Name(object):
 			self.components = copy(components)  # list of blobs
 
 	def setURI(self, uri):
-		self.ccn_data_dirty = True
+		ccn_data = _pyccn.name_from_uri(uri)
+		self.components = _pyccn._pyccn_Name_from_ccn(ccn_data)
+		self.ccn_data = ccn_data
+		self.ccn_data_dirty = False
 
-		if uri.startswith(self.scheme):
-			uri = uri[len(self.scheme):]
-
-		self.components = uri.strip(self.separator).split(self.separator)
+		#if uri.startswith(self.scheme):
+		#	uri = uri[len(self.scheme):]
+		#
+		#self.components = uri.strip(self.separator).split(self.separator)
 
 	def appendKeyID(self, digest):
 		component = b'\xc1.M.K\x00'
@@ -96,17 +99,17 @@ class Name(object):
 		pass
 
 	def __str__(self):
-		ret = ""
-		for c in self.components:
-			ret += self.separator
-			if type(c) is str:
-				ret += c
-			elif type(c) is bytes or type(c) is bytearray:
-				ret += c.decode("utf-8", errors='replace')
-			else:
-				ret += str(c)
-
-		return ret
+		return _pyccn.name_to_uri(self.ccn_data)
+		#ret = ""
+		#for c in self.components:
+		#	ret += self.separator
+		#	if type(c) is str:
+		#		ret += c
+		#	elif type(c) is bytes or type(c) is bytearray:
+		#		ret += c.decode("utf-8", errors='replace')
+		#	else:
+		#		ret += str(c)
+		#return ret
 
 	def __len__(self):
 		return len(self.components)

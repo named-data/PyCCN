@@ -30,6 +30,7 @@
 
 #include "python.h"
 #include <ccn/ccn.h>
+#include <ccn/uri.h>
 
 #include "methods_name.h"
 #include "pyccn.h"
@@ -83,7 +84,7 @@ name_comps_from_ccn(PyObject *py_cname)
 
 		size = (comp_index->buf[n + 1] - comp_index->buf[n]) - 1 - h; // don't include the DTAG Component
 
-		py_component = PyByteArray_FromStringAndSize((char *) component, size);
+		py_component = PyBytes_FromStringAndSize((char *) component, size);
 		JUMP_IF_NULL(py_component, error);
 
 		r = PyList_Append(py_component_list, py_component);
@@ -161,19 +162,18 @@ _pyccn_Name_to_ccn(PyObject *UNUSED(self), PyObject *py_name_components)
 		} else if (PyFloat_Check(item) || PyLong_Check(item) ||
 				_pyccn_Int_Check(item)) {
 			char *s;
+			PyObject *py_o2;
 
 			py_o = PyObject_Str(item);
 			JUMP_IF_NULL(py_o, error);
 
-			/* since it is a number, no need for UTF8 */
-			s = PyBytes_AS_STRING(py_o);
-			if (!s) {
-				Py_DECREF(py_o);
+			py_o2 = _pyccn_unicode_to_utf8(py_o, &s, NULL);
+			Py_DECREF(py_o);
+			if (!py_o2)
 				goto error;
-			}
 
 			r = ccn_name_append_str(name, s);
-			Py_DECREF(py_o);
+			Py_DECREF(py_o2);
 			JUMP_IF_NEG_MEM(r, error);
 		} else {
 			PyErr_SetString(PyExc_TypeError, "Unknown value type in the list");
@@ -341,4 +341,88 @@ Name_from_ccn_tagged_bytearray(const unsigned char *buf, size_t size)
 	Py_DECREF(py_cname);
 
 	return py_name;
+}
+
+PyObject *
+_pyccn_name_from_uri(PyObject *UNUSED(self), PyObject *py_uri)
+{
+	struct ccn_charbuf *name;
+	PyObject *py_name = NULL, *py_o;
+	char *buf;
+	int r;
+
+	if (!_pyccn_STRING_CHECK(py_uri)) {
+		PyErr_SetString(PyExc_TypeError, "Expected string");
+		return NULL;
+	}
+
+	py_name = CCNObject_New_charbuf(NAME, &name);
+	JUMP_IF_NULL(py_name, error);
+
+	py_o = _pyccn_unicode_to_utf8(py_uri, &buf, NULL);
+	JUMP_IF_NULL(py_o, error);
+
+	r = ccn_name_from_uri(name, buf);
+	Py_DECREF(py_o);
+	if (r < 0) {
+		PyErr_SetString(g_PyExc_CCNNameError, "Error parsing URI");
+		goto error;
+	}
+
+	return py_name;
+
+error:
+	Py_XDECREF(py_name);
+	return NULL;
+}
+
+PyObject *
+_pyccn_name_to_uri(PyObject *UNUSED(self), PyObject *py_name)
+{
+	struct ccn_charbuf *cb, *uri = NULL;
+	enum _pyccn_capsules type;
+	int r;
+	PyObject *py_o;
+
+	if (CCNObject_IsValid(NAME, py_name)) {
+		type = NAME;
+		goto correct_type;
+	}
+
+	/*
+		if (CCNObject_IsValid(INTEREST, py_name)) {
+			type = INTEREST;
+			goto correct_type;
+		}
+
+		if (CCNObject_IsValid(CONTENT_OBJECT, py_name)) {
+			type = CONTENT_OBJECT;
+			goto correct_type;
+		}
+	 */
+
+	PyErr_SetString(PyExc_TypeError, "Expected CCN name");
+	return NULL;
+
+correct_type:
+	cb = CCNObject_Get(type, py_name);
+
+	uri = ccn_charbuf_create();
+	JUMP_IF_NULL_MEM(uri, error);
+
+	r = ccn_uri_append(uri, cb->buf, cb->length, 0);
+	if (r < 0) {
+		PyErr_SetString(g_PyExc_CCNNameError, "Error while converting name");
+		goto error;
+	}
+
+	py_o = PyUnicode_FromStringAndSize((char *) uri->buf, uri->length);
+	ccn_charbuf_destroy(&uri);
+	JUMP_IF_NULL(py_o, error);
+
+	return py_o;
+
+error:
+	ccn_charbuf_destroy(&uri);
+	return NULL;
 }

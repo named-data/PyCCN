@@ -15,18 +15,20 @@ for comp1, comp2 in zip([bytearray(x, "ascii") for x in comps], comps2):
 
 n = Name.Name(['hello', 'world'])
 
+print(str(n))
 if str(n) != "/hello/world":
 	raise AssertionError("expected /hello/world")
 
-n.setURI("ccnx://testing/1/2/3/")
+n.setURI("ccnx:///testing/1/2/3/")
+print(str(n))
 if str(n) != "/testing/1/2/3":
 	raise AssertionError("expected /testing/1/2/3 got: " + str(n))
 
 if len(n) != 4:
 	raise AssertionError("expected 4 components, got: " + len(n))
 
-if (n.components != ['testing', '1', '2', '3']):
-	raise AssertionError("expected to get a list containing: testing, 1, 2, 3")
+print(n.components)
+assert(n.components == [b'testing', b'1', b'2', b'3'])
 
 n.components = [1, '2', bytearray(b'3'), bytes(b'4')]
 print(str(n))
