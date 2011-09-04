@@ -28,13 +28,21 @@
 # EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-UPCALL_FINAL = 0
-UPCALL_INTEREST = 1
-UPCALL_CONSUMED_INTEREST = 2
-UPCALL_CONTENT = 3
-UPCALL_INTEREST_TIMED_OUT = 4
-UPCALL_CONTENT_UNVERIFIED = 5
-UPCALL_CONTENT_BAD = 6
+#Upcall Result
+UPCALL_RESULT_ERR               = -1 # upcall detected an error
+UPCALL_RESULT_OK                =  0 # normal upcall return
+UPCALL_RESULT_REEXPRESS         =  1 # reexpress the same interest again
+UPCALL_RESULT_INTEREST_CONSUMED =  2 # upcall claims to consume interest
+UPCALL_RESULT_VERIFY            =  3 # force an unverified result to be verified
+
+#Upcall kind
+UPCALL_FINAL              = 0 # handler is about to be deregistered
+UPCALL_INTEREST           = 1 # incoming interest
+UPCALL_CONSUMED_INTEREST  = 2 # incoming interest, someone has answered
+UPCALL_CONTENT            = 3 # incoming verified content
+UPCALL_INTEREST_TIMED_OUT = 4 # interest timed out
+UPCALL_CONTENT_UNVERIFIED = 5 # content that has not been verified
+UPCALL_CONTENT_BAD        = 6 # verification failed
 
 # Fronts ccn_closure.
 
@@ -52,9 +60,11 @@ class Closure(object):
 	#If you're getting strange errors in upcall()
 	#check your code whether you're returning a value
 	def upcall(self, kind, upcallInfo):
+		global UPCALL_RESULT_OK
+
 		# override to be call
 		print('upcall', self, kind, upcallInfo)
-		return 0
+		return UPCALL_RESULT_OK
 
 class UpcallInfo(object):
 	def __init__(self):

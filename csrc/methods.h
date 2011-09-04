@@ -49,6 +49,7 @@ PyObject *_pyccn_SigningParams_from_ccn(PyObject *UNUSED(self),
 		PyObject *py_signing_params);
 PyObject *_pyccn_UpcallInfo_from_ccn(PyObject *UNUSED(self),
 		PyObject *py_upcall_info);
+PyObject *_pyccn_dump_charbuf(PyObject *self, PyObject *py_charbuf);
 
 #endif	/* METHODS_H */
 

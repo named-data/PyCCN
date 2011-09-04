@@ -70,7 +70,6 @@ ExclusionFilter_names_to_ccn(PyObject *py_obj_Names)
 	struct ccn_charbuf *exclude, *name;
 	int r;
 
-
 	//  Build exclusion list - This uses explicit exclusion rather than
 	//                         Bloom filters as Bloom will be deprecated
 	//  IMPORTANT:  Exclusion component list must be sorted following
@@ -163,7 +162,7 @@ ExclusionFilter_obj_from_ccn(PyObject *py_exclusion_filter)
 	//    # pyccn
 	//    self.ccn_data_dirty = False
 	//    self.ccn_data = None  # backing charbuf
-
+#pragma message "Missing parsing of ExclusionFilter"
 
 	// 4) Return the created object
 	debug("ExclusionFilter_from_ccn ends\n");

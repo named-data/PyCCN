@@ -171,6 +171,7 @@ static PyMethodDef g_module_methods[] = {
 	{"_pyccn_ExclusionFilter_from_ccn", _pyccn_ExclusionFilter_from_ccn, METH_O,
 		NULL},
 	{"_pyccn_UpcallInfo_from_ccn", _pyccn_UpcallInfo_from_ccn, METH_O, NULL},
+	{"dump_charbuf", _pyccn_dump_charbuf, METH_O, NULL},
 
 	{NULL, NULL, 0, NULL} /* Sentinel */
 };

@@ -391,11 +391,11 @@ _pyccn_ccn_express_interest(PyObject *UNUSED(self), PyObject *args)
 			&py_templ))
 		return NULL;
 
-	if (strcmp(py_ccn->ob_type->tp_name, "CCN") != 0) {
+	if (strcmp(py_ccn->ob_type->tp_name, "CCN")) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a ccn as arg 1");
 		return NULL;
 	}
-	if (strcmp(py_name->ob_type->tp_name, "Name") != 0) {
+	if (strcmp(py_name->ob_type->tp_name, "Name")) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a Name as arg 2");
 		return NULL;
 	}
@@ -406,7 +406,7 @@ _pyccn_ccn_express_interest(PyObject *UNUSED(self), PyObject *args)
 		return NULL;
 	}
 
-	if (strcmp(py_templ->ob_type->tp_name, "Interest") != 0) {
+	if (py_templ != Py_None && strcmp(py_templ->ob_type->tp_name, "Interest")) {
 		PyErr_SetString(PyExc_TypeError, "Must pass an Interest as arg 4");
 		return NULL;
 	}
@@ -425,11 +425,14 @@ _pyccn_ccn_express_interest(PyObject *UNUSED(self), PyObject *args)
 	name = CCNObject_Get(NAME, py_o);
 	Py_DECREF(py_o);
 
-	py_o = PyObject_GetAttrString(py_templ, "ccn_data");
-	if (!py_o)
-		return NULL;
-	Py_DECREF(py_o);
-	templ = CCNObject_Get(INTEREST, py_o);
+	if (py_templ != Py_None) {
+		py_o = PyObject_GetAttrString(py_templ, "ccn_data");
+		if (!py_o)
+			return NULL;
+		Py_DECREF(py_o);
+		templ = CCNObject_Get(INTEREST, py_o);
+	} else
+		templ = NULL;
 
 	// Build the closure
 	py_o = CCNObject_New_Closure(&cl);
@@ -1028,4 +1031,34 @@ _pyccn_UpcallInfo_from_ccn(PyObject *UNUSED(self), PyObject *py_upcall_info)
 	assert(0);
 	//TODO: we need kind of interest as well!
 	return UpcallInfo_obj_from_ccn(CCN_UPCALL_FINAL, upcall_info);
+}
+
+PyObject *
+_pyccn_dump_charbuf(PyObject *UNUSED(self), PyObject *py_charbuf)
+{
+	struct ccn_charbuf *charbuf;
+	enum _pyccn_capsules type;
+	enum _pyccn_capsules types[] = {
+		CONTENT_OBJECT,
+		EXCLUSION_FILTER,
+		INTEREST,
+		KEY_LOCATOR,
+		NAME,
+		SIGNATURE,
+		SIGNED_INFO
+	};
+
+	for (type = types[0]; type < (sizeof(types) / sizeof(type)); type++) {
+		if (CCNObject_IsValid(type, py_charbuf))
+			goto success;
+	}
+
+	PyErr_SetString(PyExc_TypeError, "Expected charbuf type");
+	return NULL;
+
+success:
+	charbuf = CCNObject_Get(type, py_charbuf);
+
+	dump_charbuf(charbuf, stderr);
+	Py_RETURN_NONE;
 }
