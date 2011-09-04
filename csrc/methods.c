@@ -257,7 +257,7 @@ UpcallInfo_obj_from_ccn(enum ccn_upcall_kind upcall_kind,
 			goto error;
 		}
 
-		py_o = ContentObject_from_ccn_parsed(py_data, py_pco, py_comps);
+		py_o = ContentObject_obj_from_ccn_parsed(py_data, py_pco, py_comps);
 		Py_CLEAR(py_comps);
 		Py_CLEAR(py_pco);
 		Py_CLEAR(py_data);
@@ -610,7 +610,7 @@ _pyccn_ccn_get(PyObject *UNUSED(self), PyObject *args)
 		else
 			py_co = (Py_INCREF(Py_None), Py_None); // timeout
 	} else
-		py_co = ContentObject_from_ccn_parsed(py_data, py_pco, py_comps);
+		py_co = ContentObject_obj_from_ccn_parsed(py_data, py_pco, py_comps);
 
 exit:
 	Py_XDECREF(py_comps);

@@ -144,12 +144,13 @@ static PyMethodDef g_module_methods[] = {
 	{"_pyccn_Interest_to_ccn", _pyccn_Interest_to_ccn, METH_O, NULL},
 	{"_pyccn_Interest_from_ccn", _pyccn_Interest_from_ccn, METH_VARARGS,
 		""},
-	{"_pyccn_ContentObject_to_ccn", _pyccn_ContentObject_to_ccn, METH_VARARGS,
+	{"_pyccn_ContentObject_to_ccn", _pyccn_ContentObject_obj_to_ccn, METH_VARARGS,
 		""},
 #if 0
 	{"_pyccn_ContentObject_from_ccn", _pyccn_ContentObject_from_ccn, METH_VARARGS,
 		""},
 #endif
+	{"digest_contentobject", _pyccn_digest_contentobject, METH_VARARGS, NULL},
 	{"_pyccn_Key_to_ccn_public", _pyccn_Key_to_ccn_public, METH_O, NULL},
 	{"_pyccn_Key_to_ccn_private", _pyccn_Key_to_ccn_private, METH_O, NULL},
 	{"_pyccn_Key_from_ccn", _pyccn_Key_from_ccn, METH_O, NULL},

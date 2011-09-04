@@ -63,6 +63,9 @@ class ContentObject(object):
 			self.name.ccn_data, self.content, self.signedInfo.ccn_data, key)
 		self.ccn_data_dirty = False
 
+	def digest(self):
+		return _pyccn.digest_contentobject(self.ccn_data, self.ccn_data_parsed)
+
 	def verify(self):
 		# ccn_verify_content
 		pass

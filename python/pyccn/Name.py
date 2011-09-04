@@ -135,6 +135,23 @@ class Name(object):
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)
 
+	def __getitem__(self, key):
+		if type(key) is int:
+			return self.components[key]
+		elif type(key) is slice:
+			return Name(self.components[key])
+		else:
+			raise ValueError("Unknown __getitem__ type: %s" % type(key))
+
+	def __setitem__(self, key, value):
+		self.components[key] = value
+
+	def __delitem__(self, key):
+		del self.components[key]
+
+	def __len__(self):
+		return len(self.components)
+
 	def __lt__(self, other):
 		return _pyccn.compare_names(self.ccn_data, other.ccn_data) < 0
 
