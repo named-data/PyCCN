@@ -492,3 +492,56 @@ _pyccn_digest_contentobject(PyObject *UNUSED(self), PyObject *args)
 
 	return py_digest;
 }
+
+PyObject *
+_pyccn_content_matches_interest(PyObject *UNUSED(self), PyObject *args)
+{
+	PyObject *py_content_object, *py_pco = Py_None, *py_interest,
+			*py_pi = Py_None;
+	struct ccn_charbuf *content_object, *interest;
+	struct ccn_parsed_ContentObject *pco = NULL;
+	struct ccn_parsed_interest *pi = NULL;
+	int r;
+	PyObject *res;
+
+	if (!PyArg_ParseTuple(args, "OO|OO", &py_content_object, &py_interest,
+			&py_pco, &py_pi))
+		return NULL;
+
+	if (!CCNObject_IsValid(CONTENT_OBJECT, py_content_object)) {
+		PyErr_SetString(PyExc_TypeError, "Expected CCN ContentObject");
+		return NULL;
+	}
+	content_object = CCNObject_Get(CONTENT_OBJECT, py_content_object);
+
+	if (!CCNObject_IsValid(INTEREST, py_interest)) {
+		PyErr_SetString(PyExc_TypeError, "Expected CCN Interest");
+		return NULL;
+	}
+	interest = CCNObject_Get(INTEREST, py_interest);
+
+	if (py_pco != Py_None) {
+		if (!CCNObject_IsValid(PARSED_CONTENT_OBJECT, py_pco)) {
+			PyErr_SetString(PyExc_TypeError,
+					"Expected CCN Parsed ContentObject");
+			return NULL;
+		}
+		pco = CCNObject_Get(PARSED_CONTENT_OBJECT, py_pco);
+	}
+
+	if (py_pi != Py_None) {
+		if (!CCNObject_IsValid(PARSED_INTEREST, py_pi)) {
+			PyErr_SetString(PyExc_TypeError, "Expected CCN Parsed Interest");
+			return NULL;
+		}
+		pi = CCNObject_Get(PARSED_INTEREST, py_pi);
+	}
+
+	r = ccn_content_matches_interest(content_object->buf,
+			content_object->length, 1, pco, interest->buf, interest->length,
+			pi);
+
+	res = r ? Py_True : Py_False;
+
+	return Py_INCREF(res), res;
+}

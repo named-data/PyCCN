@@ -49,12 +49,14 @@ from . import _pyccn
 from copy import copy
 import time, struct
 
+NAME_NORMAL = 0
+NAME_ANY    = 1
+
 class Name(object):
-	def __init__(self, components=list()):
+	def __init__(self, components=[], name_type=NAME_NORMAL):
 		self.version = None      # need put/get handlers for attr
 		self.segment = None
-		self.separator = "/"
-		self.scheme = "ccnx:"
+		self.type = name_type
 
 		# pyccn
 		self.ccn_data_dirty = True
@@ -72,11 +74,6 @@ class Name(object):
 		self.components = _pyccn._pyccn_Name_from_ccn(ccn_data)
 		self.ccn_data = ccn_data
 		self.ccn_data_dirty = False
-
-		#if uri.startswith(self.scheme):
-		#	uri = uri[len(self.scheme):]
-		#
-		#self.components = uri.strip(self.separator).split(self.separator)
 
 	def appendKeyID(self, digest):
 		component = b'\xc1.M.K\x00'
@@ -99,17 +96,14 @@ class Name(object):
 		pass
 
 	def __str__(self):
-		return _pyccn.name_to_uri(self.ccn_data)
-		#ret = ""
-		#for c in self.components:
-		#	ret += self.separator
-		#	if type(c) is str:
-		#		ret += c
-		#	elif type(c) is bytes or type(c) is bytearray:
-		#		ret += c.decode("utf-8", errors='replace')
-		#	else:
-		#		ret += str(c)
-		#return ret
+		global NAME_NORMAL, NAME_ANY
+
+		if self.type == NAME_NORMAL:
+			return _pyccn.name_to_uri(self.ccn_data)
+		elif self.type == NAME_ANY:
+			return "<any>"
+		else:
+			raise ValueError("Name is of wrong type %d" % self.type)
 
 	def __len__(self):
 		return len(self.components)

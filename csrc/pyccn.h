@@ -50,6 +50,7 @@ enum e_class_type {
 struct pyccn_state {
 	PyThreadState *thread_state;
 	PyObject * class_type[CLASS_TYPE_COUNT];
+	int upcall_running;
 };
 
 extern PyObject *_pyccn_module;
@@ -95,7 +96,7 @@ extern PyObject *g_PyExc_CCNKeyError;
 
 #  define JUMP_IF_ERR(label) \
 do { \
-	if (PyErr_Occured()) \
+	if (PyErr_Occurred()) \
 		goto label; \
 } while(0)
 

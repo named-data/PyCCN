@@ -79,9 +79,14 @@ static PyMethodDef g_module_methods[] = {
 	{"_pyccn_ccn_create", _pyccn_ccn_create, METH_NOARGS, NULL},
 	{"_pyccn_ccn_connect", _pyccn_ccn_connect, METH_O, NULL},
 	{"_pyccn_ccn_disconnect", _pyccn_ccn_disconnect, METH_O, NULL},
+	{"get_connection_fd", _pyccn_get_connection_fd, METH_O, NULL},
+	{"process_scheduled_operations", _pyccn_process_scheduled_operations,
+		METH_O, NULL},
+	{"output_is_pending", _pyccn_output_is_pending, METH_O, NULL},
 	{"_pyccn_ccn_run", _pyccn_ccn_run, METH_VARARGS, NULL},
 	{"_pyccn_ccn_set_run_timeout", _pyccn_ccn_set_run_timeout, METH_VARARGS,
 		NULL},
+	{"is_upcall_executing", _pyccn_is_upcall_executing, METH_O, NULL},
 	{"_pyccn_ccn_express_interest", _pyccn_ccn_express_interest, METH_VARARGS,
 		NULL},
 	{"_pyccn_ccn_set_interest_filter", _pyccn_ccn_set_interest_filter,
@@ -90,14 +95,6 @@ static PyMethodDef g_module_methods[] = {
 	{"_pyccn_ccn_put", _pyccn_ccn_put, METH_VARARGS, NULL},
 	{"_pyccn_ccn_get_default_key", _pyccn_ccn_get_default_key, METH_NOARGS,
 		NULL},
-#if 0
-	{"_pyccn_ccn_load_default_key", _pyccn_ccn_load_default_key, METH_VARARGS,
-		""},
-	{"_pyccn_ccn_load_private_key", _pyccn_ccn_load_private_key, METH_VARARGS,
-		""},
-	{"_pyccn_ccn_get_public_key", _pyccn_ccn_get_public_key, METH_VARARGS,
-		""},
-#endif
 	{"_pyccn_generate_RSA_key", _pyccn_generate_RSA_key, METH_VARARGS,
 		""},
 	{"PEM_read_key", _pyccn_PEM_read_key, METH_VARARGS, NULL},
@@ -126,18 +123,17 @@ static PyMethodDef g_module_methods[] = {
 	{"_pyccn_ccn_signed_info_create", _pyccn_ccn_signed_info_create, METH_VARARGS,
 		""},
 #endif
+
 	// Naming
 	{"name_from_uri", _pyccn_name_from_uri, METH_O, NULL},
 	{"name_to_uri", _pyccn_name_to_uri, METH_O, NULL},
 	{"compare_names", _pyccn_compare_names, METH_VARARGS, NULL},
+
 #if 0
-	{"_pyccn_ccn_name_init", _pyccn_ccn_name_init, METH_VARARGS,
-		""},
 	{"_pyccn_ccn_name_append_nonce", _pyccn_ccn_name_append_nonce, METH_VARARGS,
 		""},
-	{"_pyccn_ccn_compare_names", _pyccn_ccn_compare_names, METH_VARARGS,
-		""},
 #endif
+
 	// Converters
 	{"_pyccn_Name_to_ccn", _pyccn_Name_to_ccn, METH_O, NULL},
 	{"_pyccn_Name_from_ccn", _pyccn_Name_from_ccn, METH_O, NULL},
@@ -151,6 +147,8 @@ static PyMethodDef g_module_methods[] = {
 		""},
 #endif
 	{"digest_contentobject", _pyccn_digest_contentobject, METH_VARARGS, NULL},
+	{"content_matches_interest", _pyccn_content_matches_interest, METH_VARARGS,
+		NULL},
 	{"_pyccn_Key_to_ccn_public", _pyccn_Key_to_ccn_public, METH_O, NULL},
 	{"_pyccn_Key_to_ccn_private", _pyccn_Key_to_ccn_private, METH_O, NULL},
 	{"_pyccn_Key_from_ccn", _pyccn_Key_from_ccn, METH_O, NULL},
@@ -295,6 +293,9 @@ MODINIT(_pyccn)
 
 	/* needed so openssl's errors make sense to humans */
 	ERR_load_crypto_strings();
+
+	/* nothing is running right now */
+	GETSTATE(_pyccn_module)->upcall_running = -1;
 
 #if PY_MAJOR_VERSION >= 3
 	return _pyccn_module;

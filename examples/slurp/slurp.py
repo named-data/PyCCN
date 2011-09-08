@@ -1,16 +1,6 @@
 import sys
 from pyccn import CCN, Name, Interest, Closure
 
-def usage():
-	print("Usage: %s <URI> <timeout>" % sys.argv[0])
-	sys.exit(1)
-
-if (len(sys.argv) != 3):
-	usage()
-
-root = sys.argv[1]
-timeout = int(sys.argv[2])
-
 class Slurp(Closure.Closure):
 	def __init__(self, root, handle=None):
 		self.root = Name.Name(root)
@@ -29,11 +19,11 @@ class Slurp(Closure.Closure):
 	def upcall(self, kind, upcallInfo):
 		if kind == Closure.UPCALL_FINAL:
 			#any cleanup code here (probably not needed)
-			return Closure.UPCALL_RESULT_OK
+			return Closure.RESULT_OK
 
 		if kind == Closure.UPCALL_INTEREST_TIMED_OUT:
 			print("Got timeout!")
-			return Closure.UPCALL_RESULT_OK
+			return Closure.RESULT_OK
 
 		# make sure we're getting sane responses
 		if not kind in [Closure.UPCALL_CONTENT,
@@ -69,8 +59,19 @@ class Slurp(Closure.Closure):
 			new = Slurp(response_name[:matched_comps + 1], self.handle)
 			new.express_my_interest()
 
-		return Closure.UPCALL_RESULT_OK
+		return Closure.RESULT_OK
 
-print("Scanning %s, timeout=%dms" % (root, timeout))
-slurp = Slurp(root)
-slurp.start(timeout)
+def usage():
+	print("Usage: %s <URI> <timeout>" % sys.argv[0])
+	sys.exit(1)
+
+if __name__ == '__main__':
+	if (len(sys.argv) != 3):
+		usage()
+
+	root = sys.argv[1]
+	timeout = int(sys.argv[2])
+
+	print("Scanning %s, timeout=%dms" % (root, timeout))
+	slurp = Slurp(root)
+	slurp.start(timeout)

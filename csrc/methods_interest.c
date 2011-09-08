@@ -96,23 +96,47 @@ ExclusionFilter_names_to_ccn(PyObject *py_obj_Names)
 	JUMP_IF_NULL(py_iterator, error);
 
 	while ((py_item = PyIter_Next(py_iterator))) {
-		r = is_attr_set(py_item, "ccn_data", &py_o);
-		JUMP_IF_NEG(r, error);
-		assert(r); /* If this fails, probably python code is wrong */
+		int type;
 
-		if (!CCNObject_IsValid(NAME, py_o)) {
-			Py_DECREF(py_o);
-			PyErr_SetString(PyExc_TypeError, "Expected CCN Name");
+		if (!PyObject_IsInstance(py_item, g_type_Name)) {
+			PyErr_SetString(PyExc_ValueError, "Expected Name element");
 			goto error;
 		}
 
-		name = CCNObject_Get(NAME, py_o);
+		py_o = PyObject_GetAttrString(py_item, "type");
+		JUMP_IF_NULL(py_o, error);
 
-		/* append without CCN name tag */
-		assert(name->length >= 4);
-		r = ccn_charbuf_append(exclude, name->buf + 1, name->length - 2);
+		type = PyLong_AsLong(py_o);
 		Py_DECREF(py_o);
-		JUMP_IF_NEG_MEM(r, error);
+		JUMP_IF_ERR(error);
+
+		if (type == 0) {
+			py_o = PyObject_GetAttrString(py_item, "ccn_data");
+			JUMP_IF_NULL(py_o, error);
+
+			if (!CCNObject_IsValid(NAME, py_o)) {
+				Py_DECREF(py_o);
+				PyErr_SetString(PyExc_TypeError, "Expected CCN Name");
+				goto error;
+			}
+
+			name = CCNObject_Get(NAME, py_o);
+
+			/* append without CCN name tag */
+			assert(name->length >= 4);
+			r = ccn_charbuf_append(exclude, name->buf + 1, name->length - 2);
+			Py_DECREF(py_o);
+			JUMP_IF_NEG_MEM(r, error);
+		} else if (type == 1) {
+			r = ccn_charbuf_append_tt(exclude, CCN_DTAG_Any, CCN_DTAG);
+			JUMP_IF_NEG_MEM(r, error);
+
+			r = ccn_charbuf_append_closer(exclude);
+			JUMP_IF_NEG_MEM(r, error);
+		} else {
+			PyErr_SetString(PyExc_ValueError, "Unhandled Name type");
+			goto error;
+		}
 
 		Py_CLEAR(py_item);
 	}

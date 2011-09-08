@@ -30,6 +30,7 @@
 
 #include "python.h"
 #include <ccn/ccn.h>
+#include <ccn/ccn_private.h>
 #include <ccn/hashtb.h>
 #include <ccn/reg_mgmt.h>
 #include <ccn/signing.h>
@@ -123,6 +124,54 @@ _pyccn_ccn_disconnect(PyObject *UNUSED(self), PyObject *py_ccn_handle)
 }
 
 PyObject *
+_pyccn_get_connection_fd(PyObject *UNUSED(self), PyObject *py_handle)
+{
+	struct ccn *handle;
+
+	if (!CCNObject_IsValid(HANDLE, py_handle)) {
+		PyErr_SetString(PyExc_TypeError, "Expected CCN handle");
+		return NULL;
+	}
+
+	handle = CCNObject_Get(HANDLE, py_handle);
+
+	return Py_BuildValue("i", ccn_get_connection_fd(handle));
+}
+
+PyObject *
+_pyccn_process_scheduled_operations(PyObject *UNUSED(self), PyObject *py_handle)
+{
+	struct ccn *handle;
+
+	if (!CCNObject_IsValid(HANDLE, py_handle)) {
+		PyErr_SetString(PyExc_TypeError, "Expected CCN handle");
+		return NULL;
+	}
+
+	handle = CCNObject_Get(HANDLE, py_handle);
+
+	return Py_BuildValue("i", ccn_process_scheduled_operations(handle));
+}
+
+PyObject *
+_pyccn_output_is_pending(PyObject *UNUSED(self), PyObject *py_handle)
+{
+	struct ccn *handle;
+	PyObject *res;
+
+	if (!CCNObject_IsValid(HANDLE, py_handle)) {
+		PyErr_SetString(PyExc_TypeError, "Expected CCN handle");
+		return NULL;
+	}
+
+	handle = CCNObject_Get(HANDLE, py_handle);
+
+	res = ccn_output_is_pending(handle) ? Py_True : Py_False;
+
+	return Py_INCREF(res), res;
+}
+
+PyObject *
 _pyccn_ccn_run(PyObject *UNUSED(self), PyObject *args)
 {
 	int r;
@@ -141,7 +190,7 @@ _pyccn_ccn_run(PyObject *UNUSED(self), PyObject *args)
 
 	if (_pyccn_thread_state) {
 		PyErr_SetString(g_PyExc_CCNError, "You're allowed to run ccn_run only"
-				" once");
+				" once at the same time");
 		return NULL;
 	}
 
@@ -305,6 +354,8 @@ ccn_upcall_handler(struct ccn_closure *selfp,
 {
 	PyObject *upcall_method = NULL, *py_upcall_info = NULL;
 	PyObject *py_selfp, *py_closure, *arglist, *result;
+	struct pyccn_state *state;
+	int fd;
 
 	debug("upcall_handler dispatched kind %d\n", upcall_kind);
 
@@ -320,6 +371,8 @@ ccn_upcall_handler(struct ccn_closure *selfp,
 	/* acquiring lock */
 	assert(_pyccn_thread_state);
 	PyEval_RestoreThread(_pyccn_thread_state);
+
+	state = GETSTATE(_pyccn_module);
 
 	/* equivalent of selfp, wrapped into PyCapsule */
 	py_selfp = selfp->data;
@@ -339,7 +392,13 @@ ccn_upcall_handler(struct ccn_closure *selfp,
 
 	debug("Calling upcall\n");
 
+	fd = ccn_get_connection_fd(info->h);
+	assert(state->upcall_running == -1);
+
+	state->upcall_running = fd;
 	result = PyObject_CallObject(upcall_method, arglist);
+	state->upcall_running = -1;
+
 	Py_CLEAR(upcall_method);
 	Py_DECREF(arglist);
 	JUMP_IF_NULL(result, error);
@@ -367,13 +426,41 @@ error:
 	Py_XDECREF(py_upcall_info);
 	Py_XDECREF(upcall_method);
 
-	//XXX: What to do with the exceptions thrown?
+	//XXX: I hope this is the correct way to handle exceptions thrown
 	if (PyErr_Occurred()) {
 		PyErr_Print();
 	}
 
 	_pyccn_thread_state = PyEval_SaveThread();
 	return CCN_UPCALL_RESULT_ERR;
+}
+
+PyObject *
+_pyccn_is_upcall_executing(PyObject *UNUSED(self), PyObject *py_handle)
+{
+	struct pyccn_state *state = GETSTATE(_pyccn_module);
+	struct ccn *handle;
+	PyObject *res;
+	int fd;
+
+	if (py_handle == Py_None)
+		return Py_BuildValue("i", state->upcall_running);
+
+	if (!CCNObject_IsValid(HANDLE, py_handle)) {
+		PyErr_SetString(PyExc_TypeError, "Expected CCN handle");
+		return NULL;
+	}
+	handle = CCNObject_Get(HANDLE, py_handle);
+
+	fd = ccn_get_connection_fd(handle);
+	if (fd == -1) {
+		PyErr_SetString(PyExc_RuntimeError, "Handle is not connected");
+		return NULL;
+	}
+
+	res = state->upcall_running == fd ? Py_True : Py_False;
+
+	return Py_INCREF(res), res;
 }
 
 // Registering callbacks

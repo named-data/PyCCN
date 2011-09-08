@@ -30,6 +30,7 @@
 
 # Fronts ccn_pkey.
 from . import _pyccn
+from . import Name
 
 class Key(object):
 	def __init__(self):
@@ -91,12 +92,13 @@ class Key(object):
 # plus library helper functions to generate and serialize keys?
 
 class KeyLocator(object):
-	def __init__(self):
+	def __init__(self, arg=None):
 		#whichever one is not none will be used
 		#if multiple set, checking order is: keyName, key, certificate
-		self.key = None
+		self.key = arg if type(arg) is Key else None
+		self.keyName = arg if type(arg) is Name.Name else None
 		self.certificate = None
-		self.keyName = None
+
 		# pyccn
 		self.ccn_data_dirty = True
 		self.ccn_data = None  # backing charbuf

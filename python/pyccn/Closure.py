@@ -29,11 +29,11 @@
 #
 
 #Upcall Result
-UPCALL_RESULT_ERR               = -1 # upcall detected an error
-UPCALL_RESULT_OK                =  0 # normal upcall return
-UPCALL_RESULT_REEXPRESS         =  1 # reexpress the same interest again
-UPCALL_RESULT_INTEREST_CONSUMED =  2 # upcall claims to consume interest
-UPCALL_RESULT_VERIFY            =  3 # force an unverified result to be verified
+RESULT_ERR               = -1 # upcall detected an error
+RESULT_OK                =  0 # normal upcall return
+RESULT_REEXPRESS         =  1 # reexpress the same interest again
+RESULT_INTEREST_CONSUMED =  2 # upcall claims to consume interest
+RESULT_VERIFY            =  3 # force an unverified result to be verified
 
 #Upcall kind
 UPCALL_FINAL              = 0 # handler is about to be deregistered
@@ -60,11 +60,11 @@ class Closure(object):
 	#If you're getting strange errors in upcall()
 	#check your code whether you're returning a value
 	def upcall(self, kind, upcallInfo):
-		global UPCALL_RESULT_OK
+		global RESULT_OK
 
 		# override to be call
 		print('upcall', self, kind, upcallInfo)
-		return UPCALL_RESULT_OK
+		return RESULT_OK
 
 class UpcallInfo(object):
 	def __init__(self):

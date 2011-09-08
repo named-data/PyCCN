@@ -35,8 +35,13 @@ PyObject *_pyccn_ccn_create(PyObject *UNUSED(self), PyObject *UNUSED(args));
 PyObject *_pyccn_ccn_connect(PyObject *UNUSED(self), PyObject *py_ccn_handle);
 PyObject *_pyccn_ccn_disconnect(PyObject *UNUSED(self),
 		PyObject *py_ccn_handle);
+PyObject *_pyccn_get_connection_fd(PyObject *self, PyObject *py_handle);
+PyObject *_pyccn_process_scheduled_operations(PyObject *self,
+		PyObject *py_handle);
+PyObject *_pyccn_output_is_pending(PyObject *self, PyObject *py_handle);
 PyObject *_pyccn_ccn_run(PyObject *UNUSED(self), PyObject *args);
 PyObject *_pyccn_ccn_set_run_timeout(PyObject *UNUSED(self), PyObject *args);
+PyObject *_pyccn_is_upcall_executing(PyObject *self, PyObject *py_handle);
 PyObject *_pyccn_ccn_express_interest(PyObject *UNUSED(self),
 		PyObject *args);
 PyObject *_pyccn_ccn_set_interest_filter(PyObject *UNUSED(self),

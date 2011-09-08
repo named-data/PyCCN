@@ -29,7 +29,8 @@
 #
 
 from . import _pyccn
-#import threading, dummy_threading
+import select, time
+import threading, dummy_threading
 
 # Fronts ccn
 
@@ -37,57 +38,124 @@ from . import _pyccn
 
 class CCN(object):
 	def __init__(self):
-		#self.handle_lock = threading.Lock()
-		#self.handle_lock = dummy_threading.Lock()
-		self.ccn_data = _pyccn._pyccn_ccn_create()   # CObject of ccn handle
+		self._handle_lock = threading.Lock()
+		self.ccn_data = _pyccn._pyccn_ccn_create()
 		_pyccn._pyccn_ccn_connect(self.ccn_data)
 
+	def _acquire_lock(self):
+		if not _pyccn.is_upcall_executing(self.ccn_data):
+			#print("acquiring lock")
+			self._handle_lock.acquire()
+			#print("lock acquired")
+
+	def _release_lock(self):
+		if not _pyccn.is_upcall_executing(self.ccn_data):
+			#print("releasing lock")
+			self._handle_lock.release()
+			#print("lock released")
+
+	def fileno(self):
+		return _pyccn.get_connection_fd(self.ccn_data)
+
+	def process_scheduled(self):
+		assert(_pyccn.is_upcall_executing(None) == -1)
+		self._handle_lock.acquire()
+		try:
+			return _pyccn.process_scheduled_operations(self.ccn_data)
+		finally:
+			self._handle_lock.release()
+
+	def output_is_pending(self):
+		assert(_pyccn.is_upcall_executing(None) == -1)
+		self._handle_lock.acquire()
+		try:
+			return _pyccn.output_is_pending(self.ccn_data)
+		finally:
+			self._handle_lock.release()
+
 	def run(self, timeoutms):
-		#self.handle_lock.acquire()
-		_pyccn._pyccn_ccn_run(self.ccn_data, timeoutms)
-		#self.handle_lock.release()
+		assert(_pyccn.is_upcall_executing(None) == -1)
+		self._handle_lock.acquire()
+		try:
+			_pyccn._pyccn_ccn_run(self.ccn_data, timeoutms)
+		finally:
+			self._handle_lock.release()
 
 	def setRunTimeout(self, timeoutms):
-		#self.handle_lock.acquire()
-		_pyccn._pyccn_ccn_set_run_timeout(self.ccn_data, timeoutms)
-		#self.handle_lock.release()
-
-	def __del__(self):
-		del self.ccn_data
+		#self._acquire_lock()
+		#try:
+			_pyccn._pyccn_ccn_set_run_timeout(self.ccn_data, timeoutms)
+		#finally:
+			#self._release_lock
 
 	# Application-focused methods
 	#
 	def expressInterest(self, name, closure, template=None):
-		#self.handle_lock.acquire()
-		#try:
+		self._acquire_lock()
+		try:
 			return _pyccn._pyccn_ccn_express_interest(self, name, closure, template)
-		#finally:
-			#self.handle_lock.release()
+		finally:
+			self._release_lock()
 
 	def setInterestFilter(self, name, closure, flags = None):
-		#self.handle_lock.acquire()
-		#try:
+		self._acquire_lock()
+		try:
 			if flags is None:
 				return _pyccn._pyccn_ccn_set_interest_filter(self.ccn_data, name.ccn_data, closure)
 			else:
 				return _pyccn._pyccn_ccn_set_interest_filter(self.ccn_data, name.ccn_data, closure, flags)
-		#finally:
-		#	self.handle_lock.release()
+		finally:
+			self._release_lock()
 
 	# Blocking!
 	def get(self, name, template = None, timeoutms = 3000):
-		#self.handle_lock.acquire()
-		#try:
+		self._acquire_lock()
+		try:
 			return _pyccn._pyccn_ccn_get(self, name, template, timeoutms)
-		#finally:
-		#	self.handle_lock.release()
+		finally:
+			self._release_lock()
 
 	def put(self, contentObject):
-		#self.handle_lock.acquire()
-		#try:
+		self._acquire_lock()
+		try:
 			return _pyccn._pyccn_ccn_put(self, contentObject)
-		#finally:
-		#	self.handle_lock.release()
+		finally:
+			self._release_lock()
 
 	def getDefaultKey(self):
 		return _pyccn._pyccn_ccn_get_default_key()
+
+class EventLoop(object):
+	def __init__(self, *handles):
+		self.running = False
+		self.fds = {}
+		for handle in handles:
+			self.fds[handle.fileno()] = handle
+
+	def run_scheduled(self):
+		wait = {}
+		for fd, handle in zip(self.fds.keys(), self.fds.values()):
+			wait[fd] = handle.process_scheduled()
+		return wait[sorted(wait, key=wait.get)[0]] / 1000.0
+
+	def run_once(self):
+		fd_state = select.poll()
+		for handle in self.fds.values():
+			flags = select.POLLIN
+			if (handle.output_is_pending()):
+				flags |= select.POLLOUT
+			fd_state.register(handle, flags)
+
+		timeout = min(self.run_scheduled(), 1000)
+
+		res = fd_state.poll(timeout)
+		for fd, event in res:
+			self.fds[fd].run(0)
+
+	def run(self):
+		self.running = True
+		while self.running:
+			self.run_once()
+
+	def stop(self):
+		self.running = False

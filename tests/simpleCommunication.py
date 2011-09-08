@@ -4,9 +4,7 @@ from pyccn import CCN, Name, Interest, ContentObject, Key, Closure
 k = Key.Key()
 k.generateRSA(1024)
 
-kl = Key.KeyLocator()
-#kl.keyName = Name.Name("/this/is/key")
-kl.key = k
+kl = Key.KeyLocator(k)
 
 n = Name.Name()
 n.setURI("/forty/two")
@@ -19,7 +17,7 @@ class SenderClosure(Closure.Closure):
 		print(upcallInfo)
 
 		co = ContentObject.ContentObject()
-		co.name = n
+		co.name = Name.Name(n)
 		co.content = "Frou"
 
 		si = ContentObject.SignedInfo()
@@ -31,12 +29,15 @@ class SenderClosure(Closure.Closure):
 		co.signedInfo = si
 
 		co.sign(k)
-		print("put(co) = ", sender_handle.put(co))
-		sender_handle.setRunTimeout(0)
+		r = sender_handle.put(co)
+		print("put(co) = ", r)
+		#sender_handle.setRunTimeout(0)
+
+		return Closure.RESULT_INTEREST_CONSUMED
 
 class ReceiverClosure(Closure.Closure):
 	def upcall(self, kind, upcallInfo):
-		global receiver_handle, upcall_called
+		global receiver_handle, upcall_called, event_loop
 
 		print("Receiver closure:")
 
@@ -47,8 +48,10 @@ class ReceiverClosure(Closure.Closure):
 			raise AssertionError("Got timeout")
 
 		upcall_called = True
+		#receiver_handle.setRunTimeout(0)
+		event_loop.stop()
 
-		receiver_handle.setRunTimeout(0)
+		return Closure.RESULT_OK
 
 senderclosure = SenderClosure()
 receiverclosure = ReceiverClosure()
@@ -69,9 +72,13 @@ upcall_called = False
 print("Running loops")
 
 #So sender closure is called
-sender_handle.run(500)
+#sender_handle.run(500)
 
 #So receiver closure is called
-receiver_handle.run(500)
+#receiver_handle.run(500)
+
+# New way of doing this
+event_loop = CCN.EventLoop(sender_handle, receiver_handle)
+event_loop.run()
 
 assert upcall_called
