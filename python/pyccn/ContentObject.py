@@ -39,7 +39,7 @@ class ContentObject(object):
 	def __init__(self):
 		self.name = None
 		self.content = None
-		self.signedInfo = None
+		self.signedInfo = SignedInfo()
 		self.digestAlgorithm = None # Default
 
 		# generated
@@ -59,7 +59,7 @@ class ContentObject(object):
 	# thus there is no access to the ccn library keystore.
 	#
 	def sign(self, key):
-		self.ccn_data = _pyccn._pyccn_ContentObject_to_ccn(self,
+		self.ccn_data = _pyccn._pyccn_ContentObject_to_ccn(self, \
 			self.name.ccn_data, self.content, self.signedInfo.ccn_data, key)
 		self.ccn_data_dirty = False
 
@@ -71,8 +71,8 @@ class ContentObject(object):
 		pass
 
 	def matchesInterest(self, interest):
-		return _pyccn.content_matches_interest(self.ccn_data, interest.ccn_data, \
-			self.ccn_data_parsed, interest.ccn_data_parsed)
+		return _pyccn.content_matches_interest(self.ccn_data, \
+			interest.ccn_data, self.ccn_data_parsed, interest.ccn_data_parsed)
 
 	def __setattr__(self, name, value):
 		if name == 'name' or name == 'content' or name == 'signedInfo' or name == 'digestAlgorithm':
@@ -92,11 +92,13 @@ class ContentObject(object):
 	# Where do we support versioning and segmentation?
 
 	def __str__(self):
-		ret = "Name: %s" % self.name
-		ret += "\nContent: %s" % self.content.decode("utf-8", errors='replace')
-		ret += "\nDigestAlg: %s" % self.digestAlgorithm
-		ret += "\nSignedInfo: %s" % self.signedInfo
-		return ret
+		ret = []
+		ret.append("Name: %s" % self.name)
+		ret.append("Content: %s" % (self.content.decode("utf-8", errors='replace') if self.content else None))
+		ret.append("DigestAlg: %r" % self.digestAlgorithm)
+		ret.append("SignedInfo: %s" % self.signedInfo)
+		ret.append("Signature: %r" % self.signature)
+		return "\n".join(ret)
 
 class Signature(object):
 	def __init__(self):
@@ -126,10 +128,11 @@ class SignedInfo(object):
 	def __init__(self):
 		self.publisherPublicKeyDigest = None     # SHA256 hash
 		self.timeStamp = None   # CCNx timestamp
-		self.type = None  # enum
+		self.type = ContentType.CCN_CONTENT_DATA
 		self.freshnessSeconds = None
 		self.finalBlockID = None
 		self.keyLocator = None
+
 		# pyccn
 		self.ccn_data_dirty = True
 		self.ccn_data = None  # backing charbuf
@@ -143,7 +146,10 @@ class SignedInfo(object):
 		if name == "ccn_data":
 			if object.__getattribute__(self, 'ccn_data_dirty'):
 				key_locator = self.keyLocator.ccn_data if self.keyLocator else None
-				self.ccn_data = _pyccn._pyccn_SignedInfo_to_ccn(self.publisherPublicKeyDigest, self.type, key_locator=key_locator)
+				self.ccn_data = _pyccn._pyccn_SignedInfo_to_ccn( \
+					self.publisherPublicKeyDigest, self.type, self.timeStamp, \
+					self.freshnessSeconds if self.freshnessSeconds else -1, \
+					self.finalBlockID, key_locator)
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)
 
@@ -154,10 +160,10 @@ class SignedInfo(object):
 	def __str__(self):
 		pubkeydigest = "<PublisherPublicKeyDigest>%s</PublisherPublicKeyDigest>" \
 			% b64encode(self.publisherPublicKeyDigest)
-		timestamp = "<Timestamp>%s</Timestamp>" % b64encode(self.timeStamp)
+		timestamp = "<Timestamp>%s</Timestamp>" % (b64encode(self.timeStamp) if self.timeStamp else None)
 		type = "<Type>%s</Type>" % ("None" if self.type == None else "0x%0.6X" % self.type)
 		freshness = "<FreshnessSeconds>%s<FreshnessSeconds>" % self.freshnessSeconds
-		finalBlockID = "<FinalBlockID>%s</FinalBlockID>" % self.finalBlockID
+		finalBlockID = "<FinalBlockID>%r</FinalBlockID>" % self.finalBlockID
 		res = "<SignedInfo>%s%s%s%s%s%s</SignedInfo>" % (pubkeydigest, timestamp, type, freshness, finalBlockID, self.keyLocator)
 		return res
 

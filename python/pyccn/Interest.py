@@ -58,7 +58,6 @@ class Interest(object):
 		self.nonce = nonce
 
 		# pyccn
-		self.ccn = None # Reference to CCN object
 		self.ccn_data_dirty = True
 		self.ccn_data = None  # backing charbuf
 		self.ccn_data_parsed = None  # backing parsed interest
@@ -80,6 +79,20 @@ class Interest(object):
 				self.ccn_data, self.ccn_data_parsed = _pyccn._pyccn_Interest_to_ccn(self)
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)
+
+	def __str__(self):
+		res = []
+		res.append("name: %s" % self.name)
+		res.append("minSuffixComponents: %s" % self.minSuffixComponents)
+		res.append("maxSuffixComponents: %s" % self.maxSuffixComponents)
+		res.append("publisherPublicKeyDigest: %r" % self.publisherPublicKeyDigest)
+		res.append("exclude:\n%s" % self.exclude)
+		res.append("childSelector: %s" % self.childSelector)
+		res.append("answerOriginKind: %s" % self.answerOriginKind)
+		res.append("scope: %s" % self.scope)
+		res.append("interestLifetime: %s" % self.interestLifetime)
+		res.append("nonce: %r" % self.nonce)
+		return "\n".join(res)
 
 	def matches_name(self, name):
 		i_name = self.name.components

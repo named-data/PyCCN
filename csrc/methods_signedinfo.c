@@ -132,7 +132,7 @@ SignedInfo_obj_from_ccn(PyObject *py_signed_info)
 
 	//    self.timeStamp = None   # CCNx timestamp
 	debug("PyObject_SetAttrString timeStamp\n");
-	py_o = PyByteArray_FromStringAndSize((const char*) ptr, size);
+	py_o = PyBytes_FromStringAndSize((const char*) ptr, size);
 	JUMP_IF_NULL(py_o, error);
 	r = PyObject_SetAttrString(py_obj_SignedInfo, "timeStamp", py_o);
 	Py_DECREF(py_o);
@@ -153,23 +153,23 @@ SignedInfo_obj_from_ccn(PyObject *py_signed_info)
 	Py_DECREF(py_o);
 	JUMP_IF_NEG(r, error);
 
-/*
-	start = d->decoder.token_index;
-	ccn_parse_optional_tagged_BLOB(d, CCN_DTAG_Type, 1, -1);
-	stop = d->decoder.token_index;
+	/*
+		start = d->decoder.token_index;
+		ccn_parse_optional_tagged_BLOB(d, CCN_DTAG_Type, 1, -1);
+		stop = d->decoder.token_index;
 
-	r = ccn_ref_tagged_BLOB(CCN_DTAG_Type, d->buf, start, stop, &ptr, &size);
-	if (r == 0) {
-		//    type = None   # CCNx type
-		// TODO: Provide a string representation with the Base64 mnemonic?
-		debug("PyObject_SetAttrString type\n");
-		py_o = PyByteArray_FromStringAndSize((const char*) ptr, size);
-		JUMP_IF_NULL(py_o, error);
-		r = PyObject_SetAttrString(py_obj_SignedInfo, "type", py_o);
-		Py_DECREF(py_o);
-		JUMP_IF_NEG(r, error);
-	}
-*/
+		r = ccn_ref_tagged_BLOB(CCN_DTAG_Type, d->buf, start, stop, &ptr, &size);
+		if (r == 0) {
+			//    type = None   # CCNx type
+			// TODO: Provide a string representation with the Base64 mnemonic?
+			debug("PyObject_SetAttrString type\n");
+			py_o = PyByteArray_FromStringAndSize((const char*) ptr, size);
+			JUMP_IF_NULL(py_o, error);
+			r = PyObject_SetAttrString(py_obj_SignedInfo, "type", py_o);
+			Py_DECREF(py_o);
+			JUMP_IF_NEG(r, error);
+		}
+	 */
 
 	/* FreshnessSeconds */
 	r = ccn_parse_optional_tagged_nonNegativeInteger(d, CCN_DTAG_FreshnessSeconds);
@@ -205,7 +205,8 @@ SignedInfo_obj_from_ccn(PyObject *py_signed_info)
 	ccn_parse_optional_tagged_BLOB(d, CCN_DTAG_FinalBlockID, 1, -1);
 	stop = d->decoder.token_index;
 
-	r = ccn_ref_tagged_BLOB(CCN_DTAG_Type, d->buf, start, stop, &ptr, &size);
+	r = ccn_ref_tagged_BLOB(CCN_DTAG_FinalBlockID, d->buf, start, stop, &ptr,
+			&size);
 	if (r == 0) {
 		//    self.finalBlockID = None
 		debug("PyObject_SetAttrString finalBlockID, len=%zd\n", size);
@@ -308,14 +309,16 @@ _pyccn_SignedInfo_to_ccn(PyObject *UNUSED(self), PyObject *args,
 	static char *kwlist[] = {"pubkey_digest", "type", "timestamp",
 		"freshness", "final_block_id", "key_locator", NULL};
 
-	PyObject *py_pubkey_digest, *py_timestamp = NULL, *py_final_block = NULL,
-			*py_key_locator = NULL;
+	PyObject *py_pubkey_digest, *py_timestamp = Py_None,
+			*py_final_block = Py_None, *py_key_locator = Py_None;
 	struct ccn_charbuf *si;
+	PyObject *py_si;
 	int r;
 	size_t publisher_key_id_size;
 	const void *publisher_key_id;
 	int type, freshness = -1;
-	struct ccn_charbuf *timestamp, *finalblockid, *key_locator;
+	struct ccn_charbuf *timestamp = NULL, *finalblockid = NULL,
+			*key_locator = NULL;
 
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "Oi|OiOO", kwlist,
 			&py_pubkey_digest, &type, &py_timestamp, &freshness,
@@ -330,19 +333,36 @@ _pyccn_SignedInfo_to_ccn(PyObject *UNUSED(self), PyObject *args,
 		publisher_key_id = PyByteArray_AS_STRING(py_pubkey_digest);
 	}
 
-	if (py_timestamp && py_timestamp != Py_None) {
+	if (py_timestamp != Py_None) {
 		PyErr_SetString(PyExc_NotImplementedError, "Timestamp is not implemented yet");
 		return NULL;
 	} else
 		timestamp = NULL;
 
-	if (py_final_block && py_final_block != Py_None) {
-		PyErr_SetString(PyExc_NotImplementedError, "Final Block ID is not implemented yet");
-		return NULL;
+	if (py_final_block != Py_None) {
+		char *s;
+		Py_ssize_t len;
+
+		if (!PyBytes_Check(py_final_block)) {
+			PyErr_SetString(PyExc_TypeError, "Must pass a bytes as final block");
+			return NULL;
+		}
+
+		finalblockid = ccn_charbuf_create();
+		JUMP_IF_NULL_MEM(finalblockid, error);
+
+		s = PyBytes_AS_STRING(py_final_block);
+		len = PyBytes_GET_SIZE(py_final_block);
+
+		r = ccn_charbuf_append_tt(finalblockid, len, CCN_BLOB);
+		JUMP_IF_NEG_MEM(r, error);
+
+		r = ccn_charbuf_append(finalblockid, s, len);
+		JUMP_IF_NEG_MEM(r, error);
 	} else
 		finalblockid = NULL;
 
-	if (!py_key_locator || py_key_locator == Py_None)
+	if (py_key_locator == Py_None)
 		key_locator = NULL;
 	else if (CCNObject_IsValid(KEY_LOCATOR, py_key_locator))
 		key_locator = CCNObject_Get(KEY_LOCATOR, py_key_locator);
@@ -351,22 +371,24 @@ _pyccn_SignedInfo_to_ccn(PyObject *UNUSED(self), PyObject *args,
 		return NULL;
 	}
 
-	si = ccn_charbuf_create();
-	if (!si)
-		return PyErr_NoMemory();
+	py_si = CCNObject_New_charbuf(SIGNED_INFO, &si);
+	JUMP_IF_NULL(py_si, error);
 
 	r = ccn_signed_info_create(si, publisher_key_id, publisher_key_id_size,
 			timestamp, type, freshness, finalblockid, key_locator);
-	debug("ccn_signed_info_create res=%d\n", r);
+	ccn_charbuf_destroy(&finalblockid);
 
 	if (r < 0) {
-		ccn_charbuf_destroy(&si);
+		Py_DECREF(py_si);
 		PyErr_SetString(g_PyExc_CCNError, "Error while creating SignedInfo");
-
 		return NULL;
 	}
 
-	return CCNObject_New(SIGNED_INFO, si);
+	return py_si;
+
+error:
+	ccn_charbuf_destroy(&finalblockid);
+	return NULL;
 }
 
 PyObject *

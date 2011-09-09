@@ -229,6 +229,7 @@ ContentObject_obj_from_ccn_parsed(PyObject *py_content_object,
 			py_components);
 	JUMP_IF_NEG(r, error);
 
+#pragma message "XXX: Test code if it works without setting ccn_data_dirty=False"
 	r = PyObject_SetAttrString(py_obj_ContentObject, "ccn_data_dirty", Py_False);
 	JUMP_IF_NEG(r, error);
 
@@ -324,7 +325,7 @@ _pyccn_content_to_bytes(PyObject *UNUSED(self), PyObject *arg)
 }
 
 PyObject *
-_pyccn_ContentObject_obj_to_ccn(PyObject *UNUSED(self), PyObject *args)
+_pyccn_ContentObject_to_ccn(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_content_object, *py_name, *py_content, *py_signed_info,
 			*py_key;
@@ -413,41 +414,43 @@ error:
 	return ret;
 }
 
-#if 0
-
 PyObject *
-_pyccn_ContentObject_from_ccn(PyObject *self, PyObject *args)
+_pyccn_ContentObject_from_ccn(PyObject *UNUSED(self), PyObject *py_co)
 {
-	PyObject *py_co, *py_parsed_co = Py_None, *py_co_components = Py_None;
-
-	if (!PyArg_ParseTuple(args, "O|OO", &py_co, &py_parsed_co,
-			&py_co_components))
-		return NULL;
+	struct ccn_charbuf *co;
+	PyObject *res = NULL;
+	int r;
+	PyObject *py_pco = NULL;
+	struct ccn_parsed_ContentObject *pco;
+	PyObject *py_comps = NULL;
+	struct ccn_indexbuf *comps;
 
 	if (!CCNObject_IsValid(CONTENT_OBJECT, py_co)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a CObject as args");
+		PyErr_SetString(PyExc_TypeError, "Must pass a CCN ContentObject as args");
 		return NULL;
 	}
+	co = CCNObject_Get(CONTENT_OBJECT, py_co);
 
-	if (py_parsed_co != Py_None) {
-		if (!CCNObject_IsValid(PARSED_CONTENT_OBJECT, py_parsed_co)
-				|| !CCNObject_IsValid(CONTENT_OBJECT_COMPONENTS,
-				py_co_components)) {
-			PyErr_SetString(PyExc_TypeError, "Second and third arguments need"
-					" to be PCO and CO_COMPS");
-			return NULL;
-		}
+	py_pco = CCNObject_New_ParsedContentObject(&pco);
+	JUMP_IF_NULL(py_pco, exit);
 
-		return ContentObject_obj_from_ccn_parsed(
-				CCNObject_Get(CONTENT_OBJECT, py_co),
-				CCNObject_Get(PARSED_CONTENT_OBJECT, py_parsed_co),
-				CCNObject_Get(CONTENT_OBJECT_COMPONENTS, py_co_components));
+	py_comps = CCNObject_New_ContentObjectComponents(&comps);
+	JUMP_IF_NULL(py_comps, exit);
+
+	r = ccn_parse_ContentObject(co->buf, co->length, pco, comps);
+	if (r < 0) {
+		PyErr_SetString(g_PyExc_CCNContentObjectError, "Error parsing Content"
+				" Object");
+		goto exit;
 	}
 
-	return ContentObject_from_ccn(CCNObject_Get(CONTENT_OBJECT, py_co));
+	res = ContentObject_obj_from_ccn_parsed(py_co, py_pco, py_comps);
 
+exit:
+	Py_XDECREF(py_comps);
+	Py_XDECREF(py_pco);
+	return res;
 }
-#endif
 
 PyObject *
 _pyccn_digest_contentobject(PyObject *UNUSED(self), PyObject *args)

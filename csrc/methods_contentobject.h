@@ -35,8 +35,8 @@ PyObject *ContentObject_obj_from_ccn_parsed(PyObject *py_content_object,
 		PyObject *py_parsed_content_object, PyObject *py_components);
 PyObject *_pyccn_content_to_bytes(PyObject *self, PyObject *arg);
 PyObject *_pyccn_content_to_bytearray(PyObject *self, PyObject *arg);
-PyObject *_pyccn_ContentObject_obj_to_ccn(PyObject *self, PyObject *args);
-PyObject *_pyccn_ContentObject_from_ccn(PyObject *self, PyObject *args);
+PyObject *_pyccn_ContentObject_to_ccn(PyObject *self, PyObject *args);
+PyObject *_pyccn_ContentObject_from_ccn(PyObject *self, PyObject *py_co);
 PyObject *_pyccn_digest_contentobject(PyObject *self, PyObject *args);
 PyObject *_pyccn_content_matches_interest(PyObject *self, PyObject *args);
 

@@ -31,6 +31,7 @@
 #include "python.h"
 
 #include <ccn/ccn.h>
+#include <ccn/digest.h>
 #include <ccn/uri.h>
 #include <ccn/signing.h>
 #include <ccn/keystore.h>
@@ -105,33 +106,98 @@ seed_prng()
 	g_seeded = 1;
 }
 
+static int
+create_key_digest(const unsigned char *dkey, size_t dkey_size,
+		unsigned char **o_key_digest, size_t *o_key_digest_size)
+{
+	struct ccn_digest *digest;
+	unsigned char *key_digest = NULL;
+	size_t key_digest_size;
+	int r;
+
+	assert(o_key_digest);
+	assert(o_key_digest_size);
+
+	digest = ccn_digest_create(CCN_DIGEST_SHA256);
+	JUMP_IF_NULL(digest, error);
+
+	ccn_digest_init(digest);
+	key_digest_size = ccn_digest_size(digest);
+
+	key_digest = malloc(key_digest_size);
+	JUMP_IF_NULL(key_digest, error);
+
+	r = ccn_digest_update(digest, dkey, dkey_size);
+	JUMP_IF_NEG(r, error);
+
+	r = ccn_digest_final(digest, key_digest, key_digest_size);
+	JUMP_IF_NEG(r, error);
+
+	ccn_digest_destroy(&digest);
+
+	*o_key_digest = key_digest;
+	*o_key_digest_size = key_digest_size;
+
+	return 0;
+
+error:
+	PyErr_SetString(g_PyExc_CCNKeyError, "unable to generate key digest");
+	if (key_digest)
+		free(key_digest);
+	ccn_digest_destroy(&digest);
+	return -1;
+}
+
 int
 create_public_key_digest(RSA *private_key_rsa,
 		PyObject **py_public_key_digest, int *public_key_digest_len)
 {
 	unsigned int err;
 	unsigned char *public_key_der = NULL;
-	unsigned char digest[SHA256_DIGEST_LENGTH];
+	size_t der_len;
+	unsigned char *key_digest;
+	size_t key_digest_size;
 	PyObject *py_digest = NULL;
-	int der_len;
+	int r;
+	EVP_PKEY *public_key = NULL;
+	RSA *public_key_rsa = NULL;
 
 	assert(private_key_rsa);
 	assert(py_public_key_digest);
 
-	der_len = i2d_RSAPublicKey(private_key_rsa, &public_key_der);
-	JUMP_IF_NEG(der_len, openssl_error);
+	public_key = EVP_PKEY_new();
+	JUMP_IF_NULL(public_key, openssl_error);
 
-	SHA256(public_key_der, der_len, digest);
+	public_key_rsa = RSAPublicKey_dup(private_key_rsa);
+	JUMP_IF_NULL(public_key_rsa, openssl_error);
+
+	r = EVP_PKEY_set1_RSA(public_key, public_key_rsa);
+	RSA_free(public_key_rsa);
+	public_key_rsa = NULL;
+	JUMP_IF_NEG(r, openssl_error);
+
+	r = i2d_PUBKEY(public_key, &public_key_der);
+	EVP_PKEY_free(public_key);
+	public_key = NULL;
+	if (r < 0) {
+		free(public_key_der);
+		goto openssl_error;
+	}
+	der_len = r;
+
+	r = create_key_digest(public_key_der, der_len, &key_digest,
+			&key_digest_size);
 	free(public_key_der);
 	public_key_der = NULL;
+	JUMP_IF_NEG(r, error);
 
-	py_digest = PyByteArray_FromStringAndSize((char *) digest,
-			SHA256_DIGEST_LENGTH);
+	py_digest = PyByteArray_FromStringAndSize((char *) key_digest,
+			key_digest_size);
 	JUMP_IF_NULL(py_digest, error);
 
 	*py_public_key_digest = py_digest;
 	if (public_key_digest_len)
-		*public_key_digest_len = SHA256_DIGEST_LENGTH;
+		*public_key_digest_len = key_digest_size;
 
 	return 0;
 
@@ -140,6 +206,10 @@ openssl_error:
 	PyErr_Format(g_PyExc_CCNKeyError, "Unable to generate digest from the key:"
 			" %s", ERR_reason_error_string(err));
 error:
+	if (public_key_rsa)
+		RSA_free(public_key_rsa);
+	if (public_key)
+		EVP_PKEY_free(public_key);
 	if (public_key_der)
 		free(public_key_der);
 	return -1;

@@ -87,6 +87,7 @@ extern PyObject *g_PyExc_CCNSignedInfoError;
 extern PyObject *g_PyExc_CCNInterestError;
 extern PyObject *g_PyExc_CCNExclusionFilterError;
 extern PyObject *g_PyExc_CCNKeyError;
+extern PyObject *g_PyExc_CCNContentObjectError;
 
 #  if DEBUG_MSG
 #    define debug(...) fprintf(stderr, __VA_ARGS__)

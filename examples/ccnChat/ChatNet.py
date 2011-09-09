@@ -1,6 +1,37 @@
+#
+# Copyright (c) 2011, Regents of the University of California
+# All rights reserved.
+# Written by: Derek Kulinski <takeda@takeda.tk>
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#     * Redistributions of source code must retain the above copyright
+#       notice, this list of conditions and the following disclaimer.
+#     * Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+#     * Neither the name of the Regents of the University of California nor
+#       the names of its contributors may be used to endorse or promote
+#       products derived from this software without specific prior written
+#       permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL REGENTS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+# OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+# LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+# NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+# EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
 from pyccn import CCN, Name, Interest, Key, ContentObject, Closure
 import logging
 import sys, threading, getpass, time
+
+from NetUtil import VersionedPull, FlowController
 
 logging.basicConfig(filename='chat.log', level=logging.DEBUG)
 log = logging.getLogger("ChatNet")
@@ -9,48 +40,38 @@ log = logging.getLogger("ChatNet")
 if sys.version >= '3':
 	unicode = str
 
+def fix_digest(digest):
+	if type(digest) is bytearray:
+		log.warning("XXX: Converting digest from bytearray to bytes!")
+		digest = bytes(digest)
+	return digest
+
 class ChatNet(object):
 	def __init__(self, prefix, callback):
-		self.last_text = None
-		self.callback = callback
+		self.gui_callback = callback
 		self.friendly_names = {}
-
-		self.interest_tmpl = Interest.Interest(maxSuffixComponents=3, \
-			minSuffixComponents=3, childSelector=1, answerOriginKind=0)
 
 		self.handle = CCN.CCN()
 		self.chat_uri = Name.Name(prefix)
 		self.members_uri = Name.Name(prefix)
 		self.members_uri += "members"
 
-		self.default_key = self.handle.getDefaultKey()
-		digest = self.default_key.publicKeyID
-		#TODO: digests should be bytes not bytearrays
-		if type(digest) is bytearray:
-			log.warning("XXX: Converting digest from bytearray to bytes!")
-			digest = bytes(digest)
+		self.net_pull = VersionedPull(self.chat_uri, None, handle=self.handle)
+
+		self.default_key = self.handle.getDefaultKey();
+		digest = fix_digest(self.default_key.publicKeyID)
 		self.friendly_names[digest] = getpass.getuser()
 
 	def pullData(self):
-		co = self.handle.get(self.chat_uri, self.interest_tmpl)
+		co = self.net_pull.fetchNext()
 		if not co:
-			return False
+			return
 
 		text = unicode(co.content, "utf-8", "replace")
-		if text == self.last_text:
-			return False
-
-		digest = co.signedInfo.publisherPublicKeyDigest
-
-		#TODO: digests should be bytes not bytearrays
-		if type(digest) is bytearray:
-			log.warning("XXX: Converting digest from bytearray to bytes!")
-			digest = bytes(digest)
-
+		digest = fix_digest(co.signedInfo.publisherPublicKeyDigest)
 		nick = self.get_friendly_name(digest)
 
-		self.callback(nick, text)
-		self.last_text = text
+		self.gui_callback(nick, text)
 
 	def get_friendly_name(self, digest):
 		if digest in self.friendly_names:
@@ -58,7 +79,7 @@ class ChatNet(object):
 
 		n = Name.Name(self.members_uri)
 		n.appendKeyID(digest)
-		co = self.handle.get(n, self.interest_tmpl)
+		co = self.handle.get(n)
 		if not co:
 			return "~unknown~"
 
@@ -68,32 +89,31 @@ class ChatNet(object):
 		return nick
 
 class ChatServer(Closure.Closure):
-	def __init__(self, namespace):
-		self.user = getpass.getuser()
-
+	def __init__(self, prefix, nick=getpass.getuser()):
 		self.handle = CCN.CCN()
+		self.flow = FlowController(prefix, self.handle)
 
 		#XXX: temporary, until we allow fetching key from key storage
 		self.key = self.handle.getDefaultKey()
-		self.keylocator = Key.KeyLocator()
-		self.keylocator.key = self.key
+		self.keylocator = Key.KeyLocator(self.key)
 
-		self.prefix = Name.Name(namespace)
-		self.members_uri = Name.Name(namespace)
+		self.prefix = Name.Name(prefix)
+		self.members_uri = Name.Name(prefix)
 		self.members_uri += "members"
 
-		self.message = None
-		self.member_message = None
+		member_name = Name.Name(self.members_uri)
+		member_name.appendKeyID(fix_digest(self.key.publicKeyID))
+		self.member_message = self.publish(member_name, nick)
+		self.flow.put(self.member_message)
 
 	def listen(self):
 		#listen to requests in namespace
-		self.handle.setInterestFilter(self.prefix, self)
+		#self.handle.setInterestFilter(self.prefix, self)
 		self.handle.run(-1)
 
 	def publish(self, name, content):
 		# Name
 		co_name = Name.Name(name)
-		co_name.appendVersion()
 		co_name += b'\x00'
 
 		# SignedInfo
@@ -112,33 +132,30 @@ class ChatServer(Closure.Closure):
 		co.sign(self.key)
 		return co
 
-	def publish_handle(self, interest):
-		if not self.member_message:
-			self.member_message = self.publish(interest.name, self.user)
-		return self.handle.put(self.member_message)
-
 	def send_message(self, message):
 		name = Name.Name(self.prefix)
+		name.appendVersion()
 		co = self.publish(name, message)
-		self.message = co
-		self.handle.put(co) #this is using a bug in ccnx
+		#self.message = co
+		#self.handle.put(co) #this is using a bug in ccnx
+		self.flow.put(co)
 
 	def upcall(self, kind, upcallInfo):
 		interest = upcallInfo.Interest
 		name = interest.name
 
-		log.debug("Got request for: " + str(name.components))
+		log.debug("Got request for: %s" % name)
 
-		if self.message and interest.matches_name(self.prefix):
+		if self.message.matchesInterest(interest):
 			log.debug("Publishing content")
 			self.handle.put(self.message)
-			return True
+			return Closure.UPCALL_RESULT_INTEREST_CONSUMED
 
-		if interest.matches_name(self.members_uri):
+		if self.member_message.matchesInterest(interest):
 			log.debug("Publishing member's name")
-			self.publish_handle(interest)
-			return True
+			self.handle.put(self.member_message)
+			return Closure.UPCALL_RESULT_INTEREST_CONSUMED
 
-		log.error("Got unknown request: " + str(name.components))
+		log.error("Got unknown request: %s" % name)
 
-		return False
+		return Closure.RESULT_OK

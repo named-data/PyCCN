@@ -270,11 +270,12 @@ Name_to_ccn(PyObject *py_obj_Name)
 			JUMP_IF_NEG_MEM(r, error);
 		} else if (_pyccn_STRING_CHECK(item)) {
 			char *s;
+			Py_ssize_t len;
 
-			py_o = _pyccn_unicode_to_utf8(item, &s, NULL);
+			py_o = _pyccn_unicode_to_utf8(item, &s, &len);
 			JUMP_IF_NULL(py_o, error);
 
-			r = ccn_name_append_str(name, s);
+			r = ccn_name_append(name, s, len);
 			Py_DECREF(py_o);
 			JUMP_IF_NEG_MEM(r, error);
 

@@ -84,7 +84,7 @@ class Name(object):
 		if not version:
 			inttime = int(time.time() * 4096 + 0.5)
 			bintime = struct.pack("!Q", inttime)
-			version = bintime.lstrip('\x00')
+			version = bintime.lstrip(b'\x00')
 		component = b'\xfd' + version
 		self.components.append(component)
 

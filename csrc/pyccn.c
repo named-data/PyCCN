@@ -74,6 +74,7 @@ PyObject *g_PyExc_CCNSignedInfoError;
 PyObject *g_PyExc_CCNInterestError;
 PyObject *g_PyExc_CCNExclusionFilterError;
 PyObject *g_PyExc_CCNKeyError;
+PyObject *g_PyExc_CCNContentObjectError;
 
 static PyMethodDef g_module_methods[] = {
 	{"_pyccn_ccn_create", _pyccn_ccn_create, METH_NOARGS, NULL},
@@ -140,12 +141,9 @@ static PyMethodDef g_module_methods[] = {
 	{"_pyccn_Interest_to_ccn", _pyccn_Interest_to_ccn, METH_O, NULL},
 	{"_pyccn_Interest_from_ccn", _pyccn_Interest_from_ccn, METH_VARARGS,
 		""},
-	{"_pyccn_ContentObject_to_ccn", _pyccn_ContentObject_obj_to_ccn, METH_VARARGS,
+	{"_pyccn_ContentObject_to_ccn", _pyccn_ContentObject_to_ccn, METH_VARARGS,
 		""},
-#if 0
-	{"_pyccn_ContentObject_from_ccn", _pyccn_ContentObject_from_ccn, METH_VARARGS,
-		""},
-#endif
+	{"ContentObject_from_ccn", _pyccn_ContentObject_from_ccn, METH_O, NULL},
 	{"digest_contentobject", _pyccn_digest_contentobject, METH_VARARGS, NULL},
 	{"content_matches_interest", _pyccn_content_matches_interest, METH_VARARGS,
 		NULL},
@@ -213,6 +211,8 @@ initialize_exceptions()
 	NEW_EXCEPTION(CCNExclusionFilterError, "CCN ExclusionFilter Exception",
 			g_PyExc_CCNInterestError);
 	NEW_EXCEPTION(CCNKeyError, "CCN Key Exception", g_PyExc_CCNKeyError);
+	NEW_EXCEPTION(CCNContentObjectError, "CCN ContentObject Error",
+			g_PyExc_CCNError);
 
 	return 0;
 }

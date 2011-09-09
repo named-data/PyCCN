@@ -342,30 +342,47 @@ Interest_obj_to_ccn(PyObject *py_obj_Interest)
 			"scope");
 	JUMP_IF_NEG(r, error);
 
-#pragma message "FIXME: Interest lifetime parsing is wrong"
-	/*
-						unsigned char buf[3] = { 0 };
-						unsigned lifetime;
-						int i;
-						if (timeout_ms > 60000)
-								lifetime = 30 << 12;
-						else {
-								lifetime = timeout_ms * 2 / 5 * 4096 / 1000;
-						}
-						for (i = sizeof(buf) - 1; i >= 0; i--, lifetime >>= 8)
-								buf[i] = lifetime & 0xff;
-						ccnb_append_tagged_blob(templ, CCN_DTAG_InterestLifetime, buf, sizeof(buf));
-	 */
-	r = process_int_attribute(interest, CCN_DTAG_InterestLifetime,
-			py_obj_Interest, "interestLifetime");
-	JUMP_IF_NEG(r, error);
+	r = is_attr_set(py_obj_Interest, "interestLifetime", &py_o);
+	if (r) {
+		unsigned char buf[3] = {0};
+		double lifetime;
+		unsigned long i_lifetime;
+
+		if (!PyFloat_Check(py_o)) {
+			Py_DECREF(py_o);
+			PyErr_SetString(PyExc_TypeError, "expected float type in interest"
+					" lifetime");
+			goto error;
+		}
+
+		lifetime = PyFloat_AS_DOUBLE(py_o);
+		Py_DECREF(py_o);
+
+		i_lifetime = lifetime * 4096;
+
+		/* XXX: probably won't work in bigendian */
+		for (int i = sizeof(buf) - 1; i >= 0; i--, i_lifetime >>= 8)
+			buf[i] = i_lifetime & 0xff;
+
+		r = ccnb_append_tagged_blob(interest, CCN_DTAG_InterestLifetime,
+				buf, sizeof(buf));
+		JUMP_IF_NEG_MEM(r, error);
+	}
 
 	r = is_attr_set(py_obj_Interest, "nonce", &py_o);
 	if (r) {
-		// TODO: Nonce
-		// This is automatically added by the library?
-		//
+		char *s;
+		Py_ssize_t len;
+
+		r = PyBytes_AsStringAndSize(py_o, &s, &len);
+		if (r < 0) {
+			Py_DECREF(py_o);
+			goto error;
+		}
+
+		r = ccnb_append_tagged_blob(interest, CCN_DTAG_Nonce, s, len);
 		Py_DECREF(py_o);
+		JUMP_IF_NEG_MEM(r, error);
 	}
 
 	r = ccn_charbuf_append_closer(interest); /* </Interest> */
@@ -611,6 +628,7 @@ Interest_obj_from_ccn_parsed(PyObject *py_interest,
 			goto error;
 		}
 
+		/* XXX: probably won't work with bigendian */
 		lifetime = 0.0;
 		for (size_t i = 0; i < blob_size; i++)
 			lifetime = lifetime * 256.0 + (double) blob[i];
@@ -636,13 +654,17 @@ Interest_obj_from_ccn_parsed(PyObject *py_interest,
 			goto error;
 		}
 
-		py_o = PyByteArray_FromStringAndSize((const char*) blob, blob_size);
+		py_o = PyBytes_FromStringAndSize((const char *) blob, blob_size);
 		JUMP_IF_NULL(py_o, error);
 
 		r = PyObject_SetAttrString(py_obj_Interest, "nonce", py_o);
 		Py_DECREF(py_o);
 		JUMP_IF_NEG(r, error);
 	}
+
+#pragma message "XXX: Test code if it works without setting ccn_data_dirty=False"
+	r = PyObject_SetAttrString(py_obj_Interest, "ccn_data_dirty", Py_False);
+	JUMP_IF_NEG(r, error);
 
 	// 4) Return the created object
 	debug("Interest_from_ccn ends\n");
