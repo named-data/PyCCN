@@ -33,6 +33,18 @@ print(key2)
 print(key1.ccn_data_public)
 print(key2.ccn_data_public)
 
-#there's not an easy way to check if those two are equal
-#I was hoping to modify the code so it would just output
-#relevant info, but those rewritings just take too much time
+assert(key1.publicToDER() == key2.publicToDER())
+
+del key2
+key2 = _pyccn._pyccn_Key_from_ccn(key1.ccn_data_private)
+
+assert(key1.publicKeyID == key2.publicKeyID)
+assert(key1.publicToDER() == key2.publicToDER())
+assert(key1.privateToDER() == key2.privateToDER())
+
+del key2
+key2 = _pyccn._pyccn_Key_from_ccn(key1.ccn_data_public)
+
+assert(key1.publicKeyID == key2.publicKeyID)
+assert(key1.publicToDER() == key2.publicToDER())
+assert(key2.ccn_data_private == None)

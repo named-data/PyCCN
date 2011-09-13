@@ -62,7 +62,7 @@ int create_public_key_digest(RSA *private_key_rsa,
 int ccn_keypair_from_rsa(int public_only, RSA *private_key_rsa,
 		PyObject **py_private_key_ccn,
 		PyObject **py_public_key_ccn);
-
+PyObject *_pyccn_privatekey_dup(const struct ccn_pkey *key);
 int generate_key(int length, PyObject **private_key_ccn,
 		PyObject **public_key_ccn, PyObject ** public_key_digest,
 		int *public_key_digest_len);

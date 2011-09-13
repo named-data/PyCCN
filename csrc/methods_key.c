@@ -168,19 +168,31 @@ Key_to_ccn_private(PyObject *py_key)
 // so that we can do the key hash
 
 PyObject *
-Key_obj_from_ccn(const struct ccn_pkey *key_ccn)
+Key_obj_from_ccn(PyObject *py_key_ccn)
 {
+	struct ccn_pkey *key_ccn;
 	PyObject *py_obj_Key;
-	RSA *private_key_rsa;
+	RSA *private_key_rsa = NULL;
 	PyObject *py_private_key_ccn = NULL, *py_public_key_ccn = NULL,
 			*py_public_key_digest = NULL;
 	int public_key_digest_len;
-	int r;
+	int r, public_only;
 	PyObject* py_o;
 
 	assert(g_type_Key);
 
 	debug("Key_from_ccn start\n");
+
+	if (CCNObject_IsValid(PKEY_PRIV, py_key_ccn)) {
+		public_only = 0;
+		key_ccn = CCNObject_Get(PKEY_PRIV, py_key_ccn);
+	} else if (CCNObject_IsValid(PKEY_PUB, py_key_ccn)) {
+		public_only = 1;
+		key_ccn = CCNObject_Get(PKEY_PUB, py_key_ccn);
+	} else {
+		PyErr_SetString(PyExc_TypeError, "expected CCN key");
+		return NULL;
+	}
 
 	// 1) Create python object
 	py_obj_Key = PyObject_CallObject(g_type_Key, NULL);
@@ -203,13 +215,14 @@ Key_obj_from_ccn(const struct ccn_pkey *key_ccn)
 		goto error;
 	}
 
-#pragma message "TODO: handle situation when we only have public key"
-	r = ccn_keypair_from_rsa(0, private_key_rsa, &py_private_key_ccn,
+	r = ccn_keypair_from_rsa(public_only, private_key_rsa, &py_private_key_ccn,
 			&py_public_key_ccn);
 	JUMP_IF_NEG(r, error);
 
 	r = create_public_key_digest(private_key_rsa, &py_public_key_digest,
 			&public_key_digest_len);
+	RSA_free(private_key_rsa);
+	private_key_rsa = NULL;
 	JUMP_IF_NEG(r, error);
 
 	//  ccn_digest has a more convoluted API, with examples
@@ -227,7 +240,6 @@ Key_obj_from_ccn(const struct ccn_pkey *key_ccn)
 	Py_CLEAR(py_public_key_digest);
 	JUMP_IF_NEG(r, error);
 
-	//free (public_key_digest); -- this is the job of python
 	// publicKeyIDsize
 	py_o = _pyccn_Int_FromLong(public_key_digest_len);
 	JUMP_IF_NULL(py_o, error);
@@ -267,6 +279,7 @@ error:
 	Py_XDECREF(py_private_key_ccn);
 	Py_XDECREF(py_public_key_ccn);
 	Py_XDECREF(py_public_key_digest);
+	RSA_free(private_key_rsa);
 	Py_XDECREF(py_obj_Key);
 	return NULL;
 }
@@ -320,14 +333,14 @@ KeyLocator_obj_from_ccn(PyObject *py_keylocator)
 		assert(stop > start);
 		bname_size = stop - start;
 		bname = d->buf + start;
-/*
-		r = ccn_ref_tagged_BLOB(CCN_DTAG_Name, d->buf, start, stop, &bname,
-				&bname_size);
-		if (r < 0)
-			return PyErr_Format(g_PyExc_CCNKeyLocatorError, "Error getting"
-				" CCN_DTAG_Name BLOB for KeyName (decoder state: %d)",
-				d->decoder.state);
-*/
+		/*
+				r = ccn_ref_tagged_BLOB(CCN_DTAG_Name, d->buf, start, stop, &bname,
+						&bname_size);
+				if (r < 0)
+					return PyErr_Format(g_PyExc_CCNKeyLocatorError, "Error getting"
+						" CCN_DTAG_Name BLOB for KeyName (decoder state: %d)",
+						d->decoder.state);
+		 */
 
 		debug("Parse CCN_DTAG_Name inside KeyName, len=%zd\n", bname_size);
 
@@ -360,7 +373,7 @@ KeyLocator_obj_from_ccn(PyObject *py_keylocator)
 	} else if (ccn_buf_match_dtag(d, CCN_DTAG_Key)) {
 		const unsigned char *dkey;
 		size_t dkey_size;
-		PyObject *py_key_obj;
+		PyObject *py_key_obj, *py_ccn_key;
 
 		start = d->decoder.token_index;
 		r = ccn_parse_required_tagged_BLOB(d, CCN_DTAG_Key, 1, -1);
@@ -384,8 +397,14 @@ KeyLocator_obj_from_ccn(PyObject *py_keylocator)
 					" internal representation");
 			return NULL;
 		}
-		py_key_obj = Key_obj_from_ccn(pubkey); // Now the key object must destroy it.s
-		ccn_pubkey_free(pubkey);
+		py_ccn_key = CCNObject_New(PKEY_PUB, pubkey);
+		if (!py_ccn_key) {
+			ccn_pubkey_free(pubkey);
+			return NULL;
+		}
+
+		py_key_obj = Key_obj_from_ccn(py_ccn_key);
+		Py_DECREF(py_ccn_key);
 		if (!py_key_obj)
 			return NULL;
 
@@ -445,16 +464,9 @@ _pyccn_Key_to_ccn_private(PyObject *UNUSED(self), PyObject *py_key)
 }
 
 PyObject *
-_pyccn_Key_from_ccn(PyObject *UNUSED(self), PyObject *cobj_key)
+_pyccn_Key_from_ccn(PyObject *UNUSED(self), PyObject *py_ccn_key)
 {
-	if (CCNObject_IsValid(PKEY_PRIV, cobj_key))
-		return Key_obj_from_ccn(CCNObject_Get(PKEY_PRIV, cobj_key));
-
-	if (!CCNObject_IsValid(PKEY_PUB, cobj_key))
-		return Key_obj_from_ccn(CCNObject_Get(PKEY_PUB, cobj_key));
-
-	PyErr_SetString(PyExc_TypeError, "Must pass a CCN PKEY object");
-	return NULL;
+	return Key_obj_from_ccn(py_ccn_key);
 }
 
 PyObject *

@@ -749,99 +749,6 @@ _pyccn_ccn_put(PyObject *UNUSED(self), PyObject *args)
 	return Py_BuildValue("i", r);
 }
 
-// Keys
-
-// TODO: Revise to make a method of CCN?
-//
-// args:  Key to fill, CCN Handle
-
-#if 0
-
-PyObject *
-_pyccn_ccn_get_default_key(PyObject *UNUSED(self), PyObject *py_obj_CCN)
-{
-	struct ccn_keystore *keystore;
-	const struct ccn_pkey *private_key;
-	PyObject *py_handle;
-	int r;
-
-	debug("Got _pyccn_ccn_get_default_key start\n");
-
-	if (strcmp(py_obj_CCN->ob_type->tp_name, "CCN")) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a CCN Handle");
-		return NULL;
-	}
-
-	struct ccn_private {
-		int sock;
-		size_t outbufindex;
-		struct ccn_charbuf *interestbuf;
-		struct ccn_charbuf *inbuf;
-		struct ccn_charbuf *outbuf;
-		struct ccn_charbuf *ccndid;
-		struct hashtb *interests_by_prefix;
-		struct hashtb *interest_filters;
-		struct ccn_skeleton_decoder decoder;
-		struct ccn_indexbuf *scratch_indexbuf;
-		struct hashtb *keys; /* public keys, by pubid */
-		struct hashtb *keystores; /* unlocked private keys */
-		struct ccn_charbuf *default_pubid;
-		struct timeval now;
-		int timeout;
-		int refresh_us;
-		int err; /* pos => errno value, neg => other */
-		int errline;
-		int verbose_error;
-		int tap;
-		int running;
-	};
-
-	// In order to get the default key, have to call ccn_chk_signing_params
-	// which seems to get the key and insert it in the hash table; otherwise
-	// the hashtable starts empty
-	// Could we just have an API call that returns the default signing key?
-	//
-	py_handle = PyObject_GetAttrString(py_obj_CCN, "ccn_data");
-	JUMP_IF_NULL(py_handle, error);
-
-	struct ccn_private *handle = CCNObject_Get(HANDLE, py_handle);
-	struct ccn_signing_params name_sp = CCN_SIGNING_PARAMS_INIT;
-	struct ccn_signing_params p = CCN_SIGNING_PARAMS_INIT;
-	struct ccn_charbuf *timestamp = NULL;
-	struct ccn_charbuf *finalblockid = NULL;
-	struct ccn_charbuf *keylocator = NULL;
-	r = ccn_chk_signing_params((struct ccn*) handle, &name_sp, &p,
-			&timestamp, &finalblockid, &keylocator);
-	if (r < 0) {
-		PyErr_SetString(g_PyExc_CCNError, "Error while calling"
-				" ccn_chk_signing_params()");
-		goto error;
-	}
-
-	struct hashtb_enumerator ee;
-	struct hashtb_enumerator *e = &ee;
-
-	hashtb_start(handle->keystores, e);
-	if (hashtb_seek(e, p.pubid, sizeof(p.pubid), 0) != HT_OLD_ENTRY) {
-		debug("No default keystore?\n");
-		hashtb_end(e);
-
-		return(Py_INCREF(Py_None), Py_None);
-	} else {
-		struct ccn_keystore **pk = e->data;
-		keystore = *pk;
-		private_key = (struct ccn_pkey*) ccn_keystore_private_key(keystore);
-	}
-	hashtb_end(e);
-
-	return Key_obj_from_ccn((struct ccn_pkey*) private_key);
-
-error:
-	Py_XDECREF(py_handle);
-	return NULL;
-}
-#endif
-
 PyObject *
 _pyccn_ccn_get_default_key(PyObject *UNUSED(self), PyObject *UNUSED(arg))
 {
@@ -849,7 +756,7 @@ _pyccn_ccn_get_default_key(PyObject *UNUSED(self), PyObject *UNUSED(arg))
 	struct ccn_charbuf *buf = NULL;
 	const struct ccn_pkey *key;
 	int r;
-	PyObject *py_Key_obj;
+	PyObject *py_ccn_key, *py_Key_obj;
 
 	buf = ccn_charbuf_create();
 	JUMP_IF_NULL_MEM(buf, error);
@@ -871,7 +778,11 @@ _pyccn_ccn_get_default_key(PyObject *UNUSED(self), PyObject *UNUSED(arg))
 	key = ccn_keystore_private_key(keystore);
 	assert(key);
 
-	py_Key_obj = Key_obj_from_ccn(key);
+	py_ccn_key = _pyccn_privatekey_dup(key);
+	JUMP_IF_NULL(py_ccn_key, error);
+
+	py_Key_obj = Key_obj_from_ccn(py_ccn_key);
+	Py_DECREF(py_ccn_key);
 	ccn_keystore_destroy(&keystore);
 
 	return py_Key_obj;

@@ -275,6 +275,42 @@ error:
 	return -1;
 }
 
+PyObject *
+_pyccn_privatekey_dup(const struct ccn_pkey *key)
+{
+	RSA *private_key_rsa;
+	PyObject *py_private_key = NULL;
+	struct ccn_pkey *private_key;
+	unsigned int err;
+	int r;
+
+	private_key = (struct ccn_pkey *) EVP_PKEY_new();
+	JUMP_IF_NULL(private_key, openssl_error);
+
+	py_private_key = CCNObject_New(PKEY_PRIV, private_key);
+	if (!py_private_key) {
+		EVP_PKEY_free((EVP_PKEY *) private_key);
+		goto error;
+	}
+
+	private_key_rsa = EVP_PKEY_get1_RSA((EVP_PKEY *) key);
+	JUMP_IF_NULL(private_key_rsa, openssl_error);
+
+	r = EVP_PKEY_set1_RSA((EVP_PKEY*) private_key, private_key_rsa);
+	RSA_free(private_key_rsa);
+	JUMP_IF_NEG(r, openssl_error);
+
+	return py_private_key;
+
+openssl_error:
+	err = ERR_get_error();
+	PyErr_Format(g_PyExc_CCNKeyError, "Unable to generate keypair from the key:"
+			" %s", ERR_reason_error_string(err));
+error:
+	Py_XDECREF(py_private_key);
+	return NULL;
+}
+
 #if 0
 
 static int

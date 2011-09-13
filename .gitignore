@@ -1,5 +1,5 @@
 /autom4te.cache/
-/build/
+/build*/
 /build-aux/
 /nbproject/private/
 /tests/*.log
