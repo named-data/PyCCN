@@ -1,0 +1,36 @@
+- needs to be done
++ finished
+
+known bugs:
++ _pyccn_Key_from_ccn to work with public key as well
++ currently ExclusionFilter isn't parsed back from interest
+- chat (python part) doesn't seem to work with python3 (need to find out why)
+- test cases to verify ContentObject and Interest generated from ccn_data is
+  correct
+- receiving.py testcase uses ccnput, it'll fail if ccnput is not in the same
+  path
+
+some improvements:
+- KeyLocator when is using KeyName, it needs to include hash of the key as well
+- add exporting of DER to file (maybe not needed? it can save it to a variable)
+- added exporting of PEM to string (currently it saves them directly to file)
+- providing own timestamp in ContentObject currently will say it's not
+  implemented (it'll use current time when not specified)
+- remove Key.publickKeyIDsize (doesn't len(publicKeyID) does the same thing?)
+- change Key.publicKeyID to return bytes instead of bytesarray (needs to be
+  done in several places)
+- combine ContentObject + parsed ContentObject + comps together, same with
+  Interest (i.e. all of those parts would be seen in python as one variable). I
+  think they're strongly related together.
+- remove all _pyccn_* in front of python commands
+- revise code for generating digest and public keys from private ones (the code
+  works, but I feel I'm probably doing unnecessary steps due to not fully
+  understanding openssl documentation for example my code to make copy of
+  ccn_pkey has 4 steps (make new pkey, wrap it in capsule, convert existing key
+  to RSA, put that RSA key in the new pkey - perhaps there's a _dup() call
+  which I could use. Or for example the digest code expects key in RSA format,
+  then converts it to DER, but in some parts of the code I already have it as
+  DER and unnecessarily convert it to RSA to make call)
+- document functions
+- key management + name crypto integration (as per another e-mail)
+

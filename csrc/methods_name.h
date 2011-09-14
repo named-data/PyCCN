@@ -31,6 +31,9 @@
 #ifndef METHODS_NAME_H
 #  define	METHODS_NAME_H
 
+#  define NAME_TYPE_NORMAL 0
+#  define NAME_TYPE_ANY 1
+
 PyObject *_pyccn_Name_to_ccn(PyObject *self, PyObject *py_name_components);
 PyObject *_pyccn_Name_from_ccn(PyObject *self, PyObject *py_cname);
 PyObject *Name_obj_from_ccn(PyObject *ccn_data);

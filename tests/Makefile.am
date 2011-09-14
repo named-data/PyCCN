@@ -15,7 +15,8 @@ TESTS = \
 	keyExportDER.py \
 	signing.py \
 	simpleCommunication.py \
-	receiving.py
+	receiving.py \
+	exclusions.py
 
 check_SCRIPTS = run
 

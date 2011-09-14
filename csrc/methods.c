@@ -1057,6 +1057,5 @@ _pyccn_dump_charbuf(PyObject *UNUSED(self), PyObject *py_charbuf)
 success:
 	charbuf = CCNObject_Get(type, py_charbuf);
 
-	dump_charbuf(charbuf, stderr);
-	Py_RETURN_NONE;
+	return PyBytes_FromStringAndSize((char *) charbuf->buf, charbuf->length);
 }

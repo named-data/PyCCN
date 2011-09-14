@@ -154,14 +154,67 @@ error:
 	return NULL;
 }
 
-// Can be called directly from c library
+static PyObject *
+Exclusion_Any_Obj()
+{
+	PyObject *py_name = NULL, *py_type_any;
+	int r;
+
+	assert(g_type_Name);
+
+	py_type_any = PyLong_FromLong(NAME_TYPE_ANY);
+	JUMP_IF_NULL(py_type_any, error);
+
+	py_name = PyObject_CallObject(g_type_Name, NULL);
+	JUMP_IF_NULL(py_name, error);
+
+	r = PyObject_SetAttrString(py_name, "type", py_type_any);
+	Py_CLEAR(py_type_any);
+	JUMP_IF_NEG(r, error);
+
+	return py_name;
+
+error:
+	Py_XDECREF(py_name);
+	Py_XDECREF(py_type_any);
+	return NULL;
+}
+
+static PyObject *
+Exclusion_Name_Obj(unsigned char *buf, size_t start, size_t stop)
+{
+	struct ccn_charbuf *name;
+	PyObject *py_name, *res;
+	int r;
+
+	py_name = CCNObject_New_charbuf(NAME, &name);
+	JUMP_IF_NULL(py_name, error);
+
+	r = ccn_name_init(name);
+	JUMP_IF_NEG_MEM(r, error);
+
+	r = ccn_name_append_components(name, buf, start, stop);
+	JUMP_IF_NEG_MEM(r, error);
+
+	res = Name_obj_from_ccn(py_name);
+	Py_DECREF(py_name);
+
+	return res;
+
+error:
+	Py_XDECREF(py_name);
+	return NULL;
+}
 
 static PyObject *
 ExclusionFilter_obj_from_ccn(PyObject *py_exclusion_filter)
 {
-	PyObject *py_obj_ExclusionFilter;
+	PyObject *py_obj_ExclusionFilter, *py_components = NULL;
+	PyObject *py_o;
 	struct ccn_charbuf *exclusion_filter;
 	int r;
+	struct ccn_buf_decoder decoder, *d;
+	size_t start, stop;
 
 	assert(g_type_ExclusionFilter);
 
@@ -182,18 +235,79 @@ ExclusionFilter_obj_from_ccn(PyObject *py_exclusion_filter)
 	// 3) Parse c structure and fill python attributes
 	//    using PyObject_SetAttrString
 	//
-	//    self.data = None        # should this be a list?
+	//    self.components = None
 	//    # pyccn
 	//    self.ccn_data_dirty = False
 	//    self.ccn_data = None  # backing charbuf
-#pragma message "Missing parsing of ExclusionFilter"
+
+	py_components = PyList_New(0);
+	JUMP_IF_NULL(py_components, error);
+
+	r = PyObject_SetAttrString(py_obj_ExclusionFilter, "components",
+			py_components);
+	JUMP_IF_NEG(r, error);
+
+	/* begin the actual parsing */
+	d = ccn_buf_decoder_start(&decoder, exclusion_filter->buf,
+			exclusion_filter->length);
+
+	r = ccn_buf_match_dtag(d, CCN_DTAG_Exclude);
+	JUMP_IF_NEG(r, parse_error);
+	ccn_buf_advance(d);
+
+	r = ccn_buf_match_dtag(d, CCN_DTAG_Any);
+	JUMP_IF_NEG(r, error);
+	if (r) {
+		ccn_buf_advance(d);
+		ccn_buf_check_close(d);
+		debug("got any: %d\n", r);
+
+		py_o = Exclusion_Any_Obj();
+		JUMP_IF_NULL(py_o, error);
+
+		r = PyList_Append(py_components, py_o);
+		Py_DECREF(py_o);
+		JUMP_IF_NEG(r, error);
+	}
+
+	while (ccn_buf_match_dtag(d, CCN_DTAG_Component)) {
+		start = d->decoder.token_index;
+		r = ccn_parse_required_tagged_BLOB(d, CCN_DTAG_Component, 0, -1);
+		JUMP_IF_NEG(r, error);
+		stop = d->decoder.token_index;
+		debug("got name\n");
+
+		py_o = Exclusion_Name_Obj(exclusion_filter->buf, start, stop);
+		r = PyList_Append(py_components, py_o);
+		Py_DECREF(py_o);
+		JUMP_IF_NEG(r, error);
+
+		r = ccn_buf_match_dtag(d, CCN_DTAG_Any);
+		if (r) {
+			ccn_buf_advance(d);
+			ccn_buf_check_close(d);
+			debug("got *any*: %d\n", r);
+
+			py_o = Exclusion_Any_Obj();
+			JUMP_IF_NULL(py_o, error);
+
+			r = PyList_Append(py_components, py_o);
+			Py_DECREF(py_o);
+			JUMP_IF_NEG(r, error);
+		}
+	}
+	ccn_buf_check_close(d);
+	JUMP_IF_NEG(d->decoder.state, parse_error);
 
 	// 4) Return the created object
 	debug("ExclusionFilter_from_ccn ends\n");
 
 	return py_obj_ExclusionFilter;
 
+parse_error:
+	PyErr_SetString(g_PyExc_CCNExclusionFilterError, "error parsing the data");
 error:
+	Py_XDECREF(py_components);
 	Py_XDECREF(py_obj_ExclusionFilter);
 	return NULL;
 }

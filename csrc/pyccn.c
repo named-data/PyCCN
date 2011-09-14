@@ -252,10 +252,8 @@ _pyccn_get_type(enum e_class_type type)
 	p = &modules[type];
 	assert(p->type == type);
 
-	if (state->class_type[type]) {
-		debug("Type: %s [%d] exists, returning.\n", p->class, type);
+	if (state->class_type[type])
 		return state->class_type[type];
-	}
 
 	py_module = PyImport_ImportModule(p->module);
 	if (!py_module)
@@ -266,7 +264,8 @@ _pyccn_get_type(enum e_class_type type)
 
 	py_type = PyDict_GetItemString(py_dict, p->class);
 	if (!py_type) {
-		PyErr_Format(PyExc_SystemError, "Error obtaining type for %s [%d]", p->class, type);
+		PyErr_Format(PyExc_SystemError, "Error obtaining type for %s [%d]",
+				p->class, type);
 		return NULL;
 	}
 
