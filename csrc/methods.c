@@ -835,12 +835,6 @@ _pyccn_generate_RSA_key(PyObject *UNUSED(self), PyObject *args)
 	Py_DECREF(py_public_key_digest);
 	JUMP_IF_NEG(r, error);
 
-	py_o = _pyccn_Int_FromLong(public_key_digest_len);
-	JUMP_IF_NULL(py_o, error);
-	r = PyObject_SetAttrString(py_key, "publicKeyIDsize", py_o);
-	Py_DECREF(py_o);
-	JUMP_IF_NEG(r, error);
-
 	Py_RETURN_NONE;
 
 error:

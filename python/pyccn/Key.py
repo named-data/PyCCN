@@ -36,7 +36,6 @@ class Key(object):
 	def __init__(self):
 		self.type = None
 		self.publicKeyID = None # SHA256 hash
-		self.publicKeyIDsize = 32
 		# pyccn
 		self.ccn_data_dirty = False
 		self.ccn_data_public = None  # backing pkey
@@ -77,26 +76,26 @@ class Key(object):
 
 	def fromDER(self, private = None, public = None):
 		if private:
-			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID, \
-				self.publicKeyIDsize) = _pyccn.DER_read_key(private=private)
+			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID) = \
+				_pyccn.DER_read_key(private=private)
 			return
 		if public:
-			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID, \
-				self.publicKeyIDsize) = _pyccn.DER_read_key(public=public)
+			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID) = \
+				_pyccn.DER_read_key(public=public)
 			return
 
 	def fromPEM(self, filename = None, private = None, public = None):
 		if filename:
 			f = open(filename, 'r')
-			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID, \
-				self.publicKeyIDsize) = _pyccn.PEM_read_key(file=f)
+			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID) = \
+				_pyccn.PEM_read_key(file=f)
 			f.close()
 		elif private:
-			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID, \
-				self.publicKeyIDsize) = _pyccn.PEM_read_key(private=private)
+			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID) = \
+				_pyccn.PEM_read_key(private=private)
 		elif public:
-			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID, \
-				self.publicKeyIDsize) = _pyccn.PEM_read_key(public=public)
+			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID) = \
+				_pyccn.PEM_read_key(public=public)
 
 # plus library helper functions to generate and serialize keys?
 

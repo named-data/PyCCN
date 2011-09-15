@@ -240,13 +240,6 @@ Key_obj_from_ccn(PyObject *py_key_ccn)
 	Py_CLEAR(py_public_key_digest);
 	JUMP_IF_NEG(r, error);
 
-	// publicKeyIDsize
-	py_o = _pyccn_Int_FromLong(public_key_digest_len);
-	JUMP_IF_NULL(py_o, error);
-	r = PyObject_SetAttrString(py_obj_Key, "publicKeyIDsize", py_o);
-	Py_DECREF(py_o);
-	JUMP_IF_NEG(r, error);
-
 	// 3) Set ccn_data to a cobject pointing to the c struct
 	//    and ensure proper destructor is set up for the c object.
 	// privateKey
@@ -564,8 +557,7 @@ _pyccn_PEM_read_key(PyObject *UNUSED(self), PyObject *args,
 		return NULL;
 	}
 
-	py_ret = Py_BuildValue("(OOOi)", py_private_key, py_public_key, py_digest,
-			digest_len);
+	py_ret = Py_BuildValue("(OOO)", py_private_key, py_public_key, py_digest);
 	Py_DECREF(py_private_key);
 	Py_DECREF(py_public_key);
 	Py_DECREF(py_digest);
@@ -676,8 +668,7 @@ do_work:
 	if (r < 0)
 		return NULL;
 
-	py_ret = Py_BuildValue("(OOOi)", py_private_key, py_public_key, py_digest,
-			digest_len);
+	py_ret = Py_BuildValue("(OOO)", py_private_key, py_public_key, py_digest);
 	Py_DECREF(py_private_key);
 	Py_DECREF(py_public_key);
 	Py_DECREF(py_digest);
