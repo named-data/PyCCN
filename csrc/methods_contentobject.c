@@ -334,7 +334,8 @@ _pyccn_ContentObject_to_ccn(PyObject *UNUSED(self), PyObject *args)
 	struct ccn_pkey *private_key;
 	const char *digest_alg = NULL;
 	char *content;
-	int content_len, r;
+	Py_ssize_t content_len;
+	int r;
 
 	if (!PyArg_ParseTuple(args, "OOOOO", &py_content_object, &py_name,
 			&py_content, &py_signed_info, &py_key))

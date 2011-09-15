@@ -684,7 +684,6 @@ _pyccn_DER_write_key(PyObject *UNUSED(self), PyObject *args,
 	struct ccn_pkey *pkey;
 	PyObject *py_file = Py_None;
 	int isprivate = -1;
-	FILE *of;
 
 	static char *kwlist[] = {"key", "file", NULL};
 

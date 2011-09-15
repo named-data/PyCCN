@@ -279,7 +279,7 @@ obj_Signature_obj_from_ccn(PyObject *py_signature)
 	ccn_buf_check_close(d);
 	if (d->decoder.state < 0) {
 		PyErr_Format(g_PyExc_CCNSignatureError, "Signature decoding error"
-				" (decoder state: %d, numval: %d)", d->decoder.state,
+				" (decoder state: %d, numval: %zd)", d->decoder.state,
 				d->decoder.numval);
 		goto error;
 	}
