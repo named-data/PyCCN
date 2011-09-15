@@ -54,3 +54,26 @@ assert(filecmp.cmp(public_pem1, public_pem2))
 assert(k.publicKeyID == k2.publicKeyID)
 
 rm_files(private_pem1, public_pem1, private_pem2, public_pem2)
+
+private = k.privateToPEM()
+public = k.publicToPEM()
+
+k2 = Key.Key()
+k2.fromPEM(private=private)
+
+assert(k.privateToDER() == k2.privateToDER())
+assert(k.publicToDER() == k2.publicToDER())
+assert(k.publicKeyID == k2.publicKeyID)
+
+k2 = Key.Key()
+k2.fromPEM(public=public)
+
+try:
+	k2.privateToPEM()
+except:
+	pass
+else:
+	raise AssertionError("This should fail - this is not a private key")
+
+assert(k.publicToDER() == k2.publicToDER())
+assert(k.publicKeyID == k2.publicKeyID)

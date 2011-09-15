@@ -123,7 +123,7 @@ class CCN(object):
 			self._release_lock()
 
 	def getDefaultKey(self):
-		return _pyccn._pyccn_ccn_get_default_key()
+		return _pyccn.get_default_key()
 
 class EventLoop(object):
 	def __init__(self, *handles):

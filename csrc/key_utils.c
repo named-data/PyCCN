@@ -449,22 +449,83 @@ write_key_pem_public(FILE *fp, struct ccn_pkey *private_key_ccn)
 	return 0;
 }
 
-int
-get_key_pem_public(char** buf, int* length, struct ccn_pkey* private_key_ccn)
+PyObject *
+get_key_pem_private(const struct ccn_pkey *private_key_ccn)
 {
-	RSA* private_key_rsa = EVP_PKEY_get1_RSA((EVP_PKEY*) private_key_ccn);
-	BIO* bio = BIO_new(BIO_s_mem());
+	unsigned long err;
+	RSA *private_key_rsa = NULL;
+	BIO *bio;
 	BUF_MEM *bufmem;
-	PEM_write_bio_RSAPublicKey(bio, private_key_rsa);
-	BIO_get_mem_ptr(bio, &bufmem);
-	*buf = bufmem->data;
-	*length = bufmem->length;
-	char zero = 0; // zero terminate in memory for easier string printing
-	BIO_write(bio, &zero, 1);
-	BIO_set_close(bio, BIO_NOCLOSE); // don't destroy
-	BIO_free(bio);
+	int r;
+	PyObject *py_res;
+
+	bio = BIO_new(BIO_s_mem());
+	JUMP_IF_NULL(bio, openssl_error);
+
+	private_key_rsa = EVP_PKEY_get1_RSA((EVP_PKEY *) private_key_ccn);
+	JUMP_IF_NULL(private_key_rsa, openssl_error);
+
+	r = PEM_write_bio_RSAPrivateKey(bio, private_key_rsa, NULL, NULL, 0, NULL,
+			NULL);
 	RSA_free(private_key_rsa);
-	return 0;
+	private_key_rsa = NULL;
+	if (!r)
+		goto openssl_error;
+
+	BIO_get_mem_ptr(bio, &bufmem);
+	py_res = PyBytes_FromStringAndSize(bufmem->data, bufmem->length);
+	r = BIO_free(bio);
+	if (!r)
+		goto openssl_error;
+
+	return py_res;
+
+openssl_error:
+	err = ERR_get_error();
+	PyErr_Format(g_PyExc_CCNKeyError, "Unable to obtain PEM: %s",
+			ERR_reason_error_string(err));
+	RSA_free(private_key_rsa);
+	BIO_free(bio);
+	return NULL;
+}
+
+PyObject *
+get_key_pem_public(const struct ccn_pkey *key_ccn)
+{
+	unsigned long err;
+	RSA *public_key_rsa = NULL;
+	BIO *bio;
+	BUF_MEM *bufmem;
+	int r;
+	PyObject *py_res;
+
+	bio = BIO_new(BIO_s_mem());
+	JUMP_IF_NULL(bio, openssl_error);
+
+	public_key_rsa = EVP_PKEY_get1_RSA((EVP_PKEY *) key_ccn);
+	JUMP_IF_NULL(public_key_rsa, openssl_error);
+
+	r = PEM_write_bio_RSAPublicKey(bio, public_key_rsa);
+	RSA_free(public_key_rsa);
+	public_key_rsa = NULL;
+	if (!r)
+		goto openssl_error;
+
+	BIO_get_mem_ptr(bio, &bufmem);
+	py_res = PyBytes_FromStringAndSize(bufmem->data, bufmem->length);
+	r = BIO_free(bio);
+	if (!r)
+		goto openssl_error;
+
+	return py_res;
+
+openssl_error:
+	err = ERR_get_error();
+	PyErr_Format(g_PyExc_CCNKeyError, "Unable to obtain PEM: %s",
+			ERR_reason_error_string(err));
+	RSA_free(public_key_rsa);
+	BIO_free(bio);
+	return NULL;
 }
 
 PyObject *
@@ -606,6 +667,51 @@ error:
 	Py_XDECREF(py_public_key);
 	if (private_key_rsa)
 		RSA_free(private_key_rsa);
+	return -1;
+}
+
+int
+put_key_pem(int is_public_only, PyObject *py_key_pem,
+		PyObject **py_private_key_ccn, PyObject **py_public_key_ccn,
+		PyObject **py_public_key_digest)
+{
+	unsigned char *key_pem;
+	Py_ssize_t pem_len;
+	RSA *key_rsa = NULL;
+	BIO *bio = NULL;
+	int r;
+	unsigned long err;
+
+	r = PyBytes_AsStringAndSize(py_key_pem, (char **) &key_pem, &pem_len);
+	JUMP_IF_NEG(r, error);
+
+	bio = BIO_new_mem_buf(key_pem, pem_len);
+	JUMP_IF_NULL(bio, openssl_error);
+
+	if (is_public_only)
+		key_rsa = PEM_read_bio_RSAPublicKey(bio, NULL, NULL, NULL);
+	else
+		key_rsa = PEM_read_bio_RSAPrivateKey(bio, NULL, NULL, NULL);
+	JUMP_IF_NULL(key_rsa, openssl_error);
+
+	r = ccn_keypair_from_rsa(is_public_only, key_rsa, py_private_key_ccn,
+			py_public_key_ccn);
+	JUMP_IF_NEG(r, error);
+
+	r = create_public_key_digest(key_rsa, py_public_key_digest, NULL);
+	JUMP_IF_NEG(r, error);
+
+	RSA_free(key_rsa);
+
+	return 0;
+
+openssl_error:
+	err = ERR_get_error();
+	PyErr_Format(g_PyExc_CCNKeyError, "Unable to parse key: %s",
+			ERR_reason_error_string(err));
+error:
+	RSA_free(key_rsa);
+	BIO_free(bio);
 	return -1;
 }
 

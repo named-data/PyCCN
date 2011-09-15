@@ -531,27 +531,46 @@ _pyccn_KeyLocator_from_ccn(PyObject *UNUSED(self), PyObject *py_keylocator)
 }
 
 PyObject *
-_pyccn_PEM_read_key(PyObject *UNUSED(self), PyObject *args)
+_pyccn_PEM_read_key(PyObject *UNUSED(self), PyObject *args,
+		PyObject *py_kwds)
 {
-	PyObject *py_file;
+	PyObject *py_file = Py_None, *py_private_pem = Py_None,
+			*py_public_pem = Py_None;
 	PyObject *py_private_key, *py_public_key, *py_digest, *py_ret;
 	int digest_len, r;
 	FILE *fin;
 
-	// Would use METH_O but I think this method will support more args in the
-	// future
-	if (!PyArg_ParseTuple(args, "O", &py_file))
+	static char *kwlist[] = {"file", "private", "public", NULL};
+
+	if (!PyArg_ParseTupleAndKeywords(args, py_kwds, "|OOO", kwlist, &py_file,
+			&py_private_pem, &py_public_pem))
 		return NULL;
 
-	fin = _pyccn_open_file_handle(py_file, "r");
-	if (!fin)
-		return NULL;
+	if (py_file != Py_None) {
+		fin = _pyccn_open_file_handle(py_file, "r");
+		if (!fin)
+			return NULL;
 
-	r = read_key_pem(fin, &py_private_key, &py_public_key, &py_digest,
-			&digest_len);
-	_pyccn_close_file_handle(fin);
-	if (r < 0)
+		r = read_key_pem(fin, &py_private_key, &py_public_key, &py_digest,
+				&digest_len);
+		_pyccn_close_file_handle(fin);
+		if (r < 0)
+			return NULL;
+	} else if (py_private_pem != Py_None) {
+		r = put_key_pem(0, py_private_pem, &py_private_key, &py_public_key,
+				&py_digest);
+		if (r < 0)
+			return NULL;
+	} else if (py_public_pem != Py_None) {
+		r = put_key_pem(1, py_public_pem, &py_private_key, &py_public_key,
+				&py_digest);
+		if (r < 0)
+			return NULL;
+	} else {
+		PyErr_SetString(PyExc_TypeError, "expected file handle or key in PEM"
+				" format");
 		return NULL;
+	}
 
 	py_ret = Py_BuildValue("(OOOi)", py_private_key, py_public_key, py_digest,
 			digest_len);
@@ -604,6 +623,11 @@ _pyccn_PEM_write_key(PyObject *UNUSED(self), PyObject *args,
 		_pyccn_close_file_handle(of);
 		if (r < 0)
 			return NULL;
+	} else {
+		if (private)
+			return get_key_pem_private(pkey);
+		else
+			return get_key_pem_public(pkey);
 	}
 
 	Py_RETURN_NONE;

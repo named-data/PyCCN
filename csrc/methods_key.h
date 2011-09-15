@@ -42,7 +42,8 @@ PyObject *_pyccn_KeyLocator_to_ccn(PyObject *self, PyObject *args,
 		PyObject *kwds);
 PyObject *_pyccn_KeyLocator_from_ccn(PyObject *self,
 		PyObject *py_keylocator);
-PyObject *_pyccn_PEM_read_key(PyObject *self, PyObject *args);
+PyObject *_pyccn_PEM_read_key(PyObject *self, PyObject *args,
+		PyObject *py_kwrds);
 PyObject *_pyccn_PEM_write_key(PyObject *self, PyObject *args,
 		PyObject *py_kwrds);
 PyObject *_pyccn_DER_read_key(PyObject *UNUSED(self), PyObject *args,

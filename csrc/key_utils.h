@@ -72,12 +72,16 @@ int generate_key(int length, PyObject **private_key_ccn,
 int write_key_pem_private(FILE *fp, struct ccn_pkey* private_key_ccn);
 int write_key_pem_public(FILE *fp, struct ccn_pkey* private_key_ccn);
 
-int get_key_pem_public(char** buf, int* length, struct ccn_pkey* private_key_ccn);
+PyObject *get_key_pem_private(const struct ccn_pkey *private_key_ccn);
+PyObject *get_key_pem_public(const struct ccn_pkey *key_ccn);
 PyObject *get_key_der_private(struct ccn_pkey *private_key_ccn);
 PyObject *get_key_der_public(struct ccn_pkey *public_key_ccn);
 int read_key_pem(FILE *fp, PyObject **py_private_key_ccn,
 		PyObject **public_key_ccn, PyObject **py_public_key_digest,
 		int *public_key_digest_len);
+int put_key_pem(int is_public_only, PyObject *py_key_pem,
+		PyObject **py_private_key_ccn, PyObject **py_public_key_ccn,
+		PyObject **py_public_key_digest);
 int put_key_der(int is_public_only, PyObject *py_key_der,
 		PyObject **py_private_key_ccn, PyObject **py_public_key_ccn,
 		PyObject **py_public_key_digest, int *public_key_digest_len);

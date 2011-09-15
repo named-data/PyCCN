@@ -132,7 +132,7 @@ if __name__ == '__main__':
 	from pyccn import _pyccn, Key, ContentObject
 
 	def publish(name, content):
-		key = _pyccn._pyccn_ccn_get_default_key()
+		key = _pyccn.get_default_key()
 		keylocator = Key.KeyLocator(key)
 
 		# Name

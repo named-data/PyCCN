@@ -65,12 +65,16 @@ class Key(object):
 			f = open(filename, 'w')
 			_pyccn.PEM_write_key(self.ccn_data_private, file=f)
 			f.close()
+		else:
+			return _pyccn.PEM_write_key(self.ccn_data_private)
 
 	def publicToPEM(self, filename = None):
 		if filename:
 			f = open(filename, 'w')
 			_pyccn.PEM_write_key(self.ccn_data_public, file=f)
 			f.close()
+		else:
+			return _pyccn.PEM_write_key(self.ccn_data_public)
 
 	def fromDER(self, private = None, public = None):
 		if private:
@@ -82,12 +86,18 @@ class Key(object):
 				self.publicKeyIDsize) = _pyccn.DER_read_key(public=public)
 			return
 
-	def fromPEM(self, filename = None):
+	def fromPEM(self, filename = None, private = None, public = None):
 		if filename:
 			f = open(filename, 'r')
 			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID, \
-				self.publicKeyIDsize) = _pyccn.PEM_read_key(f)
+				self.publicKeyIDsize) = _pyccn.PEM_read_key(file=f)
 			f.close()
+		elif private:
+			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID, \
+				self.publicKeyIDsize) = _pyccn.PEM_read_key(private=private)
+		elif public:
+			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID, \
+				self.publicKeyIDsize) = _pyccn.PEM_read_key(public=public)
 
 # plus library helper functions to generate and serialize keys?
 
