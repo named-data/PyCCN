@@ -28,7 +28,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "python.h"
+#include "python_hdr.h"
 #include <ccn/ccn.h>
 #include <ccn/uri.h>
 

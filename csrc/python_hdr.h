@@ -28,8 +28,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PYTHON_H
-#  define	PYTHON_H
+#ifndef PYTHON_HDR_H
+#  define	PYTHON_HDR_H
 
 /* Python 3.2.1 throws bunch of warnings when compiling with -Wextra */
 
@@ -43,5 +43,5 @@
 #    pragma GCC diagnostic warning "-Wunused-parameter"
 #  endif
 
-#endif	/* PYTHON_H */
+#endif	/* PYTHON_HDR_H */
 

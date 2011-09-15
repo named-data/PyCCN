@@ -32,7 +32,7 @@
  * util.c - utility functions
  */
 
-#include "python.h"
+#include "python_hdr.h"
 #include <ccn/ccn.h>
 
 #include <stdlib.h>

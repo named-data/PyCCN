@@ -34,3 +34,5 @@ some improvements:
 - document functions
 - key management + name crypto integration (as per another e-mail)
 
+Possible problems:
+- check key verification (key embedded in content object, or key name)

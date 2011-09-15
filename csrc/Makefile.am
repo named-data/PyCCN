@@ -12,7 +12,7 @@ noinst_HEADERS = \
 	methods_signature.h \
 	methods_signedinfo.h \
 	objects.h \
-	python.h \
+	python_hdr.h \
 	util.h
 
 _pyccn_la_SOURCES = \
