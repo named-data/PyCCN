@@ -16,13 +16,13 @@ some improvements:
 + remove Key.publickKeyIDsize (doesn't len(publicKeyID) does the same thing?)
 + change Key.publicKeyID to return bytes instead of bytesarray (needs to be
   done in several places)
-- KeyLocator when is using KeyName, it needs to include hash of the key as well
 - providing own timestamp in ContentObject currently will say it's not
   implemented (it'll use current time when not specified)
+- remove all _pyccn_* in front of python commands
+- KeyLocator when is using KeyName, it needs to include hash of the key as well
 - combine ContentObject + parsed ContentObject + comps together, same with
   Interest (i.e. all of those parts would be seen in python as one variable). I
   think they're strongly related together.
-- remove all _pyccn_* in front of python commands
 - revise code for generating digest and public keys from private ones (the code
   works, but I feel I'm probably doing unnecessary steps due to not fully
   understanding openssl documentation for example my code to make copy of

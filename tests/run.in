@@ -6,9 +6,9 @@ modpath=${tmpsite}/pyccn
 pypath=${tmpsite}:$PYTHONPATH
 
 test -z "$1" &&
-	PYTHONPATH=$pypath DYLD_LIBRAY_PATH=$modpath exec @PYTHON@
+	PYTHONPATH=$pypath DYLD_LIBRARY_PATH=$modpath exec @PYTHON@
 
 test "$1" == "gdb" &&
-	PYTHONPATH=$pypath DYLD_LIBRAY_PATH=$modpath exec gdb
+	PYTHONPATH=$pypath DYLD_LIBRARY_PATH=$modpath exec gdb
 
-PYTHONPATH=$pypath DYLD_LIBRAY_PATH=$modpath exec @PYTHON@ "$@"
+PYTHONPATH=$pypath DYLD_LIBRARY_PATH=$modpath exec @PYTHON@ "$@"
