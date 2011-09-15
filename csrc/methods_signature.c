@@ -228,7 +228,7 @@ obj_Signature_obj_from_ccn(PyObject *py_signature)
 			&ptr, &size);
 	if (r == 0) {
 		debug("PyObject_SetAttrString digestAlgorithm\n");
-		py_o = PyByteArray_FromStringAndSize((const char*) ptr, size);
+		py_o = PyBytes_FromStringAndSize((const char*) ptr, size);
 		JUMP_IF_NULL(py_o, error);
 		r = PyObject_SetAttrString(py_obj_signature, "digestAlgorithm", py_o);
 		Py_DECREF(py_o);

@@ -110,7 +110,7 @@ SignedInfo_obj_from_ccn(PyObject *py_signed_info)
 
 	//    self.publisherPublicKeyDigest = None     # SHA256 hash
 	debug("PyObject_SetAttrString publisherPublicKeyDigest\n");
-	py_o = PyByteArray_FromStringAndSize((const char*) ptr, size);
+	py_o = PyBytes_FromStringAndSize((const char*) ptr, size);
 	JUMP_IF_NULL(py_o, error);
 	r = PyObject_SetAttrString(py_obj_SignedInfo, "publisherPublicKeyDigest",
 			py_o);
@@ -210,7 +210,7 @@ SignedInfo_obj_from_ccn(PyObject *py_signed_info)
 	if (r == 0) {
 		//    self.finalBlockID = None
 		debug("PyObject_SetAttrString finalBlockID, len=%zd\n", size);
-		py_o = PyByteArray_FromStringAndSize((const char*) ptr, size);
+		py_o = PyBytes_FromStringAndSize((const char*) ptr, size);
 		JUMP_IF_NULL(py_o, error);
 		r = PyObject_SetAttrString(py_obj_SignedInfo, "finalBlockID", py_o);
 		Py_DECREF(py_o);
@@ -325,12 +325,12 @@ _pyccn_SignedInfo_to_ccn(PyObject *UNUSED(self), PyObject *args,
 			&py_final_block, &py_key_locator))
 		return NULL;
 
-	if (!PyByteArray_Check(py_pubkey_digest)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a ByteArray as pubkey_digest");
+	if (!PyBytes_Check(py_pubkey_digest)) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a Bytes as pubkey_digest");
 		return NULL;
 	} else {
-		publisher_key_id_size = PyByteArray_GET_SIZE(py_pubkey_digest);
-		publisher_key_id = PyByteArray_AS_STRING(py_pubkey_digest);
+		publisher_key_id_size = PyBytes_GET_SIZE(py_pubkey_digest);
+		publisher_key_id = PyBytes_AS_STRING(py_pubkey_digest);
 	}
 
 	if (py_timestamp != Py_None) {

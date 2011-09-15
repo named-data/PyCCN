@@ -409,12 +409,12 @@ Interest_obj_to_ccn(PyObject *py_obj_Interest)
 		const char *blob;
 		Py_ssize_t blobsize;
 
-		blob = PyByteArray_AsString(py_o);
+		blob = PyBytes_AsString(py_o);
 		if (!blob) {
 			Py_DECREF(py_o);
 			goto error;
 		}
-		blobsize = PyByteArray_GET_SIZE(py_o);
+		blobsize = PyBytes_GET_SIZE(py_o);
 
 		r = ccnb_append_tagged_blob(interest, CCN_DTAG_PublisherPublicKeyDigest,
 				blob, blobsize);
@@ -635,7 +635,7 @@ Interest_obj_from_ccn_parsed(PyObject *py_interest,
 			goto error;
 		}
 
-		py_o = PyByteArray_FromStringAndSize((const char*) blob, blob_size);
+		py_o = PyBytes_FromStringAndSize((const char*) blob, blob_size);
 		JUMP_IF_NULL(py_o, error);
 
 		r = PyObject_SetAttrString(py_obj_Interest, "publisherPublicKeyDigest",

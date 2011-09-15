@@ -352,7 +352,7 @@ _pyccn_ContentObject_to_ccn(PyObject *UNUSED(self), PyObject *args)
 		name = CCNObject_Get(NAME, py_name);
 
 	if (py_content != Py_None && !PyBytes_Check(py_content)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a ByteArray as arg 3");
+		PyErr_SetString(PyExc_TypeError, "Must pass a Bytes as arg 3");
 		return NULL;
 	} else if (py_content == Py_None) {
 		content = NULL;

@@ -191,8 +191,7 @@ create_public_key_digest(RSA *private_key_rsa,
 	public_key_der = NULL;
 	JUMP_IF_NEG(r, error);
 
-	py_digest = PyByteArray_FromStringAndSize((char *) key_digest,
-			key_digest_size);
+	py_digest = PyBytes_FromStringAndSize((char *) key_digest, key_digest_size);
 	JUMP_IF_NULL(py_digest, error);
 
 	*py_public_key_digest = py_digest;

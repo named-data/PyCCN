@@ -14,7 +14,7 @@ some improvements:
 + added exporting of PEM to string (currently it saves them directly to file)
 + remove Key.pubid
 + remove Key.publickKeyIDsize (doesn't len(publicKeyID) does the same thing?)
-- change Key.publicKeyID to return bytes instead of bytesarray (needs to be
++ change Key.publicKeyID to return bytes instead of bytesarray (needs to be
   done in several places)
 - KeyLocator when is using KeyName, it needs to include hash of the key as well
 - providing own timestamp in ContentObject currently will say it's not
