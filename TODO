@@ -11,14 +11,14 @@ known bugs:
   path
 
 some improvements:
-- KeyLocator when is using KeyName, it needs to include hash of the key as well
-- add exporting of DER to file (maybe not needed? it can save it to a variable)
-- added exporting of PEM to string (currently it saves them directly to file)
-- providing own timestamp in ContentObject currently will say it's not
-  implemented (it'll use current time when not specified)
-- remove Key.publickKeyIDsize (doesn't len(publicKeyID) does the same thing?)
++ added exporting of PEM to string (currently it saves them directly to file)
++ remove Key.pubid
 - change Key.publicKeyID to return bytes instead of bytesarray (needs to be
   done in several places)
+- remove Key.publickKeyIDsize (doesn't len(publicKeyID) does the same thing?)
+- KeyLocator when is using KeyName, it needs to include hash of the key as well
+- providing own timestamp in ContentObject currently will say it's not
+  implemented (it'll use current time when not specified)
 - combine ContentObject + parsed ContentObject + comps together, same with
   Interest (i.e. all of those parts would be seen in python as one variable). I
   think they're strongly related together.
@@ -33,6 +33,8 @@ some improvements:
   DER and unnecessarily convert it to RSA to make call)
 - document functions
 - key management + name crypto integration (as per another e-mail)
+
+- add exporting of DER to file (maybe not needed? it can save it to a variable)
 
 Possible problems:
 - check key verification (key embedded in content object, or key name)

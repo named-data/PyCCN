@@ -247,14 +247,6 @@ Key_obj_from_ccn(PyObject *py_key_ccn)
 	Py_DECREF(py_o);
 	JUMP_IF_NEG(r, error);
 
-	// pubID
-	// TODO: pubID not implemented
-	py_o = (Py_INCREF(Py_None), Py_None);
-	JUMP_IF_NULL(py_o, error);
-	r = PyObject_SetAttrString(py_obj_Key, "pubID", py_o);
-	Py_DECREF(py_o);
-	JUMP_IF_NEG(r, error);
-
 	// 3) Set ccn_data to a cobject pointing to the c struct
 	//    and ensure proper destructor is set up for the c object.
 	// privateKey

@@ -841,12 +841,6 @@ _pyccn_generate_RSA_key(PyObject *UNUSED(self), PyObject *args)
 	Py_DECREF(py_o);
 	JUMP_IF_NEG(r, error);
 
-	// pubID
-	// TODO: pubID not implemented
-	py_o = Py_None;
-	r = PyObject_SetAttrString(py_key, "pubID", py_o);
-	JUMP_IF_NEG(r, error);
-
 	Py_RETURN_NONE;
 
 error:

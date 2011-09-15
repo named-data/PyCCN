@@ -37,7 +37,6 @@ class Key(object):
 		self.type = None
 		self.publicKeyID = None # SHA256 hash
 		self.publicKeyIDsize = 32
-		self.pubid = None   # should load all keys into ccn's handle and hold their ID?
 		# pyccn
 		self.ccn_data_dirty = False
 		self.ccn_data_public = None  # backing pkey
