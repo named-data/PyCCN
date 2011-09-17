@@ -2,8 +2,6 @@
 + finished
 
 known bugs:
-+ _pyccn_Key_from_ccn to work with public key as well
-+ currently ExclusionFilter isn't parsed back from interest
 - chat (python part) doesn't seem to work with python3 (need to find out why)
 - test cases to verify ContentObject and Interest generated from ccn_data is
   correct
@@ -11,15 +9,11 @@ known bugs:
   path
 
 some improvements:
-+ added exporting of PEM to string (currently it saves them directly to file)
-+ remove Key.pubid
-+ remove Key.publickKeyIDsize (doesn't len(publicKeyID) does the same thing?)
-+ change Key.publicKeyID to return bytes instead of bytesarray (needs to be
-  done in several places)
 - providing own timestamp in ContentObject currently will say it's not
   implemented (it'll use current time when not specified)
 - remove all _pyccn_* in front of python commands
 - KeyLocator when is using KeyName, it needs to include hash of the key as well
+- poll() is not reliable on Mac, try to replace it with select() or alternative
 - combine ContentObject + parsed ContentObject + comps together, same with
   Interest (i.e. all of those parts would be seen in python as one variable). I
   think they're strongly related together.
@@ -33,8 +27,14 @@ some improvements:
   DER and unnecessarily convert it to RSA to make call)
 - document functions
 - key management + name crypto integration (as per another e-mail)
-
+- add URI argument to chat
 - add exporting of DER to file (maybe not needed? it can save it to a variable)
+- implement ContentObject.verify()
 
 Possible problems:
 - check key verification (key embedded in content object, or key name)
+
+Documentation:
++ remove license from every file and point to COPYING
+- mention --enable-shared in doc for Mac
+- explanatory of locking code in CCN.py in the beginning of the file
