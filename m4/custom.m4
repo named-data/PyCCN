@@ -1,7 +1,7 @@
 AC_DEFUN([AX_CHECK_CCN], [
 	AX_CHECK_OPENSSL(,AC_MSG_ERROR([CCNx requires OpenSSL]))
 
-	ccndirs="$HOME/ccnx"
+	ccndirs="$HOME/ccnx /usr/local"
 	AC_ARG_WITH([ccn],
 		[AS_HELP_STRING([--with-ccn=DIR],
 			[root of the CCN directory])],
@@ -24,6 +24,7 @@ AC_DEFUN([AX_CHECK_CCN], [
 			CCN_INCLUDES="-I$ccndir/include"
 			CCN_LDFLAGS="-L$ccndir/lib"
 			CCN_LIBS="-lccn"
+			CCN_BIN="$ccndir/bin"
 			AC_MSG_RESULT([yes])
 			break
 		else
@@ -55,7 +56,16 @@ AC_DEFUN([AX_CHECK_CCN], [
 	CPPFLAGS="$save_CPPFLAGS"
 	LDFLAGS="$save_LDFLAGS"
 
+	AC_MSG_CHECKING([whether $CCN_BIN is a valid executable path])
+	if test -x "$CCN_BIN/ccnput"; then
+		AC_MSG_RESULT([yes])
+	else
+		AC_MSG_RESULT([no])
+		AC_MSG_ERROR([Unable to find ccnput in $CCN_BIN])
+	fi
+
 	AC_SUBST([CCN_INCLUDES])
 	AC_SUBST([CCN_LDFLAGS])
 	AC_SUBST([CCN_LIBS])
+	AC_SUBST([CCN_BIN])
 ])
