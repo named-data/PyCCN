@@ -16,6 +16,7 @@
 #include <stdio.h>
 
 #include "pyccn.h"
+#include "util.h"
 
 void
 dump_charbuf(struct ccn_charbuf *c, FILE * fp)
@@ -36,13 +37,13 @@ panic(const char *message)
 }
 
 void
-print_object(PyObject *object)
+print_object(const PyObject *object)
 {
 	FILE *of = fopen("object.log", "aw");
 
-	PyObject_Print(object, of, 0);
+	PyObject_Print((PyObject *) object, of, 0);
 	putc('\n', of);
-	PyObject_Print(object, of, Py_PRINT_RAW);
+	PyObject_Print((PyObject *) object, of, Py_PRINT_RAW);
 	putc('\n', of);
 	putc('\n', of);
 

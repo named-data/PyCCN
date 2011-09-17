@@ -49,6 +49,6 @@ PyObject *CCNObject_New_ContentObjectComponents(
 PyObject *CCNObject_New_charbuf(enum _pyccn_capsules type,
 		struct ccn_charbuf **p);
 void CCNObject_Complete_Closure(PyObject *py_closure);
-void CCNObject_Purge_Closures();
+void CCNObject_Purge_Closures(void);
 
 #endif	/* OBJECTS_H */

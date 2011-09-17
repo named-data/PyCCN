@@ -28,17 +28,17 @@
 #if PY_MAJOR_VERSION >= 3
 #    define INITERROR return NULL
 #    define MODINIT(name) \
-PyMODINIT_FUNC \
-PyInit_ ## name(void)
+            PyMODINIT_FUNC \
+            PyInit_ ## name(void)
 #else
-
 struct pyccn_state _pyccn_state;
-
 #    define INITERROR return
 #    define MODINIT(name) \
-PyMODINIT_FUNC \
-init ## name(void)
+            PyMODINIT_FUNC \
+            init ## name(void)
 #endif
+
+MODINIT(_pyccn);
 
 PyObject *_pyccn_module;
 
@@ -173,7 +173,7 @@ do { \
 } while(0)
 
 static int
-initialize_exceptions()
+initialize_exceptions(void)
 {
 	NEW_EXCEPTION(CCNError, "General CCN Exception", NULL);
 	NEW_EXCEPTION(CCNNameError, "CCN Name Exception", g_PyExc_CCNError);

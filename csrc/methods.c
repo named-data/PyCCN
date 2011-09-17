@@ -9,11 +9,13 @@
 #include <ccn/ccn.h>
 #include <ccn/ccn_private.h>
 #include <ccn/hashtb.h>
+#include <ccn/keystore.h>
 #include <ccn/reg_mgmt.h>
 #include <ccn/signing.h>
 
 #include "pyccn.h"
 #include "key_utils.h"
+#include "methods.h"
 #include "methods_contentobject.h"
 #include "methods_interest.h"
 #include "methods_key.h"

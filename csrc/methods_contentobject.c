@@ -9,6 +9,7 @@
 #include <ccn/ccn.h>
 
 #include "pyccn.h"
+#include "methods_contentobject.h"
 #include "methods_key.h"
 #include "methods_name.h"
 #include "methods_signature.h"

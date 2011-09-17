@@ -34,7 +34,7 @@ static char g_seed_file[200];
 static int g_seeded = 0;
 
 static void
-save_seed()
+save_seed(void)
 {
 	assert(*g_seed_file);
 
@@ -45,7 +45,7 @@ save_seed()
 }
 
 static void
-seed_prng()
+seed_prng(void)
 {
 	const char *file;
 	int res;

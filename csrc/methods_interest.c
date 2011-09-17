@@ -10,6 +10,7 @@
 
 #include "pyccn.h"
 #include "methods_name.h"
+#include "methods_interest.h"
 #include "objects.h"
 #include "util.h"
 
@@ -132,7 +133,7 @@ error:
 }
 
 static PyObject *
-Exclusion_Any_Obj()
+Exclusion_Any_Obj(void)
 {
 	PyObject *py_name = NULL, *py_type_any;
 	int r;

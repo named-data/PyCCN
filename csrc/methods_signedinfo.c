@@ -10,6 +10,7 @@
 
 #include "pyccn.h"
 #include "methods_key.h"
+#include "methods_signedinfo.h"
 #include "objects.h"
 #include "util.h"
 
