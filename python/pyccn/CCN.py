@@ -115,19 +115,37 @@ class EventLoop(object):
 			wait[fd] = handle.process_scheduled()
 		return wait[sorted(wait, key=wait.get)[0]] / 1000.0
 
+	#
+	# version that uses poll (might not work on Mac)
+	#
+	#def run_once(self):
+	#	fd_state = select.poll()
+	#	for handle in self.fds.values():
+	#		flags = select.POLLIN
+	#		if (handle.output_is_pending()):
+	#			flags |= select.POLLOUT
+	#		fd_state.register(handle, flags)
+	#
+	#	timeout = min(self.run_scheduled(), 1000)
+	#
+	#	res = fd_state.poll(timeout)
+	#	for fd, event in res:
+	#		self.fds[fd].run(0)
+
 	def run_once(self):
-		fd_state = select.poll()
+		fd_read = self.fds.values()
+		fd_write = []
 		for handle in self.fds.values():
-			flags = select.POLLIN
-			if (handle.output_is_pending()):
-				flags |= select.POLLOUT
-			fd_state.register(handle, flags)
+			if handle.output_is_pending():
+				fd_write.append(handle)
 
 		timeout = min(self.run_scheduled(), 1000)
 
-		res = fd_state.poll(timeout)
-		for fd, event in res:
-			self.fds[fd].run(0)
+		res = select.select(fd_read, fd_write, [], timeout)
+
+		handles = set(res[0]).union(res[1])
+		for handle in handles:
+			handle.run(0)
 
 	def run(self):
 		self.running = True
