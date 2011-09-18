@@ -84,18 +84,24 @@ All of the files are contained inside of pyccn package. To use you can call:
 
   import pyccn
 
+  or
+
+  from pyccn import CCN, Name, Key, ... and so on ...
+
 ==================================================
-3. ToDo
+3. Platform specific notes
 ==================================================
 
-- Fill in help text python method declaration
-- Update for new key functions in the current branch Nick B has
-- Unit test and debug against C and Java APIs
-- Lots of interesting high-level stuff in Python may require new support code here.
+3.1 MacOS X
 
-Long-term:
-- Most key- and signing-related functions are hardcoded
-  for RSA and SHA256 because the wire format and/or libraries
-  provide no other examples.  Need to keep an eye on API support
-  and update.
+- when building python from sources you need to run ./configure --enable-shared
+  otherwise you might experience crash with message:
+  "Fatal Python error: PyThreadState_Get: no current thread"
+  when trying to import pyccn. I'm looking into ways to make code also work
+  when python is statically compiled.
+- On MacOS X 10.7 (Lion) while compiling the module you'll get bunch of
+  messages about openssl functions being deprecatead. It seems that Apple is
+  replacing openssl with their own implementation called Common Crypto.
+  You might want to point to alternative version (e.g. from Mac Ports) using
+  --with-openssl=<root of openssl dir>
 

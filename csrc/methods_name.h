@@ -14,7 +14,7 @@
 PyObject *_pyccn_Name_to_ccn(PyObject *self, PyObject *py_name_components);
 PyObject *_pyccn_Name_from_ccn(PyObject *self, PyObject *py_cname);
 PyObject *Name_obj_from_ccn(PyObject *ccn_data);
-PyObject *Name_to_ccn(PyObject *py_name);
+PyObject *Name_obj_to_ccn(PyObject *py_name);
 PyObject *Name_from_ccn_tagged_bytearray(const unsigned char *buf,
 		size_t size);
 PyObject *_pyccn_name_from_uri(PyObject *self, PyObject *py_uri);

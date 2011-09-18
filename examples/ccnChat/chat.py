@@ -4,7 +4,7 @@
 # Written by: Derek Kulinski <takeda@takeda.tk>
 #
 
-import curses, curses.wrapper, curses.textpad, threading, time
+import curses, curses.wrapper, curses.textpad, threading, time, sys
 from ChatNet import ChatNet, ChatServer
 
 class ChatGUI(object):
@@ -71,6 +71,13 @@ class ChatGUI(object):
 			chatnet.pullData()
 			time.sleep(1)
 
+def usage():
+	#print(("Usage: %s <URI>" % sys.argv[0]), file=sys.stderr)
+	sys.stderr.write("Usage: %s <URI>\n" % sys.argv[0])
+	sys.exit(1)
+
 if __name__ == '__main__':
-	gui = ChatGUI("/chat")
+	if len(sys.argv) != 2:
+		usage()
+	gui = ChatGUI(sys.argv[1])
 	curses.wrapper(gui.curses_code)

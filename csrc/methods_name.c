@@ -81,8 +81,8 @@ error:
 	return NULL;
 }
 
-PyObject *
-_pyccn_Name_to_ccn(PyObject *UNUSED(self), PyObject *py_name_components)
+static PyObject *
+name_comps_to_ccn(PyObject *py_name_components)
 {
 	struct ccn_charbuf *name;
 	PyObject *py_name, *iterator, *item = NULL;
@@ -169,6 +169,12 @@ error:
 	return NULL;
 }
 
+PyObject *
+_pyccn_Name_to_ccn(PyObject *UNUSED(self), PyObject *py_name_components)
+{
+	return name_comps_to_ccn(py_name_components);
+}
+
 // From within python
 //
 
@@ -213,85 +219,18 @@ error:
 }
 
 PyObject *
-Name_to_ccn(PyObject *py_obj_Name)
+Name_obj_to_ccn(PyObject *py_obj_Name)
 {
-	struct ccn_charbuf *name;
-	PyObject *py_o;
-	PyObject *py_name = NULL;
-	PyObject *comps, *iterator, *item = NULL;
-	int r;
+	PyObject *comps, *py_name;
 
 	comps = PyObject_GetAttrString(py_obj_Name, "components");
 	if (!comps)
 		return NULL;
 
-	iterator = PyObject_GetIter(comps);
+	py_name = name_comps_to_ccn(comps);
 	Py_DECREF(comps);
-	if (!iterator)
-		return NULL;
-
-	py_name = CCNObject_New_charbuf(NAME, &name);
-	JUMP_IF_NULL(py_name, error);
-
-	r = ccn_name_init(name);
-	JUMP_IF_NEG_MEM(r, error);
-
-	// Parse the list of components and
-	// convert them to C objects
-	//
-	while ((item = PyIter_Next(iterator))) {
-		if (PyByteArray_Check(item)) {
-			char *b = PyByteArray_AsString(item);
-			Py_ssize_t n = PyByteArray_GET_SIZE(item);
-			r = ccn_name_append(name, b, n);
-			JUMP_IF_NEG_MEM(r, error);
-		} else if (_pyccn_STRING_CHECK(item)) {
-			char *s;
-			Py_ssize_t len;
-
-			py_o = _pyccn_unicode_to_utf8(item, &s, &len);
-			JUMP_IF_NULL(py_o, error);
-
-			r = ccn_name_append(name, s, len);
-			Py_DECREF(py_o);
-			JUMP_IF_NEG_MEM(r, error);
-
-			// Note, we choose to convert numbers to their string
-			// representation; if we want numeric encoding, use a
-			// byte array and do it explicitly.
-		} else if (PyFloat_Check(item) || PyLong_Check(item) ||
-				_pyccn_Int_Check(item)) {
-			char *s;
-
-			py_o = PyObject_Str(item);
-			JUMP_IF_NULL(py_o, error);
-
-			/* Since it is a number no UTF8 needed */
-			s = PyBytes_AS_STRING(py_o);
-			if (!s) {
-				Py_DECREF(py_o);
-				goto error;
-			}
-
-			r = ccn_name_append_str(name, s);
-			Py_DECREF(py_o);
-			JUMP_IF_NEG_MEM(r, error);
-		} else {
-			PyErr_SetString(PyExc_TypeError, "Unknown value type in the list");
-			goto error;
-		}
-		Py_DECREF(item);
-	}
-	Py_DECREF(iterator);
 
 	return py_name;
-
-error:
-	Py_XDECREF(item);
-	Py_XDECREF(py_name);
-	Py_XDECREF(iterator);
-
-	return NULL;
 }
 
 // Takes a byte array with DTAG

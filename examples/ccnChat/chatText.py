@@ -13,8 +13,6 @@ class ChatNoGUI(object):
 		print("<%s> %s" % (nick, text))
 
 	def main(self):
-		#key = Key.Key()
-		#key.generateRSA(1024)
 		chatnet = ChatNet("/chat", self.callback)
 		chatsrv = ChatServer("/chat")
 

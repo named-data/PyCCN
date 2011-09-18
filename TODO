@@ -2,18 +2,19 @@
 + finished
 
 known bugs:
-- chat (python part) doesn't seem to work with python3 (need to find out why)
++ chat (python part) doesn't seem to work with python3 (need to find out why)
 - test cases to verify ContentObject and Interest generated from ccn_data is
   correct
 - receiving.py testcase uses ccnput, it'll fail if ccnput is not in the same
   path
 
 some improvements:
++ poll() is not reliable on Mac, try to replace it with select() or alternative
++ add URI argument to chat
 - providing own timestamp in ContentObject currently will say it's not
   implemented (it'll use current time when not specified)
 - remove all _pyccn_* in front of python commands
 - KeyLocator when is using KeyName, it needs to include hash of the key as well
-- poll() is not reliable on Mac, try to replace it with select() or alternative
 - combine ContentObject + parsed ContentObject + comps together, same with
   Interest (i.e. all of those parts would be seen in python as one variable). I
   think they're strongly related together.
@@ -27,7 +28,6 @@ some improvements:
   DER and unnecessarily convert it to RSA to make call)
 - document functions
 - key management + name crypto integration (as per another e-mail)
-- add URI argument to chat
 - add exporting of DER to file (maybe not needed? it can save it to a variable)
 - implement ContentObject.verify()
 
@@ -36,5 +36,5 @@ Possible problems:
 
 Documentation:
 + remove license from every file and point to COPYING
-- mention --enable-shared in doc for Mac
++ mention --enable-shared in doc for Mac
 - explanatory of locking code in CCN.py in the beginning of the file

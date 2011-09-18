@@ -353,7 +353,7 @@ Interest_obj_to_ccn(PyObject *py_obj_Interest)
 		JUMP_IF_NEG(r, error);
 
 		if (r) {
-			py_name = Name_to_ccn(py_o);
+			py_name = Name_obj_to_ccn(py_o);
 			Py_DECREF(py_o);
 			JUMP_IF_NULL(py_name, error);
 			name = CCNObject_Get(NAME, py_name);
