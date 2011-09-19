@@ -74,7 +74,7 @@ class ContentObject(object):
 		ret.append("Content: %s" % (self.content.decode("utf-8", errors='replace') if self.content else None))
 		ret.append("DigestAlg: %r" % self.digestAlgorithm)
 		ret.append("SignedInfo: %s" % self.signedInfo)
-		ret.append("Signature: %r" % self.signature)
+		ret.append("Signature: %s" % self.signature)
 		return "\n".join(ret)
 
 class Signature(object):
@@ -100,6 +100,13 @@ class Signature(object):
 				self.ccn_data = _pyccn._pyccn_Signature_to_ccn(self)
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)
+
+	def __str__(self):
+		res = []
+		res.append("digestAlgorithm = %s" % self.digestAlgorithm)
+		res.append("witness = %s" % self.witness)
+		res.append("signatureBits = %s" % self.signatureBits)
+		return "\n".join(res)
 
 class SignedInfo(object):
 	def __init__(self):

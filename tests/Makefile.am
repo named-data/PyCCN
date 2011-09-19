@@ -16,7 +16,8 @@ TESTS = \
 	signing.py \
 	simpleCommunication.py \
 	receiving.py \
-	exclusions.py
+	exclusions.py \
+	interest.py
 
 check_SCRIPTS = run
 

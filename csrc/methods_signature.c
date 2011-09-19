@@ -69,9 +69,9 @@ append_witness(struct ccn_charbuf *signature, PyObject *py_obj_Signature)
 	JUMP_IF_NULL(py_witness, error);
 
 	if (py_witness != Py_None) {
-		blob = PyByteArray_AsString(py_witness);
+		blob = PyBytes_AsString(py_witness);
 		JUMP_IF_NULL(blob, error);
-		blobsize = PyByteArray_GET_SIZE(py_witness);
+		blobsize = PyBytes_GET_SIZE(py_witness);
 
 		debug("witness blobsize = %zd\n", blobsize);
 
@@ -105,9 +105,9 @@ append_signature_bits(struct ccn_charbuf *signature,
 	JUMP_IF_NULL(py_signatureBits, error);
 
 	if (py_signatureBits != Py_None) {
-		blob = PyByteArray_AsString(py_signatureBits);
+		blob = PyBytes_AsString(py_signatureBits);
 		JUMP_IF_NULL(blob, error);
-		blobsize = PyByteArray_GET_SIZE(py_signatureBits);
+		blobsize = PyBytes_GET_SIZE(py_signatureBits);
 
 		r = ccnb_append_tagged_blob(signature, CCN_DTAG_SignatureBits, blob,
 				blobsize);
@@ -226,7 +226,7 @@ obj_Signature_obj_from_ccn(PyObject *py_signature)
 		// and a byte array (OCTET STRING) containing the digest information to be interpreted according to that OID.
 		// http://www.ccnx.org/releases/latest/doc/technical/SignatureGeneration.html
 		debug("PyObject_SetAttrString witness\n");
-		py_o = PyByteArray_FromStringAndSize((const char*) ptr, size);
+		py_o = PyBytes_FromStringAndSize((const char*) ptr, size);
 		JUMP_IF_NULL(py_o, error);
 		r = PyObject_SetAttrString(py_obj_signature, "witness", py_o);
 		Py_DECREF(py_o);
@@ -248,7 +248,7 @@ obj_Signature_obj_from_ccn(PyObject *py_signature)
 
 	assert(r == 0);
 	debug("PyObject_SetAttrString signatureBits\n");
-	py_o = PyByteArray_FromStringAndSize((const char*) ptr, size);
+	py_o = PyBytes_FromStringAndSize((const char*) ptr, size);
 	JUMP_IF_NULL(py_o, error);
 	r = PyObject_SetAttrString(py_obj_signature, "signatureBits", py_o);
 	Py_DECREF(py_o);

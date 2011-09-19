@@ -16,7 +16,7 @@ co = ContentObject.ContentObject()
 co.name = Name.Name('/chat/%FD%04%E6%93.%18K/%00')
 co.content = "number 0"
 co.signedInfo.publisherPublicKeyDigest = k.publicKeyID
-co.signedInfo.finalBlockID = '\x00'
+co.signedInfo.finalBlockID = b'\x00'
 co.sign(k)
 
 print(str(co))
