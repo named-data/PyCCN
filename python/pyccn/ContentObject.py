@@ -105,7 +105,7 @@ class Signature(object):
 		res = []
 		res.append("digestAlgorithm = %s" % self.digestAlgorithm)
 		res.append("witness = %s" % self.witness)
-		res.append("signatureBits = %s" % self.signatureBits)
+		res.append("signatureBits = %r" % self.signatureBits)
 		return "\n".join(res)
 
 class SignedInfo(object):

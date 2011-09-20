@@ -3,10 +3,10 @@
 
 known bugs:
 + chat (python part) doesn't seem to work with python3 (need to find out why)
++ receiving.py testcase uses ccnput, it'll fail if ccnput is not in the same
+  path
 - test cases to verify ContentObject and Interest generated from ccn_data is
   correct
-- receiving.py testcase uses ccnput, it'll fail if ccnput is not in the same
-  path
 
 some improvements:
 + poll() is not reliable on Mac, try to replace it with select() or alternative
