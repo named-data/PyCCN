@@ -5,19 +5,17 @@ known bugs:
 + chat (python part) doesn't seem to work with python3 (need to find out why)
 + receiving.py testcase uses ccnput, it'll fail if ccnput is not in the same
   path
-- test cases to verify ContentObject and Interest generated from ccn_data is
-  correct
 
 some improvements:
 + poll() is not reliable on Mac, try to replace it with select() or alternative
 + add URI argument to chat
++ combine ContentObject + parsed ContentObject + comps together, same with
+  Interest (i.e. all of those parts would be seen in python as one variable). I
+  think they're strongly related together.
 - providing own timestamp in ContentObject currently will say it's not
   implemented (it'll use current time when not specified)
 - remove all _pyccn_* in front of python commands
 - KeyLocator when is using KeyName, it needs to include hash of the key as well
-- combine ContentObject + parsed ContentObject + comps together, same with
-  Interest (i.e. all of those parts would be seen in python as one variable). I
-  think they're strongly related together.
 - revise code for generating digest and public keys from private ones (the code
   works, but I feel I'm probably doing unnecessary steps due to not fully
   understanding openssl documentation for example my code to make copy of
@@ -33,6 +31,8 @@ some improvements:
 
 Possible problems:
 - check key verification (key embedded in content object, or key name)
+- test cases to verify ContentObject and Interest generated from ccn_data is
+  correct
 
 Documentation:
 + remove license from every file and point to COPYING

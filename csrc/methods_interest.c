@@ -491,8 +491,7 @@ error:
 // Can be called directly from c library
 
 static PyObject*
-Interest_obj_from_ccn_parsed(PyObject *py_interest,
-		PyObject *py_parsed_interest)
+Interest_obj_from_ccn_parsed(PyObject *py_interest)
 {
 	struct ccn_charbuf *interest;
 	struct ccn_parsed_interest *pi;
@@ -502,20 +501,18 @@ Interest_obj_from_ccn_parsed(PyObject *py_interest,
 	debug("Interest_from_ccn_parsed start\n");
 
 	interest = CCNObject_Get(INTEREST, py_interest);
-	pi = CCNObject_Get(PARSED_INTEREST, py_parsed_interest);
 
 	// 1) Create python object
 	py_obj_Interest = PyObject_CallObject(g_type_Interest, NULL);
 	if (!py_obj_Interest)
 		return NULL;
 
+	pi = _pyccn_interest_get_pi(py_interest);
+	JUMP_IF_NULL(pi, error);
+
 	// 2) Set ccn_data to a cobject pointing to the c struct
 	//    and ensure proper destructor is set up for the c object.
 	r = PyObject_SetAttrString(py_obj_Interest, "ccn_data", py_interest);
-	JUMP_IF_NEG(r, error);
-
-	r = PyObject_SetAttrString(py_obj_Interest, "ccn_data_parsed",
-			py_parsed_interest);
 	JUMP_IF_NEG(r, error);
 
 	// 3) Parse c structure and fill python attributes
@@ -769,40 +766,64 @@ error:
 	return NULL;
 }
 
+struct ccn_parsed_interest *
+_pyccn_interest_get_pi(PyObject *py_interest)
+{
+	struct interest_data *context;
+	struct ccn_charbuf *interest;
+	int r;
+
+	assert(CCNObject_IsValid(INTEREST, py_interest));
+
+	context = PyCapsule_GetContext(py_interest);
+	assert(context);
+
+	if (context->pi)
+		return context->pi;
+
+	interest = CCNObject_Get(INTEREST, py_interest);
+
+	context->pi = calloc(1, sizeof(struct ccn_parsed_interest));
+	JUMP_IF_NULL_MEM(context->pi, error);
+
+	/* TODO: we should also use the comps argument */
+	r = ccn_parse_interest(interest->buf, interest->length, context->pi, NULL);
+	if (r < 0) {
+		PyErr_SetString(g_PyExc_CCNInterestError, "Unable to parse the"
+				" Interest");
+		goto error;
+	}
+
+	assert(context->pi);
+	return context->pi;
+
+error:
+	return NULL;
+
+}
+
+void
+_pyccn_interest_set_pi(PyObject *py_interest, struct ccn_parsed_interest *pi)
+{
+	struct interest_data *context;
+
+	assert(CCNObject_IsValid(INTEREST, py_interest));
+
+	context = PyCapsule_GetContext(py_interest);
+	assert(context);
+
+	if (context->pi)
+		free(context->pi);
+	context->pi = pi;
+}
+
 // Can be called directly from c library
 
 PyObject *
 Interest_obj_from_ccn(PyObject *py_interest)
 {
-	struct ccn_charbuf *interest;
-	struct ccn_parsed_interest *parsed_interest;
-	PyObject *py_parsed_interest, *py_o;
-	int r;
-
-	interest = CCNObject_Get(INTEREST, py_interest);
-
-	parsed_interest = calloc(1, sizeof(*parsed_interest));
-	if (!parsed_interest)
-		return PyErr_NoMemory();
-
-	py_parsed_interest = CCNObject_New(PARSED_INTEREST, parsed_interest);
-	if (!py_parsed_interest) {
-		free(parsed_interest);
-		return NULL;
-	}
-
-	r = ccn_parse_interest(interest->buf, interest->length, parsed_interest,
-			NULL /* no comps */);
-	if (r < 0) {
-		Py_DECREF(py_parsed_interest);
-		return PyErr_Format(g_PyExc_CCNInterestError, "Unable to parse"
-				" interest; result = %d", r);
-	}
-
-	py_o = Interest_obj_from_ccn_parsed(py_interest, py_parsed_interest);
-	Py_DECREF(py_parsed_interest);
-
-	return py_o;
+#pragma message "This function is not needed"
+	return Interest_obj_from_ccn_parsed(py_interest);
 }
 
 /*
@@ -812,71 +833,24 @@ Interest_obj_from_ccn(PyObject *py_interest)
 PyObject *
 _pyccn_Interest_to_ccn(PyObject *UNUSED(self), PyObject *py_obj_Interest)
 {
-	PyObject *py_interest = NULL, *py_parsed_interest = NULL;
-	struct ccn_charbuf *interest;
-	struct ccn_parsed_interest *parsed_interest;
-	int r;
-	PyObject *py_r = NULL;
-
 	if (strcmp(py_obj_Interest->ob_type->tp_name, "Interest") != 0) {
 		PyErr_SetString(PyExc_TypeError, "Must pass an Interest");
 		return NULL;
 	}
 
-	//  Build an interest
-	py_interest = Interest_obj_to_ccn(py_obj_Interest);
-	JUMP_IF_NULL(py_interest, exit);
-	interest = CCNObject_Get(INTEREST, py_interest);
-
-	parsed_interest = calloc(1, sizeof(*parsed_interest));
-	JUMP_IF_NULL_MEM(parsed_interest, exit);
-
-	py_parsed_interest = CCNObject_New(PARSED_INTEREST, parsed_interest);
-	JUMP_IF_NULL(py_parsed_interest, exit);
-
-	r = ccn_parse_interest(interest->buf, interest->length, parsed_interest,
-			NULL /* no comps */);
-	if (r < 0) {
-		PyErr_Format(g_PyExc_CCNInterestError, "Error parsing"
-				" the interest: %d", r);
-		goto exit;
-	}
-
-	py_r = Py_BuildValue("(OO)", py_interest, py_parsed_interest);
-
-exit:
-	Py_XDECREF(py_parsed_interest);
-	Py_XDECREF(py_interest);
-
-	return py_r;
+	return Interest_obj_to_ccn(py_obj_Interest);
 }
 
 PyObject *
-_pyccn_Interest_from_ccn(PyObject *UNUSED(self), PyObject *args)
+_pyccn_Interest_from_ccn(PyObject *UNUSED(self), PyObject *py_interest)
 {
-	PyObject *py_interest, *py_parsed_interest = Py_None;
-
-	if (!PyArg_ParseTuple(args, "O|O", &py_interest, &py_parsed_interest))
-		return NULL;
-
 	if (!CCNObject_IsValid(INTEREST, py_interest)) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a CCN Interest as 1st"
 				" argument");
 		return NULL;
 	}
 
-	if (py_parsed_interest == Py_None) {
-		return Interest_obj_from_ccn(py_interest);
-	} else {
-		if (!CCNObject_IsValid(PARSED_INTEREST, py_parsed_interest)) {
-			PyErr_SetString(PyExc_TypeError, "Must pass a CCN Parsed Interest"
-					" as 2nd argument");
-
-			return NULL;
-		}
-
-		return Interest_obj_from_ccn_parsed(py_interest, py_parsed_interest);
-	}
+	return Interest_obj_from_ccn_parsed(py_interest);
 }
 
 PyObject *

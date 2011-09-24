@@ -24,7 +24,6 @@ enum _pyccn_capsules {
 	INTEREST,
 	KEY_LOCATOR,
 	NAME,
-	PARSED_INTEREST,
 	PKEY_PRIV,
 	PKEY_PUB,
 	SIGNATURE,
@@ -36,6 +35,10 @@ enum _pyccn_capsules {
 struct content_object_data {
 	struct ccn_parsed_ContentObject *pco;
 	struct ccn_indexbuf *comps;
+};
+
+struct interest_data {
+	struct ccn_parsed_interest *pi;
 };
 
 PyObject *CCNObject_New(enum _pyccn_capsules type, void *pointer);

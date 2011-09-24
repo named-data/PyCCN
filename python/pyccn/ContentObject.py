@@ -53,8 +53,7 @@ class ContentObject(object):
 		pass
 
 	def matchesInterest(self, interest):
-		return _pyccn.content_matches_interest(self.ccn_data, \
-			interest.ccn_data, interest.ccn_data_parsed)
+		return _pyccn.content_matches_interest(self.ccn_data, interest.ccn_data)
 
 	def __setattr__(self, name, value):
 		if name == 'name' or name == 'content' or name == 'signedInfo' or name == 'digestAlgorithm':

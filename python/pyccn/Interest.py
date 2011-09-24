@@ -37,7 +37,6 @@ class Interest(object):
 		# pyccn
 		self.ccn_data_dirty = True
 		self.ccn_data = None  # backing charbuf
-		self.ccn_data_parsed = None  # backing parsed interest
 
 	def __setattr__(self, name, value):
 		if name != "ccn_data_dirty":
@@ -45,7 +44,7 @@ class Interest(object):
 		object.__setattr__(self, name, value)
 
 	def __getattribute__(self, name):
-		if name == "ccn_data" or name == "ccn_data_parsed":
+		if name == "ccn_data":
 			# force refresh if components changed
 			if object.__getattribute__(self, 'name') and self.name.ccn_data_dirty:
 				self.ccn_data_dirty = True
@@ -53,7 +52,7 @@ class Interest(object):
 				self.ccn_data_dirty = True
 
 			if object.__getattribute__(self, 'ccn_data_dirty'):
-				self.ccn_data, self.ccn_data_parsed = _pyccn._pyccn_Interest_to_ccn(self)
+				self.ccn_data = _pyccn._pyccn_Interest_to_ccn(self)
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)
 

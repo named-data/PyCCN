@@ -10,6 +10,7 @@
 
 #include "pyccn.h"
 #include "methods_contentobject.h"
+#include "methods_interest.h"
 #include "methods_key.h"
 #include "methods_name.h"
 #include "methods_signature.h"
@@ -545,38 +546,36 @@ _pyccn_digest_contentobject(PyObject *UNUSED(self), PyObject *args)
 PyObject *
 _pyccn_content_matches_interest(PyObject *UNUSED(self), PyObject *args)
 {
-	PyObject *py_content_object, *py_interest, *py_pi = Py_None;
+	PyObject *py_content_object, *py_interest;
 	struct ccn_charbuf *content_object, *interest;
-	struct ccn_parsed_ContentObject *pco = NULL;
-	struct ccn_parsed_interest *pi = NULL;
+	struct ccn_parsed_ContentObject *pco;
+	struct ccn_parsed_interest *pi;
 	int r;
 	PyObject *res;
 
-	if (!PyArg_ParseTuple(args, "OO|O", &py_content_object, &py_interest,
-			&py_pi))
+	if (!PyArg_ParseTuple(args, "OO", &py_content_object, &py_interest))
 		return NULL;
 
 	if (!CCNObject_IsValid(CONTENT_OBJECT, py_content_object)) {
 		PyErr_SetString(PyExc_TypeError, "Expected CCN ContentObject");
 		return NULL;
 	}
-	content_object = CCNObject_Get(CONTENT_OBJECT, py_content_object);
 
 	if (!CCNObject_IsValid(INTEREST, py_interest)) {
 		PyErr_SetString(PyExc_TypeError, "Expected CCN Interest");
 		return NULL;
 	}
+
+	content_object = CCNObject_Get(CONTENT_OBJECT, py_content_object);
 	interest = CCNObject_Get(INTEREST, py_interest);
 
 	pco = _pyccn_content_object_get_pco(py_content_object);
+	if (!pco)
+		return NULL;
 
-	if (py_pi != Py_None) {
-		if (!CCNObject_IsValid(PARSED_INTEREST, py_pi)) {
-			PyErr_SetString(PyExc_TypeError, "Expected CCN Parsed Interest");
-			return NULL;
-		}
-		pi = CCNObject_Get(PARSED_INTEREST, py_pi);
-	}
+	pi = _pyccn_interest_get_pi(py_interest);
+	if (!pi)
+		return NULL;
 
 	r = ccn_content_matches_interest(content_object->buf,
 			content_object->length, 1, pco, interest->buf, interest->length,

@@ -31,7 +31,6 @@ static struct type_to_name {
 	{INTEREST, "Interest_ccn_data"},
 	{KEY_LOCATOR, "KeyLocator_ccn_data"},
 	{NAME, "Name_ccn_data"},
-	{PARSED_INTEREST, "ParsedInterest_ccn_data"},
 	{PKEY_PRIV, "PKEY_PRIV_ccn_data"},
 	{PKEY_PUB, "PKEY_PUB_ccn_data"},
 	{SIGNATURE, "Signature_ccn_data"},
@@ -103,26 +102,10 @@ pyccn_Capsule_Destructor(PyObject *capsule)
 		free(p);
 	}
 		break;
-	case HANDLE:
-	{
-		struct ccn *p = pointer;
-		ccn_disconnect(p);
-		ccn_destroy(&p);
-	}
-		break;
-	case PARSED_INTEREST:
-		free(pointer);
-		break;
-	case PKEY_PRIV:
-	case PKEY_PUB:
-	{
-		struct ccn_pkey *p = pointer;
-		ccn_pubkey_free(p);
-	}
-		break;
 	case CONTENT_OBJECT:
 	{
 		struct content_object_data *context;
+		struct ccn_charbuf *p = pointer;
 
 		context = PyCapsule_GetContext(capsule);
 		if (context) {
@@ -131,10 +114,38 @@ pyccn_Capsule_Destructor(PyObject *capsule)
 			ccn_indexbuf_destroy(&context->comps);
 			free(context);
 		}
+		ccn_charbuf_destroy(&p);
 	}
-		/* pass through */
-	case EXCLUSION_FILTER:
+		break;
+	case HANDLE:
+	{
+		struct ccn *p = pointer;
+		ccn_disconnect(p);
+		ccn_destroy(&p);
+	}
+		break;
 	case INTEREST:
+	{
+		struct interest_data *context;
+		struct ccn_charbuf *p = pointer;
+
+		context = PyCapsule_GetContext(capsule);
+		if (context) {
+			if (context->pi)
+				free(context->pi);
+			free(context);
+		}
+		ccn_charbuf_destroy(&p);
+	}
+		break;
+	case PKEY_PRIV:
+	case PKEY_PUB:
+	{
+		struct ccn_pkey *p = pointer;
+		ccn_pubkey_free(p);
+	}
+		break;
+	case EXCLUSION_FILTER:
 	case KEY_LOCATOR:
 	case NAME:
 	case SIGNATURE:
@@ -173,23 +184,44 @@ CCNObject_New(enum _pyccn_capsules type, void *pointer)
 	if (!capsule)
 		return NULL;
 
-	if (type == CONTENT_OBJECT) {
+	switch (type) {
+	case CONTENT_OBJECT:
+	{
 		struct content_object_data *context;
+
 		context = calloc(1, sizeof(*context));
-		if (!context) {
-			Py_DECREF(capsule);
-			return NULL;
-		}
+		JUMP_IF_NULL_MEM(context, error);
 
 		r = PyCapsule_SetContext(capsule, context);
 		if (r < 0) {
 			free(context);
-			Py_DECREF(capsule);
-			return NULL;
+			goto error;
 		}
+		break;
+	}
+	case INTEREST:
+	{
+		struct interest_data *context;
+
+		context = calloc(1, sizeof(*context));
+		JUMP_IF_NULL_MEM(context, error);
+
+		r = PyCapsule_SetContext(capsule, context);
+		if (r < 0) {
+			free(context);
+			goto error;
+		}
+		break;
+	}
+	default:
+		break;
 	}
 
 	return capsule;
+
+error:
+	Py_XDECREF(capsule);
+	return NULL;
 }
 
 PyObject *
