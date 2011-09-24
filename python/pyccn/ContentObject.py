@@ -12,6 +12,13 @@ from . import _pyccn
 from base64 import b64encode, b64decode
 from binascii import a2b_hex
 
+CONTENT_DATA = 0x0C04C0
+CONTENT_ENCR = 0x10D091
+CONTENT_GONE = 0x18E344
+CONTENT_KEY  = 0x28463F
+CONTENT_LINK = 0x2C834A
+CONTENT_NACK = 0x34008A
+
 class ContentObject(object):
 	def __init__(self):
 		self.name = None
@@ -27,8 +34,6 @@ class ContentObject(object):
 		self.ccn = None # Reference to CCN object
 		self.ccn_data_dirty = True
 		self.ccn_data = None  # backing charbuf
-		self.ccn_data_parsed = None  # PCO
-		self.ccn_data_components = None  # PCO
 
 	# this is the finalization step
 	# must pass a key here, there is no "default key" because
@@ -41,7 +46,7 @@ class ContentObject(object):
 		self.ccn_data_dirty = False
 
 	def digest(self):
-		return _pyccn.digest_contentobject(self.ccn_data, self.ccn_data_parsed)
+		return _pyccn.digest_contentobject(self.ccn_data)
 
 	def verify(self):
 		# ccn_verify_content
@@ -49,7 +54,7 @@ class ContentObject(object):
 
 	def matchesInterest(self, interest):
 		return _pyccn.content_matches_interest(self.ccn_data, \
-			interest.ccn_data, self.ccn_data_parsed, interest.ccn_data_parsed)
+			interest.ccn_data, interest.ccn_data_parsed)
 
 	def __setattr__(self, name, value):
 		if name == 'name' or name == 'content' or name == 'signedInfo' or name == 'digestAlgorithm':
@@ -63,7 +68,8 @@ class ContentObject(object):
 	def __getattribute__(self, name):
 		if name == "ccn_data":
 			if object.__getattribute__(self, 'ccn_data_dirty'):
-				print("Call sign() to finalize before accessing ccn_data for a ContentObject")
+				raise _pyccn.CCNContentObjectError("Call sign() to finalize \
+					before accessing ccn_data for a ContentObject")
 		return object.__getattribute__(self, name)
 
 	# Where do we support versioning and segmentation?
@@ -85,9 +91,6 @@ class Signature(object):
 		# pyccn
 		self.ccn_data_dirty = False
 		self.ccn_data = None  # backing charbuf
-
-	def __get_ccn(self):
-		pass
 
 	def __setattr__(self, name, value):
 		if name=='witness' or name=='signatureBits' or name=='digestAlgorithm':
@@ -151,6 +154,7 @@ class SignedInfo(object):
 		res = "<SignedInfo>%s%s%s%s%s%s</SignedInfo>" % (pubkeydigest, timestamp, type, freshness, finalBlockID, self.keyLocator)
 		return res
 
+#Don't use this class, it is deprecated
 class ContentType(object):
 	CCN_CONTENT_DATA = 0x0C04C0
 	CCN_CONTENT_ENCR = 0x10D091
