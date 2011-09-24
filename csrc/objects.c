@@ -26,13 +26,11 @@ static struct type_to_name {
 } g_types_to_names[] = {
 	{CLOSURE, "Closure_ccn_data"},
 	{CONTENT_OBJECT, "ContentObject_ccn_data"},
-	{CONTENT_OBJECT_COMPONENTS, "ContentObjects_ccn_data_components"},
 	{EXCLUSION_FILTER, "ExclusionFilter_ccn_data"},
 	{HANDLE, "CCN_ccn_data"},
 	{INTEREST, "Interest_ccn_data"},
 	{KEY_LOCATOR, "KeyLocator_ccn_data"},
 	{NAME, "Name_ccn_data"},
-	{PARSED_CONTENT_OBJECT, "ParsedContentObject_ccn_data"},
 	{PARSED_INTEREST, "ParsedInterest_ccn_data"},
 	{PKEY_PRIV, "PKEY_PRIV_ccn_data"},
 	{PKEY_PUB, "PKEY_PUB_ccn_data"},
@@ -105,12 +103,6 @@ pyccn_Capsule_Destructor(PyObject *capsule)
 		free(p);
 	}
 		break;
-	case CONTENT_OBJECT_COMPONENTS:
-	{
-		struct ccn_indexbuf *p = pointer;
-		ccn_indexbuf_destroy(&p);
-	}
-		break;
 	case HANDLE:
 	{
 		struct ccn *p = pointer;
@@ -118,7 +110,6 @@ pyccn_Capsule_Destructor(PyObject *capsule)
 		ccn_destroy(&p);
 	}
 		break;
-	case PARSED_CONTENT_OBJECT:
 	case PARSED_INTEREST:
 		free(pointer);
 		break;
@@ -130,6 +121,18 @@ pyccn_Capsule_Destructor(PyObject *capsule)
 	}
 		break;
 	case CONTENT_OBJECT:
+	{
+		struct content_object_data *context;
+
+		context = PyCapsule_GetContext(capsule);
+		if (context) {
+			if (context->pco)
+				free(context->pco);
+			ccn_indexbuf_destroy(&context->comps);
+			free(context);
+		}
+	}
+		/* pass through */
 	case EXCLUSION_FILTER:
 	case INTEREST:
 	case KEY_LOCATOR:
@@ -162,12 +165,31 @@ pyccn_Capsule_Destructor(PyObject *capsule)
 PyObject *
 CCNObject_New(enum _pyccn_capsules type, void *pointer)
 {
-	PyObject *r;
+	PyObject *capsule;
+	int r;
 
 	assert(pointer);
-	r = PyCapsule_New(pointer, type2name(type), pyccn_Capsule_Destructor);
+	capsule = PyCapsule_New(pointer, type2name(type), pyccn_Capsule_Destructor);
+	if (!capsule)
+		return NULL;
 
-	return r;
+	if (type == CONTENT_OBJECT) {
+		struct content_object_data *context;
+		context = calloc(1, sizeof(*context));
+		if (!context) {
+			Py_DECREF(capsule);
+			return NULL;
+		}
+
+		r = PyCapsule_SetContext(capsule, context);
+		if (r < 0) {
+			free(context);
+			Py_DECREF(capsule);
+			return NULL;
+		}
+	}
+
+	return capsule;
 }
 
 PyObject *
@@ -233,50 +255,6 @@ CCNObject_New_Closure(struct ccn_closure **closure)
 		*closure = p;
 
 	return result;
-}
-
-PyObject *
-CCNObject_New_ParsedContentObject(struct ccn_parsed_ContentObject **pco)
-{
-	struct ccn_parsed_ContentObject *p;
-	PyObject *py_o;
-
-	p = malloc(sizeof(*p));
-	if (!p)
-		return PyErr_NoMemory();
-
-	py_o = CCNObject_New(PARSED_CONTENT_OBJECT, p);
-	if (!py_o) {
-		free(p);
-		return NULL;
-	}
-
-	if (pco)
-		*pco = p;
-
-	return py_o;
-}
-
-PyObject *
-CCNObject_New_ContentObjectComponents(struct ccn_indexbuf **comps)
-{
-	struct ccn_indexbuf *p;
-	PyObject *py_o;
-
-	p = ccn_indexbuf_create();
-	if (!p)
-		return PyErr_NoMemory();
-
-	py_o = CCNObject_New(CONTENT_OBJECT_COMPONENTS, p);
-	if (!py_o) {
-		ccn_indexbuf_destroy(&p);
-		return NULL;
-	}
-
-	if (comps)
-		*comps = p;
-
-	return py_o;
 }
 
 PyObject *

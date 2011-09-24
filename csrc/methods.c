@@ -238,10 +238,8 @@ UpcallInfo_obj_from_ccn(enum ccn_upcall_kind upcall_kind,
 {
 	PyObject *py_obj_UpcallInfo;
 	PyObject *py_o;
-	PyObject *py_data = NULL, *py_pco = NULL, *py_comps = NULL;
+	PyObject *py_data = NULL;
 	struct ccn_charbuf *data;
-	struct ccn_parsed_ContentObject *pco;
-	struct ccn_indexbuf *comps;
 	int r;
 
 	assert(g_type_UpcallInfo);
@@ -250,11 +248,13 @@ UpcallInfo_obj_from_ccn(enum ccn_upcall_kind upcall_kind,
 	py_obj_UpcallInfo = PyObject_CallObject(g_type_UpcallInfo, NULL);
 	JUMP_IF_NULL(py_obj_UpcallInfo, error);
 
+#if 0
 	// CCN handle, I hope it isn't freed; if it is freed we'll get a crash :/
 	py_o = CCNObject_Borrow(HANDLE, ui->h);
 	r = PyObject_SetAttrString(py_obj_UpcallInfo, "ccn", py_o);
 	Py_DECREF(py_o);
 	JUMP_IF_NEG(r, error);
+#endif
 
 	py_o = _pyccn_Int_FromLong(ui->matched_comps);
 	r = PyObject_SetAttrString(py_obj_UpcallInfo, "matchedComps", py_o);
@@ -271,23 +271,7 @@ UpcallInfo_obj_from_ccn(enum ccn_upcall_kind upcall_kind,
 				ui->pco->offset[CCN_PCO_E]);
 		JUMP_IF_NEG_MEM(r, error);
 
-		py_pco = CCNObject_New_ParsedContentObject(&pco);
-		JUMP_IF_NULL(py_pco, error);
-
-		py_comps = CCNObject_New_ContentObjectComponents(&comps);
-		JUMP_IF_NULL(py_comps, error);
-
-		r = ccn_parse_ContentObject(data->buf, data->length,
-				pco, comps);
-		if (r < 0) {
-			PyErr_Format(g_PyExc_CCNError, "Unable to generate Upcall:"
-					" ccn_parse_ContentObject returned %d", r);
-			goto error;
-		}
-
-		py_o = ContentObject_obj_from_ccn_parsed(py_data, py_pco, py_comps);
-		Py_CLEAR(py_comps);
-		Py_CLEAR(py_pco);
+		py_o = ContentObject_obj_from_ccn_parsed(py_data);
 		Py_CLEAR(py_data);
 		JUMP_IF_NULL(py_o, error);
 
@@ -319,8 +303,6 @@ UpcallInfo_obj_from_ccn(enum ccn_upcall_kind upcall_kind,
 	return py_obj_UpcallInfo;
 
 error:
-	Py_XDECREF(py_comps);
-	Py_XDECREF(py_pco);
 	Py_XDECREF(py_data);
 	Py_XDECREF(py_obj_UpcallInfo);
 	return NULL;
@@ -607,7 +589,7 @@ _pyccn_ccn_get(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_CCN, *py_Name, *py_Interest = Py_None;
 	PyObject *py_co = NULL, *py_o = NULL;
-	PyObject *py_data = NULL, *py_pco = NULL, *py_comps = NULL;
+	PyObject *py_data = NULL;
 	int r, timeout = 3000;
 	struct ccn *handle;
 	struct ccn_charbuf *name, *interest, *data;
@@ -656,10 +638,12 @@ _pyccn_ccn_get(PyObject *UNUSED(self), PyObject *args)
 
 	py_data = CCNObject_New_charbuf(CONTENT_OBJECT, &data);
 	JUMP_IF_NULL(py_data, exit);
-	py_pco = CCNObject_New_ParsedContentObject(&pco);
-	JUMP_IF_NULL(py_pco, exit);
-	py_comps = CCNObject_New_ContentObjectComponents(&comps);
-	JUMP_IF_NULL(py_comps, exit);
+	pco = calloc(1, sizeof(*pco));
+	_pyccn_content_object_set_pco(py_data, pco);
+	JUMP_IF_NULL_MEM(pco, exit);
+	comps = ccn_indexbuf_create();
+	_pyccn_content_object_set_comps(py_data, comps);
+	JUMP_IF_NULL_MEM(comps, exit);
 
 	Py_BEGIN_ALLOW_THREADS
 	r = ccn_get(handle, name, interest, timeout, data, pco, comps, 0);
@@ -676,11 +660,9 @@ _pyccn_ccn_get(PyObject *UNUSED(self), PyObject *args)
 		else
 			py_co = (Py_INCREF(Py_None), Py_None); // timeout
 	} else
-		py_co = ContentObject_obj_from_ccn_parsed(py_data, py_pco, py_comps);
+		py_co = ContentObject_obj_from_ccn_parsed(py_data);
 
 exit:
-	Py_XDECREF(py_comps);
-	Py_XDECREF(py_pco);
 	Py_XDECREF(py_data);
 	Py_XDECREF(py_o);
 	return py_co;
