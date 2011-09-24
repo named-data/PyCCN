@@ -222,7 +222,7 @@ _pyccn_content_object_set_comps(PyObject *py_content_object,
 // Content Objects
 
 PyObject *
-ContentObject_obj_from_ccn_parsed(PyObject *py_content_object)
+ContentObject_obj_from_ccn(PyObject *py_content_object)
 {
 	struct ccn_charbuf *content_object;
 	struct ccn_parsed_ContentObject *parsed_content_object;
@@ -336,7 +336,7 @@ ContentObject_from_ccn(struct ccn_charbuf* content_object)
 	struct ccn_indexbuf* components = ccn_indexbuf_create();
 	ccn_parse_ContentObject(content_object->buf, content_object->length, parsed_content_object, components);
 	// TODO: Check result
-	PyObject* CO = ContentObject_obj_from_ccn_parsed(content_object, parsed_content_object, components);
+	PyObject* CO = ContentObject_obj_from_ccn(content_object, parsed_content_object, components);
 	free(parsed_content_object);
 	ccn_indexbuf_destroy(&components);
 	return CO;
@@ -502,13 +502,7 @@ error:
 PyObject *
 _pyccn_ContentObject_from_ccn(PyObject *UNUSED(self), PyObject *py_co)
 {
-	PyObject *res = NULL;
-
-#pragma message "this function is no longer needed"
-
-	res = ContentObject_obj_from_ccn_parsed(py_co);
-
-	return res;
+	return ContentObject_obj_from_ccn(py_co);
 }
 
 PyObject *
