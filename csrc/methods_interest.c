@@ -488,10 +488,8 @@ error:
 	return NULL;
 }
 
-// Can be called directly from c library
-
-static PyObject*
-Interest_obj_from_ccn_parsed(PyObject *py_interest)
+PyObject *
+Interest_obj_from_ccn(PyObject *py_interest)
 {
 	struct ccn_charbuf *interest;
 	struct ccn_parsed_interest *pi;
@@ -817,15 +815,6 @@ _pyccn_interest_set_pi(PyObject *py_interest, struct ccn_parsed_interest *pi)
 	context->pi = pi;
 }
 
-// Can be called directly from c library
-
-PyObject *
-Interest_obj_from_ccn(PyObject *py_interest)
-{
-#pragma message "This function is not needed"
-	return Interest_obj_from_ccn_parsed(py_interest);
-}
-
 /*
  * From within python
  */
@@ -850,7 +839,7 @@ _pyccn_Interest_from_ccn(PyObject *UNUSED(self), PyObject *py_interest)
 		return NULL;
 	}
 
-	return Interest_obj_from_ccn_parsed(py_interest);
+	return Interest_obj_from_ccn(py_interest);
 }
 
 PyObject *
