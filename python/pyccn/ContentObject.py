@@ -41,8 +41,8 @@ class ContentObject(object):
 	# thus there is no access to the ccn library keystore.
 	#
 	def sign(self, key):
-		self.ccn_data = _pyccn._pyccn_ContentObject_to_ccn(self, \
-			self.name.ccn_data, self.content, self.signedInfo.ccn_data, key)
+		self.ccn_data = _pyccn.encode_ContentObject(self, self.name.ccn_data, \
+			self.content, self.signedInfo.ccn_data, key)
 		self.ccn_data_dirty = False
 
 	def digest(self):
@@ -99,7 +99,7 @@ class Signature(object):
 	def __getattribute__(self, name):
 		if name=="ccn_data":
 			if object.__getattribute__(self, 'ccn_data_dirty'):
-				self.ccn_data = _pyccn._pyccn_Signature_to_ccn(self)
+				self.ccn_data = _pyccn.Signature_obj_to_ccn(self)
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)
 
@@ -132,7 +132,7 @@ class SignedInfo(object):
 		if name == "ccn_data":
 			if object.__getattribute__(self, 'ccn_data_dirty'):
 				key_locator = self.keyLocator.ccn_data if self.keyLocator else None
-				self.ccn_data = _pyccn._pyccn_SignedInfo_to_ccn( \
+				self.ccn_data = _pyccn.SignedInfo_to_ccn( \
 					self.publisherPublicKeyDigest, self.type, self.timeStamp, \
 					self.freshnessSeconds if self.freshnessSeconds else -1, \
 					self.finalBlockID, key_locator)

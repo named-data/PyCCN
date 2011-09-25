@@ -52,7 +52,7 @@ class Interest(object):
 				self.ccn_data_dirty = True
 
 			if object.__getattribute__(self, 'ccn_data_dirty'):
-				self.ccn_data = _pyccn._pyccn_Interest_to_ccn(self)
+				self.ccn_data = _pyccn.Interest_obj_to_ccn(self)
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)
 
@@ -117,7 +117,8 @@ class ExclusionFilter(object):
 	def __getattribute__(self, name):
 		if name == "ccn_data":
 			if object.__getattribute__(self, 'ccn_data_dirty'):
-				self.ccn_data = _pyccn._pyccn_ExclusionFilter_to_ccn(self.components)
+				self.ccn_data = _pyccn.ExclusionFilter_names_to_ccn(
+					self.components)
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)
 

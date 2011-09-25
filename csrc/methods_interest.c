@@ -820,7 +820,7 @@ _pyccn_interest_set_pi(PyObject *py_interest, struct ccn_parsed_interest *pi)
  */
 
 PyObject *
-_pyccn_Interest_to_ccn(PyObject *UNUSED(self), PyObject *py_obj_Interest)
+_pyccn_cmd_Interest_obj_to_ccn(PyObject *UNUSED(self), PyObject *py_obj_Interest)
 {
 	if (strcmp(py_obj_Interest->ob_type->tp_name, "Interest") != 0) {
 		PyErr_SetString(PyExc_TypeError, "Must pass an Interest");
@@ -831,7 +831,7 @@ _pyccn_Interest_to_ccn(PyObject *UNUSED(self), PyObject *py_obj_Interest)
 }
 
 PyObject *
-_pyccn_Interest_from_ccn(PyObject *UNUSED(self), PyObject *py_interest)
+_pyccn_cmd_Interest_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_interest)
 {
 	if (!CCNObject_IsValid(INTEREST, py_interest)) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a CCN Interest as 1st"
@@ -843,7 +843,7 @@ _pyccn_Interest_from_ccn(PyObject *UNUSED(self), PyObject *py_interest)
 }
 
 PyObject *
-_pyccn_ExclusionFilter_to_ccn(PyObject *UNUSED(self), PyObject *py_names)
+_pyccn_cmd_ExclusionFilter_names_to_ccn(PyObject *UNUSED(self), PyObject *py_names)
 {
 	if (!PyList_Check(py_names)) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a list of CCN names");
@@ -854,7 +854,7 @@ _pyccn_ExclusionFilter_to_ccn(PyObject *UNUSED(self), PyObject *py_names)
 }
 
 PyObject *
-_pyccn_ExclusionFilter_from_ccn(PyObject *UNUSED(self),
+_pyccn_cmd_ExclusionFilter_obj_from_ccn(PyObject *UNUSED(self),
 		PyObject *py_exclusion_filter)
 {
 	if (!CCNObject_IsValid(EXCLUSION_FILTER, py_exclusion_filter)) {

@@ -36,7 +36,6 @@ static struct type_to_name {
 	{SIGNATURE, "Signature_ccn_data"},
 	{SIGNED_INFO, "SignedInfo_ccn_data"},
 	{SIGNING_PARAMS, "SigningParams_ccn_data"},
-	{UPCALL_INFO, "UpcallInfo_ccn_data"},
 	{0, NULL}
 };
 
@@ -165,8 +164,6 @@ pyccn_Capsule_Destructor(PyObject *capsule)
 		free(p);
 	}
 		break;
-	case UPCALL_INFO:
-		panic("For now we shouldn't use UPCALL_INFO at all");
 	default:
 		debug("Got capsule: %s\n", PyCapsule_GetName(capsule));
 		panic("Unable to destroy the object: got an unknown capsule");

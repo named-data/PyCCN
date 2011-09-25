@@ -123,7 +123,7 @@ error:
 }
 
 static PyObject *
-obj_Signature_to_ccn(PyObject *py_obj_Signature)
+Signature_obj_to_ccn(PyObject *py_obj_Signature)
 {
 	struct ccn_charbuf *signature;
 	PyObject *py_signature;
@@ -158,7 +158,7 @@ error:
 // Can be called directly from c library
 
 PyObject *
-obj_Signature_obj_from_ccn(PyObject *py_signature)
+Signature_obj_from_ccn(PyObject *py_signature)
 {
 	struct ccn_charbuf *signature;
 	PyObject *py_obj_signature, *py_o;
@@ -272,7 +272,7 @@ error:
 }
 
 PyObject *
-_pyccn_Signature_to_ccn(PyObject *UNUSED(self), PyObject *py_obj_Signature)
+_pyccn_cmd_Signature_obj_to_ccn(PyObject *UNUSED(self), PyObject *py_obj_Signature)
 {
 	if (strcmp(py_obj_Signature->ob_type->tp_name, "Signature") != 0) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a Signature");
@@ -280,11 +280,11 @@ _pyccn_Signature_to_ccn(PyObject *UNUSED(self), PyObject *py_obj_Signature)
 		return NULL;
 	}
 
-	return obj_Signature_to_ccn(py_obj_Signature);
+	return Signature_obj_to_ccn(py_obj_Signature);
 }
 
 PyObject *
-_pyccn_Signature_from_ccn(PyObject *UNUSED(self), PyObject *py_signature)
+_pyccn_cmd_Signature_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_signature)
 {
 	if (!CCNObject_IsValid(SIGNATURE, py_signature)) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a CCN object containing"
@@ -292,5 +292,5 @@ _pyccn_Signature_from_ccn(PyObject *UNUSED(self), PyObject *py_signature)
 		return NULL;
 	}
 
-	return obj_Signature_obj_from_ccn(py_signature);
+	return Signature_obj_from_ccn(py_signature);
 }

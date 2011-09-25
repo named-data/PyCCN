@@ -29,7 +29,6 @@ enum _pyccn_capsules {
 	SIGNATURE,
 	SIGNED_INFO,
 	SIGNING_PARAMS,
-	UPCALL_INFO
 };
 
 struct content_object_data {

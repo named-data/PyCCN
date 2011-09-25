@@ -34,7 +34,7 @@
 // returns:  CObject that is an opaque reference to the ccn handle
 
 PyObject *
-_pyccn_ccn_create(PyObject *UNUSED(self), PyObject *UNUSED(args))
+_pyccn_cmd_create(PyObject *UNUSED(self), PyObject *UNUSED(args))
 {
 	struct ccn *ccn_handle = ccn_create();
 
@@ -55,7 +55,7 @@ _pyccn_ccn_create(PyObject *UNUSED(self), PyObject *UNUSED(args))
 //
 
 PyObject *
-_pyccn_ccn_connect(PyObject *UNUSED(self), PyObject *py_ccn_handle)
+_pyccn_cmd_connect(PyObject *UNUSED(self), PyObject *py_ccn_handle)
 {
 	struct ccn *handle;
 	int r;
@@ -81,7 +81,7 @@ _pyccn_ccn_connect(PyObject *UNUSED(self), PyObject *py_ccn_handle)
 //
 
 PyObject *
-_pyccn_ccn_disconnect(PyObject *UNUSED(self), PyObject *py_ccn_handle)
+_pyccn_cmd_disconnect(PyObject *UNUSED(self), PyObject *py_ccn_handle)
 {
 	struct ccn *handle;
 	int r;
@@ -118,7 +118,7 @@ _pyccn_get_connection_fd(PyObject *UNUSED(self), PyObject *py_handle)
 }
 
 PyObject *
-_pyccn_process_scheduled_operations(PyObject *UNUSED(self), PyObject *py_handle)
+_pyccn_cmd_process_scheduled_operations(PyObject *UNUSED(self), PyObject *py_handle)
 {
 	struct ccn *handle;
 
@@ -133,7 +133,7 @@ _pyccn_process_scheduled_operations(PyObject *UNUSED(self), PyObject *py_handle)
 }
 
 PyObject *
-_pyccn_output_is_pending(PyObject *UNUSED(self), PyObject *py_handle)
+_pyccn_cmd_output_is_pending(PyObject *UNUSED(self), PyObject *py_handle)
 {
 	struct ccn *handle;
 	PyObject *res;
@@ -151,14 +151,14 @@ _pyccn_output_is_pending(PyObject *UNUSED(self), PyObject *py_handle)
 }
 
 PyObject *
-_pyccn_ccn_run(PyObject *UNUSED(self), PyObject *args)
+_pyccn_cmd_run(PyObject *UNUSED(self), PyObject *args)
 {
 	int r;
 	PyObject *py_handle;
 	int timeoutms = -1;
 	struct ccn *handle;
 
-	if (!PyArg_ParseTuple(args, "O|i:_pyccn_ccn_run", &py_handle, &timeoutms))
+	if (!PyArg_ParseTuple(args, "O|i", &py_handle, &timeoutms))
 		return NULL;
 
 	if (!CCNObject_IsValid(HANDLE, py_handle)) {
@@ -203,15 +203,14 @@ _pyccn_ccn_run(PyObject *UNUSED(self), PyObject *args)
 }
 
 PyObject *
-_pyccn_ccn_set_run_timeout(PyObject *UNUSED(self), PyObject *args)
+_pyccn_cmd_set_run_timeout(PyObject *UNUSED(self), PyObject *args)
 {
 	int r;
 	PyObject *py_handle;
 	int timeoutms = 0;
 	struct ccn *handle;
 
-	if (!PyArg_ParseTuple(args, "O|i:_pyccn_ccn_set_run_timeout", &py_handle,
-			&timeoutms))
+	if (!PyArg_ParseTuple(args, "O|i", &py_handle, &timeoutms))
 		return NULL;
 
 	if (!CCNObject_IsValid(HANDLE, py_handle)) {
@@ -397,7 +396,7 @@ error:
 }
 
 PyObject *
-_pyccn_is_upcall_executing(PyObject *UNUSED(self), PyObject *py_handle)
+_pyccn_cmd_is_upcall_executing(PyObject *UNUSED(self), PyObject *py_handle)
 {
 	struct pyccn_state *state = GETSTATE(_pyccn_module);
 	struct ccn *handle;
@@ -427,7 +426,7 @@ _pyccn_is_upcall_executing(PyObject *UNUSED(self), PyObject *py_handle)
 // Registering callbacks
 
 PyObject *
-_pyccn_ccn_express_interest(PyObject *UNUSED(self), PyObject *args)
+_pyccn_cmd_express_interest(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_o, *py_ccn, *py_name, *py_closure, *py_templ;
 	int r;
@@ -519,7 +518,7 @@ _pyccn_ccn_express_interest(PyObject *UNUSED(self), PyObject *args)
 }
 
 PyObject *
-_pyccn_ccn_set_interest_filter(PyObject *UNUSED(self), PyObject *args)
+_pyccn_cmd_set_interest_filter(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_ccn, *py_name, *py_closure, *py_o;
 	int forw_flags = CCN_FORW_ACTIVE | CCN_FORW_CHILD_INHERIT;
@@ -585,7 +584,7 @@ _pyccn_ccn_set_interest_filter(PyObject *UNUSED(self), PyObject *args)
 // Simple get/put
 
 PyObject *
-_pyccn_ccn_get(PyObject *UNUSED(self), PyObject *args)
+_pyccn_cmd_get(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_CCN, *py_Name, *py_Interest = Py_None;
 	PyObject *py_co = NULL, *py_o = NULL;
@@ -669,7 +668,7 @@ exit:
 }
 
 PyObject * // int
-_pyccn_ccn_put(PyObject *UNUSED(self), PyObject *args)
+_pyccn_cmd_put(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_ccn, *py_content_object;
 	PyObject *py_o;
@@ -711,7 +710,7 @@ _pyccn_ccn_put(PyObject *UNUSED(self), PyObject *args)
 }
 
 PyObject *
-_pyccn_ccn_get_default_key(PyObject *UNUSED(self), PyObject *UNUSED(arg))
+_pyccn_cmd_get_default_key(PyObject *UNUSED(self), PyObject *UNUSED(arg))
 {
 	struct ccn_keystore *keystore = NULL;
 	struct ccn_charbuf *buf = NULL;
@@ -755,7 +754,7 @@ error:
 }
 
 PyObject *
-_pyccn_generate_RSA_key(PyObject *UNUSED(self), PyObject *args)
+_pyccn_cmd_generate_RSA_key(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_key, *py_o;
 	long keylen;
@@ -957,31 +956,8 @@ _pyccn_SigningParams_from_ccn(PyObject *UNUSED(self),
 	return obj_SigningParams_from_ccn(py_signing_params);
 }
 
-/*
- * XXX: This looks like an useless function, the upcall_info supposed to be
- * just temporary structure valid for the duration of upcall, we shouldn't
- * ever have need to store it. If it indeed is needed, we need to make copy
- * of the struct and also write routine in destructor
- */
 PyObject *
-_pyccn_UpcallInfo_from_ccn(PyObject *UNUSED(self), PyObject *py_upcall_info)
-{
-	struct ccn_upcall_info *upcall_info;
-
-	if (!CCNObject_IsValid(UPCALL_INFO, py_upcall_info)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a CCN UpcallInfo");
-		return NULL;
-	}
-
-	upcall_info = CCNObject_Get(UPCALL_INFO, py_upcall_info);
-
-	assert(0);
-	//TODO: we need kind of interest as well!
-	return UpcallInfo_obj_from_ccn(CCN_UPCALL_FINAL, upcall_info);
-}
-
-PyObject *
-_pyccn_dump_charbuf(PyObject *UNUSED(self), PyObject *py_charbuf)
+_pyccn_cmd_dump_charbuf(PyObject *UNUSED(self), PyObject *py_charbuf)
 {
 	struct ccn_charbuf *charbuf;
 	enum _pyccn_capsules type;

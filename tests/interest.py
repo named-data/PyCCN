@@ -20,7 +20,7 @@ i.nonce = b'abababa'
 print(i)
 print(i.ccn_data)
 
-i2 = _pyccn._pyccn_Interest_from_ccn(i.ccn_data)
+i2 = _pyccn.Interest_obj_from_ccn(i.ccn_data)
 print(i2)
 
 assert(i.name == i2.name)

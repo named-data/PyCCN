@@ -170,7 +170,7 @@ error:
 }
 
 PyObject *
-_pyccn_Name_to_ccn(PyObject *UNUSED(self), PyObject *py_name_components)
+_pyccn_cmd_name_comps_to_ccn(PyObject *UNUSED(self), PyObject *py_name_components)
 {
 	return name_comps_to_ccn(py_name_components);
 }
@@ -179,7 +179,7 @@ _pyccn_Name_to_ccn(PyObject *UNUSED(self), PyObject *py_name_components)
 //
 
 PyObject *
-_pyccn_Name_from_ccn(PyObject *UNUSED(self), PyObject *py_cname)
+_pyccn_cmd_name_comps_from_ccn(PyObject *UNUSED(self), PyObject *py_cname)
 {
 	if (!CCNObject_IsValid(NAME, py_cname)) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a CCN name");
@@ -261,7 +261,7 @@ Name_from_ccn_tagged_bytearray(const unsigned char *buf, size_t size)
 }
 
 PyObject *
-_pyccn_name_from_uri(PyObject *UNUSED(self), PyObject *py_uri)
+_pyccn_cmd_name_from_uri(PyObject *UNUSED(self), PyObject *py_uri)
 {
 	struct ccn_charbuf *name;
 	PyObject *py_name = NULL, *py_o;
@@ -294,7 +294,7 @@ error:
 }
 
 PyObject *
-_pyccn_name_to_uri(PyObject *UNUSED(self), PyObject *py_name)
+_pyccn_cmd_name_to_uri(PyObject *UNUSED(self), PyObject *py_name)
 {
 	struct ccn_charbuf *cb, *uri = NULL;
 	enum _pyccn_capsules type;
@@ -345,7 +345,7 @@ error:
 }
 
 PyObject *
-_pyccn_compare_names(PyObject *UNUSED(self), PyObject *args)
+_pyccn_cmd_compare_names(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_name1, *py_name2;
 	struct ccn_charbuf *name1, *name2;

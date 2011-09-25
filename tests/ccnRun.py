@@ -2,10 +2,10 @@ from pyccn import CCN, _pyccn
 from threading import Timer
 from datetime import datetime
 
-handle = _pyccn._pyccn_ccn_create()
+handle = _pyccn.create()
 
 try:
-	_pyccn._pyccn_ccn_run(handle, 100)
+	_pyccn.run(handle, 100)
 except _pyccn.CCNError:
 	pass
 else:

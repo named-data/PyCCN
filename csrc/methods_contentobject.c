@@ -275,7 +275,7 @@ ContentObject_obj_from_ccn(PyObject *py_content_object)
 		goto error;
 	}
 
-	py_o = obj_Signature_obj_from_ccn(py_signature);
+	py_o = Signature_obj_from_ccn(py_signature);
 	Py_DECREF(py_signature);
 	JUMP_IF_NULL(py_o, error);
 	r = PyObject_SetAttrString(py_obj_ContentObject, "signature", py_o);
@@ -327,25 +327,8 @@ error:
 	return NULL;
 }
 
-// Can be called directly from c library
-#if 0
-
-PyObject*
-ContentObject_from_ccn(struct ccn_charbuf* content_object)
-{
-	struct ccn_parsed_ContentObject* parsed_content_object = calloc(sizeof(struct ccn_parsed_ContentObject), 1);
-	struct ccn_indexbuf* components = ccn_indexbuf_create();
-	ccn_parse_ContentObject(content_object->buf, content_object->length, parsed_content_object, components);
-	// TODO: Check result
-	PyObject* CO = ContentObject_obj_from_ccn(content_object, parsed_content_object, components);
-	free(parsed_content_object);
-	ccn_indexbuf_destroy(&components);
-	return CO;
-}
-#endif
-
 PyObject *
-_pyccn_content_to_bytearray(PyObject *UNUSED(self), PyObject *arg)
+_pyccn_cmd_content_to_bytearray(PyObject *UNUSED(self), PyObject *arg)
 {
 	PyObject *str, *result;
 
@@ -381,7 +364,7 @@ _pyccn_content_to_bytearray(PyObject *UNUSED(self), PyObject *arg)
 }
 
 PyObject *
-_pyccn_content_to_bytes(PyObject *UNUSED(self), PyObject *arg)
+_pyccn_cmd_content_to_bytes(PyObject *UNUSED(self), PyObject *arg)
 {
 	PyObject *str;
 
@@ -410,7 +393,7 @@ _pyccn_content_to_bytes(PyObject *UNUSED(self), PyObject *arg)
 }
 
 PyObject *
-_pyccn_ContentObject_to_ccn(PyObject *UNUSED(self), PyObject *args)
+_pyccn_cmd_encode_ContentObject(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_content_object, *py_name, *py_content, *py_signed_info,
 			*py_key;
@@ -501,13 +484,13 @@ error:
 }
 
 PyObject *
-_pyccn_ContentObject_from_ccn(PyObject *UNUSED(self), PyObject *py_co)
+_pyccn_cmd_ContentObject_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_co)
 {
 	return ContentObject_obj_from_ccn(py_co);
 }
 
 PyObject *
-_pyccn_digest_contentobject(PyObject *UNUSED(self), PyObject *args)
+_pyccn_cmd_digest_contentobject(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_content_object;
 	struct ccn_charbuf *content_object;
@@ -544,7 +527,7 @@ _pyccn_digest_contentobject(PyObject *UNUSED(self), PyObject *args)
 }
 
 PyObject *
-_pyccn_content_matches_interest(PyObject *UNUSED(self), PyObject *args)
+_pyccn_cmd_content_matches_interest(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_content_object, *py_interest;
 	struct ccn_charbuf *content_object, *interest;

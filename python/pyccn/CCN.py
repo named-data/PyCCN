@@ -16,8 +16,8 @@ import threading, dummy_threading
 class CCN(object):
 	def __init__(self):
 		self._handle_lock = threading.Lock()
-		self.ccn_data = _pyccn._pyccn_ccn_create()
-		_pyccn._pyccn_ccn_connect(self.ccn_data)
+		self.ccn_data = _pyccn.create()
+		_pyccn.connect(self.ccn_data)
 
 	def _acquire_lock(self):
 		if not _pyccn.is_upcall_executing(self.ccn_data):
@@ -54,14 +54,14 @@ class CCN(object):
 		assert(_pyccn.is_upcall_executing(None) == -1)
 		self._handle_lock.acquire()
 		try:
-			_pyccn._pyccn_ccn_run(self.ccn_data, timeoutms)
+			_pyccn.run(self.ccn_data, timeoutms)
 		finally:
 			self._handle_lock.release()
 
 	def setRunTimeout(self, timeoutms):
 		#self._acquire_lock()
 		#try:
-			_pyccn._pyccn_ccn_set_run_timeout(self.ccn_data, timeoutms)
+			_pyccn.set_run_timeout(self.ccn_data, timeoutms)
 		#finally:
 			#self._release_lock
 
@@ -70,7 +70,7 @@ class CCN(object):
 	def expressInterest(self, name, closure, template=None):
 		self._acquire_lock()
 		try:
-			return _pyccn._pyccn_ccn_express_interest(self, name, closure, template)
+			return _pyccn.express_interest(self, name, closure, template)
 		finally:
 			self._release_lock()
 
@@ -78,9 +78,9 @@ class CCN(object):
 		self._acquire_lock()
 		try:
 			if flags is None:
-				return _pyccn._pyccn_ccn_set_interest_filter(self.ccn_data, name.ccn_data, closure)
+				return _pyccn.set_interest_filter(self.ccn_data, name.ccn_data, closure)
 			else:
-				return _pyccn._pyccn_ccn_set_interest_filter(self.ccn_data, name.ccn_data, closure, flags)
+				return _pyccn.set_interest_filter(self.ccn_data, name.ccn_data, closure, flags)
 		finally:
 			self._release_lock()
 
@@ -88,14 +88,14 @@ class CCN(object):
 	def get(self, name, template = None, timeoutms = 3000):
 		self._acquire_lock()
 		try:
-			return _pyccn._pyccn_ccn_get(self, name, template, timeoutms)
+			return _pyccn.get(self, name, template, timeoutms)
 		finally:
 			self._release_lock()
 
 	def put(self, contentObject):
 		self._acquire_lock()
 		try:
-			return _pyccn._pyccn_ccn_put(self, contentObject)
+			return _pyccn.put(self, contentObject)
 		finally:
 			self._release_lock()
 

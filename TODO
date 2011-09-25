@@ -12,9 +12,9 @@ some improvements:
 + combine ContentObject + parsed ContentObject + comps together, same with
   Interest (i.e. all of those parts would be seen in python as one variable). I
   think they're strongly related together.
++ remove all _pyccn_* in front of python commands
 - providing own timestamp in ContentObject currently will say it's not
   implemented (it'll use current time when not specified)
-- remove all _pyccn_* in front of python commands
 - KeyLocator when is using KeyName, it needs to include hash of the key as well
 - revise code for generating digest and public keys from private ones (the code
   works, but I feel I'm probably doing unnecessary steps due to not fully

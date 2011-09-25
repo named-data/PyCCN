@@ -22,7 +22,7 @@ class Key(object):
 		pass
 
 	def generateRSA(self, numbits):
-		_pyccn._pyccn_generate_RSA_key(self, numbits)
+		_pyccn.generate_RSA_key(self, numbits)
 
 	def privateToDER(self):
 		if not self.ccn_data_private:
@@ -97,10 +97,10 @@ class KeyLocator(object):
 		if name=="ccn_data":
 			if object.__getattribute__(self, 'ccn_data_dirty'):
 				if object.__getattribute__(self, 'keyName'):
-					self.ccn_data = _pyccn._pyccn_KeyLocator_to_ccn(
+					self.ccn_data = _pyccn.KeyLocator_to_ccn(
 						name=self.keyName.ccn_data)
 				elif object.__getattribute__(self, 'key'):
-					self.ccn_data = _pyccn._pyccn_KeyLocator_to_ccn(
+					self.ccn_data = _pyccn.KeyLocator_to_ccn(
 						key=self.key.ccn_data_public)
 				elif object.__getattribute__(self, 'certificate'):
 					#same but with cert= arg

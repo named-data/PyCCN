@@ -281,7 +281,7 @@ error:
 }
 
 PyObject *
-_pyccn_SignedInfo_to_ccn(PyObject *UNUSED(self), PyObject *args,
+_pyccn_cmd_SignedInfo_to_ccn(PyObject *UNUSED(self), PyObject *args,
 		PyObject *kwds)
 {
 	static char *kwlist[] = {"pubkey_digest", "type", "timestamp",
@@ -370,7 +370,7 @@ error:
 }
 
 PyObject *
-_pyccn_SignedInfo_from_ccn(PyObject *UNUSED(self), PyObject *py_signed_info)
+_pyccn_cmd_SignedInfo_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_signed_info)
 {
 	if (!CCNObject_IsValid(SIGNED_INFO, py_signed_info)) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a CObject containing"

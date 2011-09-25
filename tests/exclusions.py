@@ -7,7 +7,7 @@ e.add_any()
 e.add_name(Name.Name('/forty/two'))
 
 str(e)
-d = _pyccn._pyccn_ExclusionFilter_from_ccn(e.ccn_data)
+d = _pyccn.ExclusionFilter_obj_from_ccn(e.ccn_data)
 str(d)
 
 # I believe separation of /forty/two into /forty and /two is a correct behavior
@@ -19,4 +19,3 @@ for a,b in zip(d.components, result):
 		continue
 	else:
 		raise AssertionError("%s != %s" % (str(a), b))
-

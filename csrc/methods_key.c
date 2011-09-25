@@ -402,37 +402,13 @@ error:
  */
 
 PyObject *
-_pyccn_Key_to_ccn_public(PyObject *UNUSED(self), PyObject *py_key)
-{
-	if (strcmp(py_key->ob_type->tp_name, "Key") != 0) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a Key");
-
-		return NULL;
-	}
-
-	return PyObject_GetAttrString(py_key, "ccn_data_public");
-}
-
-PyObject *
-_pyccn_Key_to_ccn_private(PyObject *UNUSED(self), PyObject *py_key)
-{
-	if (strcmp(py_key->ob_type->tp_name, "Key") != 0) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a Key");
-
-		return NULL;
-	}
-
-	return PyObject_GetAttrString(py_key, "ccn_data_private");
-}
-
-PyObject *
-_pyccn_Key_from_ccn(PyObject *UNUSED(self), PyObject *py_ccn_key)
+_pyccn_cmd_Key_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_ccn_key)
 {
 	return Key_obj_from_ccn(py_ccn_key);
 }
 
 PyObject *
-_pyccn_KeyLocator_to_ccn(PyObject *UNUSED(self), PyObject *args,
+_pyccn_cmd_KeyLocator_to_ccn(PyObject *UNUSED(self), PyObject *args,
 		PyObject *kwds)
 {
 	static char *kwlist[] = {"name", "digest", "key", "cert", NULL};
@@ -481,7 +457,7 @@ error:
 }
 
 PyObject *
-_pyccn_KeyLocator_from_ccn(PyObject *UNUSED(self), PyObject *py_keylocator)
+_pyccn_cmd_KeyLocator_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_keylocator)
 {
 	if (!CCNObject_IsValid(KEY_LOCATOR, py_keylocator)) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a CCN Key Locator object");
@@ -493,7 +469,7 @@ _pyccn_KeyLocator_from_ccn(PyObject *UNUSED(self), PyObject *py_keylocator)
 }
 
 PyObject *
-_pyccn_PEM_read_key(PyObject *UNUSED(self), PyObject *args,
+_pyccn_cmd_PEM_read_key(PyObject *UNUSED(self), PyObject *args,
 		PyObject *py_kwds)
 {
 	PyObject *py_file = Py_None, *py_private_pem = Py_None,
@@ -543,7 +519,7 @@ _pyccn_PEM_read_key(PyObject *UNUSED(self), PyObject *args,
 }
 
 PyObject *
-_pyccn_PEM_write_key(PyObject *UNUSED(self), PyObject *args,
+_pyccn_cmd_PEM_write_key(PyObject *UNUSED(self), PyObject *args,
 		PyObject *py_kwds)
 {
 	PyObject *py_pkey, *py_file = Py_None;
@@ -595,7 +571,7 @@ _pyccn_PEM_write_key(PyObject *UNUSED(self), PyObject *args,
 }
 
 PyObject *
-_pyccn_DER_read_key(PyObject *UNUSED(self), PyObject *args,
+_pyccn_cmd_DER_read_key(PyObject *UNUSED(self), PyObject *args,
 		PyObject *py_kwds)
 {
 	PyObject *py_private_der = Py_None, *py_public_der = Py_None;
@@ -654,7 +630,7 @@ do_work:
 }
 
 PyObject *
-_pyccn_DER_write_key(PyObject *UNUSED(self), PyObject *args,
+_pyccn_cmd_DER_write_key(PyObject *UNUSED(self), PyObject *args,
 		PyObject *py_kwds)
 {
 	PyObject *py_pkey;

@@ -8,8 +8,8 @@
 #ifndef METHODS_SIGNATURE_H
 #  define	METHODS_SIGNATURE_H
 
-PyObject *obj_Signature_obj_from_ccn(PyObject *py_signature);
-PyObject *_pyccn_Signature_to_ccn(PyObject* self, PyObject* args);
-PyObject *_pyccn_Signature_from_ccn(PyObject* self, PyObject* args);
+PyObject *Signature_obj_from_ccn(PyObject *py_signature);
+PyObject *_pyccn_cmd_Signature_obj_to_ccn(PyObject* self, PyObject* args);
+PyObject *_pyccn_cmd_Signature_obj_from_ccn(PyObject* self, PyObject* args);
 
 #endif	/* METHODS_SIGNATURE_H */

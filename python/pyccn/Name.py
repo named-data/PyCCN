@@ -48,7 +48,7 @@ class Name(object):
 
 	def setURI(self, uri):
 		ccn_data = _pyccn.name_from_uri(uri)
-		self.components = _pyccn._pyccn_Name_from_ccn(ccn_data)
+		self.components = _pyccn.name_comps_from_ccn(ccn_data)
 		self.ccn_data = ccn_data
 		self.ccn_data_dirty = False
 
@@ -102,7 +102,7 @@ class Name(object):
 	def __getattribute__(self, name):
 		if name == "ccn_data":
 			if object.__getattribute__(self, 'ccn_data_dirty'):
-				self.ccn_data = _pyccn._pyccn_Name_to_ccn(self.components)
+				self.ccn_data = _pyccn.name_comps_to_ccn(self.components)
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)
 

@@ -45,11 +45,10 @@ class Closure(object):
 
 class UpcallInfo(object):
 	def __init__(self):
-		self.ccn = None  # CCN object
+		self.ccn = None  # CCN object (not used)
 		self.Interest = None  # Interest object
 		self.matchedComps = None  # int
 		self.ContentObject = None  # Content object
-		self.ccn_data = None #CCN representation
 
 	def __str__(self):
 		ret = "ccn = %s" % self.ccn

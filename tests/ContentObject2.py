@@ -21,10 +21,9 @@ co.sign(k)
 
 print(str(co))
 
-co2 = _pyccn.ContentObject_from_ccn(co.ccn_data)
+co2 = _pyccn.ContentObject_obj_from_ccn(co.ccn_data)
 print(str(co2))
 
 print(str(i))
 
 print(co.matchesInterest(i))
-
