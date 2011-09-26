@@ -13,9 +13,14 @@ some improvements:
   Interest (i.e. all of those parts would be seen in python as one variable). I
   think they're strongly related together.
 + remove all _pyccn_* in front of python commands
++ implement ContentObject.verify()
 - providing own timestamp in ContentObject currently will say it's not
   implemented (it'll use current time when not specified)
 - KeyLocator when is using KeyName, it needs to include hash of the key as well
+- document functions
+- key management + name crypto integration (as per another e-mail)
+
+improvements not currently planned to be implemented:
 - revise code for generating digest and public keys from private ones (the code
   works, but I feel I'm probably doing unnecessary steps due to not fully
   understanding openssl documentation for example my code to make copy of
@@ -24,10 +29,7 @@ some improvements:
   which I could use. Or for example the digest code expects key in RSA format,
   then converts it to DER, but in some parts of the code I already have it as
   DER and unnecessarily convert it to RSA to make call)
-- document functions
-- key management + name crypto integration (as per another e-mail)
 - add exporting of DER to file (maybe not needed? it can save it to a variable)
-- implement ContentObject.verify()
 
 Possible problems:
 - check key verification (key embedded in content object, or key name)

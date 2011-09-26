@@ -23,6 +23,8 @@ PyObject *_pyccn_cmd_encode_ContentObject(PyObject *self, PyObject *args);
 PyObject *_pyccn_cmd_ContentObject_obj_from_ccn(PyObject *self, PyObject *py_co);
 PyObject *_pyccn_cmd_digest_contentobject(PyObject *self, PyObject *args);
 PyObject *_pyccn_cmd_content_matches_interest(PyObject *self, PyObject *args);
+PyObject *_pyccn_cmd_verify_content(PyObject *self, PyObject *args);
+PyObject *_pyccn_cmd_verify_signature(PyObject *self, PyObject *args);
 
 #endif	/* MEDHODS_CONTENTOBJECT_H */
 

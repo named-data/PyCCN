@@ -7,6 +7,7 @@
 
 #include "python_hdr.h"
 #include <ccn/ccn.h>
+#include <ccn/signing.h>
 
 #include "pyccn.h"
 #include "methods_contentobject.h"
@@ -563,6 +564,89 @@ _pyccn_cmd_content_matches_interest(PyObject *UNUSED(self), PyObject *args)
 	r = ccn_content_matches_interest(content_object->buf,
 			content_object->length, 1, pco, interest->buf, interest->length,
 			pi);
+
+	res = r ? Py_True : Py_False;
+
+	return Py_INCREF(res), res;
+}
+
+PyObject *
+_pyccn_cmd_verify_content(PyObject *UNUSED(self), PyObject *args)
+{
+	PyObject *py_handle, *py_content_object;
+	PyObject *res;
+	struct ccn *handle;
+	struct ccn_charbuf *content_object;
+	struct ccn_parsed_ContentObject *pco;
+	int r;
+
+	if (!PyArg_ParseTuple(args, "OO", &py_handle, &py_content_object))
+		return NULL;
+
+	if (!CCNObject_IsValid(HANDLE, py_handle)) {
+		PyErr_SetString(PyExc_TypeError, "argument 1 must be a CCN handle");
+		return NULL;
+	}
+
+	if (!CCNObject_IsValid(CONTENT_OBJECT, py_content_object)) {
+		PyErr_SetString(PyExc_TypeError, "argument 2 must be CCN"
+				" ContentObject");
+		return NULL;
+	}
+
+
+	handle = CCNObject_Get(HANDLE, py_handle);
+	content_object = CCNObject_Get(CONTENT_OBJECT, py_content_object);
+	pco = _pyccn_content_object_get_pco(py_content_object);
+	if (!pco)
+		return NULL;
+
+	assert(content_object->length == pco->offset[CCN_PCO_E]);
+
+	r = ccn_verify_content(handle, content_object->buf, pco);
+
+	res = r == 0 ? Py_True : Py_False;
+
+	return Py_INCREF(res), res;
+}
+
+PyObject *
+_pyccn_cmd_verify_signature(PyObject *UNUSED(self), PyObject *args)
+{
+	PyObject *py_content_object, *py_pub_key;
+	PyObject *res;
+	struct ccn_charbuf *content_object;
+	struct ccn_parsed_ContentObject *pco;
+	struct ccn_pkey *pub_key;
+	int r;
+
+	if (!PyArg_ParseTuple(args, "OO", &py_content_object, &py_pub_key))
+		return NULL;
+
+	if (!CCNObject_IsValid(CONTENT_OBJECT, py_content_object)) {
+		PyErr_SetString(PyExc_TypeError, "argument 1 must be CCN"
+				" ContentObject");
+		return NULL;
+	}
+
+	if (!CCNObject_IsValid(PKEY_PUB, py_pub_key)) {
+		PyErr_SetString(PyExc_TypeError, "argument 2 must be CCN public key");
+		return NULL;
+	}
+
+	content_object = CCNObject_Get(CONTENT_OBJECT, py_content_object);
+	pco = _pyccn_content_object_get_pco(py_content_object);
+	if (!pco)
+		return NULL;
+
+	pub_key = CCNObject_Get(PKEY_PUB, py_pub_key);
+
+	r = ccn_verify_signature(content_object->buf, content_object->length, pco,
+			pub_key);
+	if (r < 0) {
+		PyErr_SetString(g_PyExc_CCNSignatureError, "error verifying signature");
+		return NULL;
+	}
 
 	res = r ? Py_True : Py_False;
 

@@ -959,9 +959,8 @@ _pyccn_SigningParams_from_ccn(PyObject *UNUSED(self),
 PyObject *
 _pyccn_cmd_dump_charbuf(PyObject *UNUSED(self), PyObject *py_charbuf)
 {
-	struct ccn_charbuf *charbuf;
-	enum _pyccn_capsules type;
-	enum _pyccn_capsules types[] = {
+	const struct ccn_charbuf *charbuf;
+	static const enum _pyccn_capsules types[] = {
 		CONTENT_OBJECT,
 		EXCLUSION_FILTER,
 		INTEREST,
@@ -970,10 +969,14 @@ _pyccn_cmd_dump_charbuf(PyObject *UNUSED(self), PyObject *py_charbuf)
 		SIGNATURE,
 		SIGNED_INFO
 	};
+	enum _pyccn_capsules type;
+	static const size_t len = sizeof(types) / sizeof(type);
 
-	for (type = types[0]; type < (sizeof(types) / sizeof(type)); type++) {
-		if (CCNObject_IsValid(type, py_charbuf))
+	for (size_t i = 0; i < len; i++) {
+		if (CCNObject_IsValid(types[i], py_charbuf)) {
+			type = types[i];
 			goto success;
+		}
 	}
 
 	PyErr_SetString(PyExc_TypeError, "Expected charbuf type");

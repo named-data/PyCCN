@@ -83,10 +83,8 @@ static PyMethodDef g_module_methods[] = {
 	//
 	{"content_to_bytearray", _pyccn_cmd_content_to_bytearray, METH_O, NULL},
 	{"content_to_bytes", _pyccn_cmd_content_to_bytes, METH_O, NULL},
-#if 0
-	{"_pyccn_ccn_verify_content", _pyccn_ccn_verify_content, METH_VARARGS,
-		""},
-#endif
+	{"verify_content", _pyccn_cmd_verify_content, METH_VARARGS, NULL},
+	{"verify_signature", _pyccn_cmd_verify_signature, METH_VARARGS, NULL},
 #if 0
 	{"_pyccn_ccn_chk_signing_params", _pyccn_ccn_chk_signing_params, METH_VARARGS,
 		""},

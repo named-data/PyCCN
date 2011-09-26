@@ -48,9 +48,11 @@ class ContentObject(object):
 	def digest(self):
 		return _pyccn.digest_contentobject(self.ccn_data)
 
-	def verify(self):
-		# ccn_verify_content
-		pass
+	def verify(self, handle):
+		return _pyccn.verify_content(handle.ccn_data, self.ccn_data)
+
+	def verify_signature(self, key):
+		return _pyccn.verify_signature(self.ccn_data, key.ccn_data_public)
 
 	def matchesInterest(self, interest):
 		return _pyccn.content_matches_interest(self.ccn_data, interest.ccn_data)

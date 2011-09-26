@@ -39,7 +39,6 @@ class Closure(object):
 	def upcall(self, kind, upcallInfo):
 		global RESULT_OK
 
-		# override to be call
 		print('upcall', self, kind, upcallInfo)
 		return RESULT_OK
 
