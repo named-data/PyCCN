@@ -78,7 +78,7 @@ class ContentObject(object):
 	def __str__(self):
 		ret = []
 		ret.append("Name: %s" % self.name)
-		ret.append("Content: %s" % (self.content.decode("utf-8", errors='replace') if self.content else None))
+		ret.append("Content: %r" % self.content)
 		ret.append("DigestAlg: %r" % self.digestAlgorithm)
 		ret.append("SignedInfo: %s" % self.signedInfo)
 		ret.append("Signature: %s" % self.signature)

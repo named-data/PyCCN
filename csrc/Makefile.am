@@ -34,9 +34,9 @@ _pyccn_la_SOURCES = \
 #-Wstrict-prototypes -Wmissing-prototypes -Wshadow -Wconversion -Werror
 _pyccn_la_CPPFLAGS = -std=c99 -Wall -Wextra -Winvalid-pch -Wstrict-prototypes
 _pyccn_la_CPPFLAGS += -Wmissing-prototypes -Wshadow -fdiagnostics-show-option
-_pyccn_la_CPPFLAGS += @PYTHON_CPPFLAGS@ @CCN_INCLUDES@
+_pyccn_la_CPPFLAGS += @PYTHON_CPPFLAGS@ @CCN_INCLUDES@ @OPENSSL_INCLUDES@ -Wno-unknown-pragmas
 _pyccn_la_LDFLAGS = -avoid-version -module @PYTHON_LDFLAGS@ \
-	@CCN_LDFLAGS@ @CCN_LIBS@ @OPENSSL_LIBS@
+	@CCN_LDFLAGS@ @OPENSSL_LDFLAGS@ @CCN_LIBS@ @OPENSSL_LIBS@
 
 .h.h.gch:
 	$(CC) -c $<
