@@ -48,7 +48,7 @@ class ContentObject(object):
 	def digest(self):
 		return _pyccn.digest_contentobject(self.ccn_data)
 
-	def verify(self, handle):
+	def verify_content(self, handle):
 		return _pyccn.verify_content(handle.ccn_data, self.ccn_data)
 
 	def verify_signature(self, key):
