@@ -113,8 +113,6 @@ class ChatServer(Closure.Closure):
 		name = Name.Name(self.prefix)
 		name.appendVersion()
 		co = self.publish(name, message)
-		#self.message = co
-		#self.handle.put(co) #this is using a bug in ccnx
 		self.flow.put(co)
 
 	def upcall(self, kind, upcallInfo):

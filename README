@@ -92,6 +92,14 @@ All of the files are contained inside of pyccn package. To use you can call:
 3. Platform specific notes
 ==================================================
 
+3.0 All platforms
+
+- when configuring make sure you compile PyCCN with the same openssl library as
+  you compiled CCNx with. To specify alternative version use
+  --with-openssl=<openssl root dir>
+  An sign of linking with wrong library is getting segment violation on
+  signing.py testcase.
+
 3.1 MacOS X
 
 - when building python from sources you need to run ./configure --enable-shared
@@ -104,4 +112,8 @@ All of the files are contained inside of pyccn package. To use you can call:
   replacing openssl with their own implementation called Common Crypto.
   You might want to point to alternative version (e.g. from Mac Ports) using
   --with-openssl=<root of openssl dir>
+  If you have MacPorts installed and you put /opt/local/bin in front of PATH,
+  the PyCCN will use openssl from MacPorts due to MacPorts' pkg-config being
+  first in the path and pointing to packages in MacPorts. If you want to use
+  system's OpenSSL use --with-openssl=/usr to override that.
 
