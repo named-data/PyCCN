@@ -24,7 +24,7 @@ from . import _pyccn
 #
 
 from copy import copy
-import time, struct
+import time, struct, random
 
 NAME_NORMAL = 0
 NAME_ANY    = 1
@@ -67,7 +67,9 @@ class Name(object):
 
 	# can we do this in python
 	def appendNonce(self):
-		pass
+		val = random.getrandbits(64)
+		component = b'\xc1.N\x00' + struct.pack("@Q", val)
+		self.components.append(component)
 
 	def appendNumeric(self):   # tagged numerics p4 of code
 		pass
