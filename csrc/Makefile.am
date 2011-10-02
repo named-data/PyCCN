@@ -6,6 +6,7 @@ noinst_HEADERS = \
 	key_utils.h \
 	methods.h \
 	methods_contentobject.h \
+	methods_handle.h \
 	methods_interest.h \
 	methods_key.h \
 	methods_name.h \
@@ -20,6 +21,7 @@ _pyccn_la_SOURCES = \
 	key_utils.c \
 	methods.c \
 	methods_contentobject.c \
+	methods_handle.c \
 	methods_interest.c \
 	methods_key.c \
 	methods_name.c \

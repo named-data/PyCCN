@@ -18,6 +18,7 @@
 #include "key_utils.h"
 #include "methods.h"
 #include "methods_contentobject.h"
+#include "methods_handle.h"
 #include "methods_interest.h"
 #include "methods_key.h"
 #include "methods_name.h"
