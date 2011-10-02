@@ -1,0 +1,37 @@
+namecrypto library
+==================
+
+This library provides the basic function for name authentication and
+encryption. The library is provided with several example files. The examples
+do not use the NDN library for sending and receiving interests. Interests are simply stored and read from file.
+
+compute_app_secret_key.c
+Run by the configuration maneger (CM). The resulting application key must be
+sent to the application
+
+send_command_symm.c
+Run on the application. Generates an authenticated interest using the
+application secret key
+
+receive_commnand_symm.c
+Run on the fixture. Authenticates an interest received from an application.
+
+firstauth_cm.c
+Run by the configuration maneger (CM). The resulting interest is sent to the fixture to perform the first initialization
+
+firstauth_fixture.c
+Run on the fixture. Authenticates an interest received from the configuration 
+maneger (CM) and extracts the deployment information, such as a symmetric 
+(encrypted) and a pubblic key and some additional (encrypted) information.
+
+
+Compiling
+=========
+
+make
+
+
+Running
+=======
+
+The example applications should be run in the order above. These examples do not take any parameter.
