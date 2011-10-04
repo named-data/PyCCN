@@ -278,12 +278,12 @@ void authenticateCommand(state * st, struct ccn_charbuf * commandname, unsigned 
     // update and store the current time in "state"
     update_state(st);
     
-    // FIXME
+    // skip the initial 0xf2 and final 0x00
     commandnameLen = commandname->length - 2;
     
     m = (unsigned char *) malloc(commandnameLen + statelen);
         
-    memcpy(m, commandname->buf, commandnameLen);
+    memcpy(m, commandname->buf+1, commandnameLen);
     memcpy(m + commandnameLen, st, statelen);
     HMAC(EVP_sha256(), appkey, APPKEYLEN, m, commandnameLen + statelen, mac, NULL);
     
@@ -347,7 +347,7 @@ int verifyCommand(struct ccn_charbuf * authenticatedname, unsigned char * fixtur
             case AUTH_SYMMETRIC:
             if(!(fixtureKey && keylen))
                 return FAIL_VERIFICATION_KEY_NOT_PROVIDED;
-            ret = verifyCommandSymm(authenticator + AUTH_MAGIC_LEN, auth_len - AUTH_MAGIC_LEN, data, data_len, fixtureKey, keylen, currstate, maxTimeDifferenceMsec, checkPolicy);
+            ret = verifyCommandSymm(authenticator + AUTH_MAGIC_LEN, auth_len - AUTH_MAGIC_LEN, data+1, data_len, fixtureKey, keylen, currstate, maxTimeDifferenceMsec, checkPolicy);
             free(data);
             free(authenticator);
             return ret;
