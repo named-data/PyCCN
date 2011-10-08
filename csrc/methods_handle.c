@@ -12,13 +12,13 @@
 #include <ccn/reg_mgmt.h>
 
 #include "pyccn.h"
+#include "util.h"
 #include "key_utils.h"
 #include "methods_contentobject.h"
 #include "methods_handle.h"
 #include "methods_interest.h"
 #include "methods_key.h"
 #include "objects.h"
-#include "util.h"
 
 static PyObject *
 UpcallInfo_obj_from_ccn(enum ccn_upcall_kind upcall_kind,

@@ -15,4 +15,3 @@ PyObject *_pyccn_cmd_dump_charbuf(PyObject *self, PyObject *py_charbuf);
 PyObject *_pyccn_cmd_new_charbuf(PyObject *self, PyObject *args);
 
 #endif	/* METHODS_H */
-

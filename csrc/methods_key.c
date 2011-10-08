@@ -10,11 +10,11 @@
 #include <ccn/signing.h>
 
 #include "pyccn.h"
+#include "util.h"
 #include "key_utils.h"
 #include "methods_key.h"
 #include "methods_name.h"
 #include "objects.h"
-#include "util.h"
 
 #if 0
 

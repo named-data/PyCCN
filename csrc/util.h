@@ -32,4 +32,53 @@ void *_pyccn_run_state_add(struct ccn *handle);
 struct pyccn_run_state *_pyccn_run_state_find(struct ccn *handle);
 void _pyccn_run_state_clear(void *handle);
 
+#  if DEBUG_MSG
+#    define debug(...) fprintf(stderr, __VA_ARGS__)
+#  else
+#    define debug(...)
+#  endif
+
+#  define JUMP_IF_ERR(label) \
+do { \
+	if (PyErr_Occurred()) \
+		goto label; \
+} while(0)
+
+#  define JUMP_IF_NULL(variable, label) \
+do { \
+	if (!variable) \
+		goto label; \
+} while(0)
+
+#  define JUMP_IF_NULL_MEM(variable, label) \
+do { \
+	if (!variable) { \
+		PyErr_NoMemory(); \
+		goto label; \
+	} \
+} while(0)
+
+#  define JUMP_IF_NEG(variable, label) \
+do { \
+	if (variable < 0) \
+		goto label; \
+} while(0)
+
+#  define JUMP_IF_NEG_MEM(variable, label) \
+do { \
+	if (variable < 0) { \
+		PyErr_NoMemory(); \
+		goto label; \
+	} \
+} while (0)
+
+#  ifdef UNUSED
+#  elif defined(__GNUC__)
+#    define UNUSED(x) UNUSED_ ## x __attribute__((unused))
+#  elif defined(__LCLINT__)
+#    define UNUSED(x) /*@unused@*/ x
+#  else
+#    define UNUSED(x) x
+#  endif
+
 #endif	/* _UTIL_H_ */

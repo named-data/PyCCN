@@ -9,10 +9,10 @@
 #include <ccn/ccn.h>
 
 #include "pyccn.h"
+#include "util.h"
 #include "methods_key.h"
 #include "methods_signedinfo.h"
 #include "objects.h"
-#include "util.h"
 
 // ************
 // SignedInfo

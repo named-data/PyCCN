@@ -10,6 +10,7 @@
 #include <ccn/signing.h>
 
 #include "pyccn.h"
+#include "util.h"
 #include "methods_contentobject.h"
 #include "methods_interest.h"
 #include "methods_key.h"
@@ -17,7 +18,6 @@
 #include "methods_signature.h"
 #include "methods_signedinfo.h"
 #include "objects.h"
-#include "util.h"
 
 static PyObject *
 Content_from_ccn_parsed(struct ccn_charbuf *content_object,

@@ -9,10 +9,10 @@
 #include <ccn/ccn.h>
 
 #include "pyccn.h"
+#include "util.h"
 #include "methods_name.h"
 #include "methods_interest.h"
 #include "objects.h"
-#include "util.h"
 
 static int
 is_attr_set(PyObject *py_obj, const char *attr, PyObject **value)
