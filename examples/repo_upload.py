@@ -1,4 +1,4 @@
-from pyccn.staging.RepoControl import RepoUpload
+from pyccn.Repository import RepoUpload
 from pyccn import CCN, ContentObject, Name, Key
 import struct
 
