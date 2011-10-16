@@ -30,6 +30,13 @@ _pyccn_la_SOURCES = \
 	objects.c \
 	util.c
 
+
+noinst_HEADERS += methods_namecrypto.h
+_pyccn_la_SOURCES += methods_namecrypto.c \
+	namecrypto/authentication.c \
+	namecrypto/encryption.c \
+	namecrypto/toolkit.c
+
 #_pyccn_la_SOURCES += $(noinst_HEADERS:.h=.h.gch)
 
 #-O3 -pedantic -Wall -Wextra -fdiagnostics-show-option -Winvalid-pch

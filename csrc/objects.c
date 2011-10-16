@@ -36,6 +36,9 @@ static struct type_to_name {
 	{SIGNATURE, "Signature_ccn_data"},
 	{SIGNED_INFO, "SignedInfo_ccn_data"},
 	{SIGNING_PARAMS, "SigningParams_ccn_data"},
+#ifdef NAMECRYPTO
+	{NAMECRYPTO_STATE, "Namecrypto_state"},
+#endif
 	{0, NULL}
 };
 
@@ -164,6 +167,11 @@ pyccn_Capsule_Destructor(PyObject *capsule)
 		free(p);
 	}
 		break;
+#ifdef NAMECRYPTO
+	case NAMECRYPTO_STATE:
+		free(pointer);
+		break;
+#endif
 	default:
 		debug("Got capsule: %s\n", PyCapsule_GetName(capsule));
 		panic("Unable to destroy the object: got an unknown capsule");

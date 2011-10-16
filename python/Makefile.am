@@ -22,3 +22,6 @@ pyccnimpl_PYTHON = \
 #pyccnstaging_PYTHON = \
 #	pyccn/staging/__init__.py \
 #	pyccn/staging/RepoControl.py
+	pyccn/CCN.py
+
+pyccn_PYTHON += pyccn/NameCrypto.py

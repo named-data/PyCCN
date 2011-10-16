@@ -8,6 +8,8 @@
 #ifndef _PYCCN_H_
 #  define _PYCCN_H_
 
+#define NAMECRYPTO 1
+
 enum e_class_type {
 	CCN,
 	Closure,

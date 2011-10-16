@@ -29,6 +29,9 @@ enum _pyccn_capsules {
 	SIGNATURE,
 	SIGNED_INFO,
 	SIGNING_PARAMS,
+#  ifdef NAMECRYPTO
+	NAMECRYPTO_STATE,
+#  endif
 };
 
 struct content_object_data {

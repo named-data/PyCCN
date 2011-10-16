@@ -24,6 +24,10 @@
 #include "methods_signature.h"
 #include "methods_signedinfo.h"
 
+#ifdef NAMECRYPTO
+#    include "methods_namecrypto.h"
+#endif
+
 #if PY_MAJOR_VERSION >= 3
 #    define INITERROR return NULL
 #    define MODINIT(name) \
@@ -137,6 +141,17 @@ static PyMethodDef g_module_methods[] = {
 	{"dump_charbuf", _pyccn_cmd_dump_charbuf, METH_O, NULL},
 	{"new_charbuf", _pyccn_cmd_new_charbuf, METH_VARARGS, NULL},
 
+#ifdef NAMECRYPTO
+	{"nc_new_state", _pyccn_cmd_nc_new_state, METH_NOARGS, NULL},
+	{"nc_authenticate_command", _pyccn_cmd_nc_authenticate_command, METH_VARARGS,
+		NULL},
+	{"nc_authenticate_command_sig", _pyccn_cmd_nc_authenticate_command_sig,
+		METH_VARARGS, NULL},
+	{"nc_verify_command", (PyCFunction) _pyccn_cmd_nc_verify_command,
+		METH_VARARGS | METH_KEYWORDS, NULL},
+	{"nc_app_id", _pyccn_cmd_nc_app_id, METH_O, NULL},
+	{"nc_app_key", _pyccn_cmd_nc_app_key, METH_VARARGS, NULL},
+#endif
 	{NULL, NULL, 0, NULL} /* Sentinel */
 };
 

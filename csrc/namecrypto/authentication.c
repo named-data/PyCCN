@@ -68,7 +68,8 @@ retToString(int r)
  * appid must point to a buffer of size at least APPIDLEN.
  */
 unsigned char *
-appID(unsigned char * uniqueAppName, unsigned int uniqueAppName_len, unsigned char * appid)
+appID(unsigned char *uniqueAppName, unsigned int uniqueAppName_len,
+		unsigned char *appid)
 {
 	unsigned char * s;
 
@@ -104,7 +105,8 @@ appID(unsigned char * uniqueAppName, unsigned int uniqueAppName_len, unsigned ch
  */
 
 unsigned char *
-appKey(unsigned char * k, unsigned int keylen, unsigned char * appid, unsigned char * pol, unsigned int pol_len, unsigned char * appkey)
+appKey(unsigned char *k, unsigned int keylen, unsigned char *appid,
+		unsigned char *pol, unsigned int pol_len, unsigned char *appkey)
 {
 	unsigned char * kdf;
 	char * s = (char *) malloc(APPIDLEN + pol_len);
@@ -116,7 +118,7 @@ appKey(unsigned char * k, unsigned int keylen, unsigned char * appid, unsigned c
 	memcpy(s + APPIDLEN, pol, pol_len);
 
 	if (!(kdf = KDF(k, keylen, s, APPIDLEN + pol_len)))
-		return NULL;
+		return NULL; //XXX: memleak -dk
 
 	free(s);
 
@@ -171,7 +173,7 @@ extractFromInterest(unsigned char ** authenticator, unsigned int * auth_len, uns
 	while (i > 0) // The first component cannot be an authenticator
 	{
 		if (ccn_name_comp_get(name->buf, nix, i, (const unsigned char **) &out, &len))
-			return FAIL_MISSING_AUTHENTICATOR;
+			return FAIL_MISSING_AUTHENTICATOR; //XXX: memory leak (free nix) -dk
 		atype = detect_autenticator(out);
 		if (atype != NOT_AUTHENTICATOR) {
 			*authenticator = (unsigned char *) malloc(len);
@@ -190,6 +192,8 @@ extractFromInterest(unsigned char ** authenticator, unsigned int * auth_len, uns
 		}
 		i--;
 	}
+
+	//XXX: memory leak (free nix) -dk
 
 	return FAIL_MISSING_AUTHENTICATOR; // No authenticator in the string
 }
@@ -323,38 +327,52 @@ authenticateCommand(state *st, struct ccn_charbuf *commandname,
 
 /* Determines if an interest is authenticated with symmetric or asymmetric crypto and verifies it accordingly */
 int
-verifyCommand(struct ccn_charbuf * authenticatedname, unsigned char * fixtureKey, unsigned int keylen, RSA * pubkey, state * currstate, unsigned long int maxTimeDifferenceMsec, int (*checkPolicy)(unsigned char *, int))
+verifyCommand(struct ccn_charbuf *authenticatedname, unsigned char *fixtureKey,
+		unsigned int keylen, RSA *pubkey, state *currstate,
+		unsigned long int maxTimeDifferenceMsec,
+		int (*checkPolicy)(unsigned char *, int))
 {
 	unsigned char * authenticator, * data;
 	unsigned int auth_len, data_len;
 	int ret;
 
-	ret = extractFromInterest(&authenticator, &auth_len, &data, &data_len, authenticatedname);
+	ret = extractFromInterest(&authenticator, &auth_len, &data, &data_len,
+			authenticatedname);
 
+	//XXX: memory leak -dk
 	if (FAIL_MISSING_AUTHENTICATOR == ret)
 		return FAIL_MISSING_AUTHENTICATOR; // If the authenticator is not present
 
 	switch (ret) {
 	case AUTH_ASYMMETRIC:
 		if (!pubkey)
-			return FAIL_VERIFICATION_KEY_NOT_PROVIDED;
-		ret = verifyCommandSig(authenticator + AUTH_MAGIC_LEN, auth_len - AUTH_MAGIC_LEN, data, data_len, currstate, pubkey, maxTimeDifferenceMsec);
+			return FAIL_VERIFICATION_KEY_NOT_PROVIDED; //XXX: memory leak -dk
+
+		ret = verifyCommandSig(authenticator + AUTH_MAGIC_LEN,
+				auth_len - AUTH_MAGIC_LEN, data, data_len, currstate, pubkey,
+				maxTimeDifferenceMsec);
+
 		free(data);
 		free(authenticator);
+
 		return ret;
 		break;
 
 	case AUTH_SYMMETRIC:
 		if (!(fixtureKey && keylen))
-			return FAIL_VERIFICATION_KEY_NOT_PROVIDED;
-		ret = verifyCommandSymm(authenticator + AUTH_MAGIC_LEN, auth_len - AUTH_MAGIC_LEN, data + 1, data_len, fixtureKey, keylen, currstate, maxTimeDifferenceMsec, checkPolicy);
+			return FAIL_VERIFICATION_KEY_NOT_PROVIDED; //XXX: memory leak -dk
+
+		ret = verifyCommandSymm(authenticator + AUTH_MAGIC_LEN,
+				auth_len - AUTH_MAGIC_LEN, data + 1, data_len, fixtureKey,
+				keylen, currstate, maxTimeDifferenceMsec, checkPolicy);
+
 		free(data);
 		free(authenticator);
 		return ret;
 		break;
 
 	default:
-		return FAIL_MISSING_AUTHENTICATOR;
+		return FAIL_MISSING_AUTHENTICATOR; //XXX:memory leak -dk
 	}
 	return 0; // Just to avoid complaints from the compiler -- never gets here.
 }
@@ -364,7 +382,11 @@ verifyCommand(struct ccn_charbuf * authenticatedname, unsigned char * fixtureKey
  * authenticatedCommand = commandname/Base64(appname_len||appname||state||MAC(commandname||state))
  */
 int
-verifyCommandSymm(unsigned char * authenticator, unsigned int auth_len, unsigned char * authenticatedCommand, unsigned int commandLen, unsigned char * fixtureKey, unsigned int keylen, state * currstate, unsigned long int maxTimeDifferenceMsec, int (*checkPolicy)(unsigned char *, int))
+verifyCommandSymm(unsigned char *authenticator, unsigned int auth_len,
+		unsigned char *authenticatedCommand, unsigned int commandLen,
+		unsigned char *fixtureKey, unsigned int keylen, state *currstate,
+		unsigned long int maxTimeDifferenceMsec,
+		int (*checkPolicy)(unsigned char *, int))
 {
 	state * st;
 
