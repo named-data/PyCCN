@@ -21,7 +21,6 @@
 
 // Registering callbacks
 
-
 PyObject *
 _pyccn_cmd_generate_RSA_key(PyObject *UNUSED(self), PyObject *args)
 {
@@ -255,4 +254,37 @@ success:
 	charbuf = CCNObject_Get(type, py_charbuf);
 
 	return PyBytes_FromStringAndSize((char *) charbuf->buf, charbuf->length);
+}
+
+PyObject *
+_pyccn_cmd_new_charbuf(PyObject *UNUSED(self), PyObject *args)
+{
+	const char *type, *charbuf_data;
+	Py_ssize_t charbuf_data_len;
+	struct ccn_charbuf *charbuf;
+	PyObject *result = NULL;
+	int r;
+	enum _pyccn_capsules capsule_type;
+
+	if (!PyArg_ParseTuple(args, "ss#", &type, &charbuf_data, &charbuf_data_len))
+		return NULL;
+
+	if (strcmp(type, "KeyLocator_ccn_data")) {
+		PyErr_SetString(PyExc_ValueError, "Expected valid type "
+				"('KeyLocator_ccn_data')");
+		goto error;
+	}
+	capsule_type = KEY_LOCATOR;
+
+	result = CCNObject_New_charbuf(capsule_type, &charbuf);
+	JUMP_IF_NULL(result, error);
+
+	r = ccn_charbuf_append(charbuf, charbuf_data, charbuf_data_len);
+	JUMP_IF_NEG_MEM(r, error);
+
+	return result;
+
+error:
+	Py_XDECREF(result);
+	return NULL;
 }
