@@ -5,6 +5,7 @@
  *             Jeff Burke <jburke@ucla.edu>
  */
 
+#define PY_SSIZE_T_CLEAN 1
 #include "python_hdr.h"
 #include <ccn/ccn.h>
 
