@@ -63,7 +63,7 @@ int main()
     state_init(&state_fixture);
     
     // Verify the command against the current state
-    r = verifyCommand(authenticatedCommand, masterkey, 128/8, NULL /*RSA key*/, &state_fixture, 10000, cb_yes);
+    r = verifyCommand(authenticatedCommand, masterkey, 128/8, NULL /*RSA key*/, &state_fixture, 3600000, cb_yes);
     
     printf("%s", retToString(r));
     return 0;

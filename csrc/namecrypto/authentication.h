@@ -37,7 +37,9 @@
 #define AUTH_ASYMMETRIC 2
 
 typedef struct state_st {
-    struct timeval t;
+    //struct timeval t;
+    u_int32_t tv_sec;
+    u_int32_t tv_usec;
     u_int32_t seq;
     u_int16_t currRounTripTimeMs;
 } state;

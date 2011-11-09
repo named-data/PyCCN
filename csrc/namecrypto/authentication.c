@@ -26,8 +26,7 @@
 //#define AUTHDEBUG
 
 int verify_update_state_freshness(state * currstate, state * new_state, unsigned long int maxTimeDifferenceMsec);
-int parseAuthenticator_token(unsigned char * authenticator_token, unsigned int authenticator_token_len, unsigned char ** encrypted_info, unsigned int * encrypted_info_len, unsigned char ** unencrypted_info, unsigned int * unencrypted_info_len, unsigned char ** mac)
-;
+int parseAuthenticator_token(unsigned char * authenticator_token, unsigned int authenticator_token_len, unsigned char ** encrypted_info, unsigned int * encrypted_info_len, unsigned char ** unencrypted_info, unsigned int * unencrypted_info_len, unsigned char ** mac);
 int verifyCommandSymm(unsigned char * authenticator, unsigned int auth_len, unsigned char * authenticatedCommand, unsigned int commandLen, unsigned char * fixtureKey, unsigned int keylen, state * currstate, unsigned long int maxTimeDifferenceMsec, int (*checkPolicy)(unsigned char *, int));
 int verifyCommandSig(unsigned char * authenticator, unsigned int authenticator_len, unsigned char * command, unsigned int command_len, state * currstate, RSA * pubKey, unsigned long maxTimeDifferenceMsec);
 
@@ -218,7 +217,10 @@ void
 update_state(state * st)
 {
 	if (st) {
-		gettimeofday(&(st->t), NULL);
+		struct timeval tmp;
+		gettimeofday(&tmp, NULL);
+		st->tv_sec = tmp.tv_sec;
+		st->tv_usec = tmp.tv_usec;
 		st->seq++;
 	}
 }
@@ -239,15 +241,15 @@ verify_update_state_freshness(state * currstate, state * new_state, unsigned lon
 	//Check if the interest is recent
 	gettimeofday(&t_now, NULL);
 	if (maxDelay > 0) {
-		diff = (int) ((t_now.tv_sec - (new_state->t).tv_sec)*1000000 + t_now.tv_usec - (new_state->t).tv_usec) / 1000;
+		diff = (int) ((t_now.tv_sec - new_state->tv_sec)*1000000 + t_now.tv_usec - new_state->tv_usec) / 1000;
 		if (labs(diff) > maxDelay)
 			return FAIL_COMMAND_EXPIRED;
 	}
 
 	// The state of the interest looks good. Update current application state
 	currstate->seq = new_state->seq;
-	(currstate->t).tv_sec = t_now.tv_sec; // should I set the app state to now or to the time in the accepted interest?
-	(currstate->t).tv_usec = t_now.tv_usec;
+	currstate->tv_sec = t_now.tv_sec; // should I set the app state to now or to the time in the accepted interest?
+	currstate->tv_usec = t_now.tv_usec;
 
 	return AUTH_OK;
 }
@@ -448,6 +450,7 @@ verifyCommandSymm(unsigned char *authenticator, unsigned int auth_len,
 	print_hex(computedmac, MACLEN);
 	printf("\nm      = ");
 	print_hex(m, commandLen + statelen);
+	printf("\ncommandlen=%d, statelen=%d, struct timeval t=%d, time_t=%d, suseconds_t=%d, currstate->t.tv_sec=%d", commandLen, statelen, sizeof(struct timeval), sizeof(time_t), sizeof(suseconds_t), currstate->tv_sec);
 #endif
 
 	free(m);
