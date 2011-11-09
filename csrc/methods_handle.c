@@ -68,11 +68,12 @@ UpcallInfo_obj_from_ccn(enum ccn_upcall_kind upcall_kind,
 		JUMP_IF_NEG(r, error);
 	}
 
-	if (upcall_kind == CCN_UPCALL_CONTENT ||
+	if (upcall_kind == CCN_UPCALL_INTEREST ||
+			upcall_kind == CCN_UPCALL_CONSUMED_INTEREST ||
+			upcall_kind == CCN_UPCALL_CONTENT ||
+			upcall_kind == CCN_UPCALL_INTEREST_TIMED_OUT ||
 			upcall_kind == CCN_UPCALL_CONTENT_UNVERIFIED ||
-			upcall_kind == CCN_UPCALL_CONTENT_BAD ||
-			upcall_kind == CCN_UPCALL_INTEREST ||
-			upcall_kind == CCN_UPCALL_CONSUMED_INTEREST) {
+			upcall_kind == CCN_UPCALL_CONTENT_BAD) {
 		py_data = CCNObject_New_charbuf(INTEREST, &data);
 		JUMP_IF_NULL(py_data, error);
 		r = ccn_charbuf_append(data, ui->interest_ccnb,
