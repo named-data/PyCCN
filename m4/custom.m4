@@ -1,7 +1,7 @@
 AC_DEFUN([AX_CHECK_CCN], [
 	AX_CHECK_OPENSSL(,AC_MSG_ERROR([CCNx requires OpenSSL]))
 
-	ccndirs="$HOME/ccnx /usr/local"
+	ccndirs="/usr/local /usr $HOME/ccnx"
 	AC_ARG_WITH([ccn],
 		[AS_HELP_STRING([--with-ccn=DIR],
 			[root of the CCN directory])],
