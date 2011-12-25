@@ -133,8 +133,8 @@ $ac_distutils_result])
 		AC_MSG_CHECKING([for a version of Python $1])
 		ac_supports_python_ver=`$PYTHON -c "import sys; \
 			from distutils import version; \
-			ver = sys.version.split ()[[0]]; \
-			v1 = version.StrictVersion(ver); \
+			ver = sys.version_info; \
+			v1 = version.StrictVersion('%d.%d.%d' % (ver.major, ver.minor, ver.micro)); \
 			v2 = version.StrictVersion('$1'.split()[[1]]); \
 			print (v1 >= v2)"`
 		if test "$ac_supports_python_ver" = "True"; then
