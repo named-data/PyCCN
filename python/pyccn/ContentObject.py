@@ -20,10 +20,11 @@ CONTENT_LINK = 0x2C834A
 CONTENT_NACK = 0x34008A
 
 class ContentObject(object):
-	def __init__(self):
-		self.name = None
-		self.content = None
-		self.signedInfo = SignedInfo()
+	def __init__(self, name=None, content=None, signed_info=None):
+		self.name = name
+		self.content = content
+
+		self.signedInfo = signed_info if signed_info else SignedInfo()
 		self.digestAlgorithm = None # Default
 
 		# generated

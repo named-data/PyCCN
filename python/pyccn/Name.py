@@ -41,6 +41,9 @@ class Name(object):
 
 		if isinstance(components, self.__class__):
 			self.components = copy(components.components)
+			if not components.ccn_data_dirty:
+				self.ccn_data = components.ccn_data
+				self.ccn_data_dirty = False
 		elif type(components) is str:
 			self.setURI(components)
 		else:
@@ -56,6 +59,7 @@ class Name(object):
 		component = b'\xc1.M.K\x00'
 		component += digest
 		self.components.append(component)
+		self.ccn_data_dirty = True
 
 	def appendVersion(self, version=None):
 		if not version:
@@ -64,12 +68,18 @@ class Name(object):
 			version = bintime.lstrip(b'\x00')
 		component = b'\xfd' + version
 		self.components.append(component)
+		self.ccn_data_dirty = True
 
-	# can we do this in python
+	def appendSegment(self, segment):
+		component = b'\x00' + struct.pack('!Q', segment).lstrip('\x00')
+		self.components.append(component)
+		self.ccn_data_dirty = True
+
 	def appendNonce(self):
 		val = random.getrandbits(64)
 		component = b'\xc1.N\x00' + struct.pack("@Q", val)
 		self.components.append(component)
+		self.ccn_data_dirty = True
 
 	def appendNumeric(self):   # tagged numerics p4 of code
 		pass

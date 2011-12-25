@@ -17,6 +17,13 @@
 from . import _pyccn
 from . import Name
 
+AOK_CS      = 0x1  # Answer from content store
+AOK_NEW     = 0x2  # OK to produce new content
+AOK_STALE   = 0x4  # OK to answer with stale data
+AOK_EXPIRE  = 0x10 # Mark as stale (requires scope 0)
+
+AOK_DEFAULT = AOK_CS | AOK_NEW
+
 class Interest(object):
 	def __init__(self, name=None, minSuffixComponents=None, \
 				 maxSuffixComponents=None, publisherPublicKeyDigest=None, \
@@ -69,6 +76,10 @@ class Interest(object):
 		res.append("interestLifetime: %s" % self.interestLifetime)
 		res.append("nonce: %r" % self.nonce)
 		return "\n".join(res)
+
+	def get_aok_value(self):
+		global AOK_DEFAULT
+		return AOK_DEFAULT if not self.answerOriginKind else self.answerOriginKind
 
 	def matches_name(self, name):
 		i_name = self.name.components

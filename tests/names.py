@@ -33,3 +33,11 @@ assert(n.components == [b'testing', b'1', b'2', b'3'])
 n.components = [1, '2', bytearray(b'3'), bytes(b'4')]
 print(str(n))
 assert(str(n) == "/1/2/3/4")
+
+n = Name.Name()
+print(str(n))
+n.appendSegment(5)
+print(str(n))
+
+assert(str(n) == "/%00%05")
+

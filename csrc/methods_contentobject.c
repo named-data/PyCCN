@@ -58,6 +58,8 @@ Name_obj_from_ccn_parsed(PyObject *py_content_object)
 
 	content_object = CCNObject_Get(CONTENT_OBJECT, py_content_object);
 	parsed_content_object = _pyccn_content_object_get_pco(py_content_object);
+	if (!parsed_content_object)
+		return NULL;
 
 	name_begin = parsed_content_object->offset[CCN_PCO_B_Name];
 	name_end = parsed_content_object->offset[CCN_PCO_E_Name];
@@ -240,6 +242,8 @@ ContentObject_obj_from_ccn(PyObject *py_content_object)
 
 	content_object = CCNObject_Get(CONTENT_OBJECT, py_content_object);
 	parsed_content_object = _pyccn_content_object_get_pco(py_content_object);
+	if (!parsed_content_object)
+		return NULL;
 
 	debug("ContentObject_from_ccn_parsed content_object->length=%zd\n",
 			content_object->length);
@@ -508,6 +512,8 @@ _pyccn_cmd_digest_contentobject(PyObject *UNUSED(self), PyObject *args)
 
 	content_object = CCNObject_Get(CONTENT_OBJECT, py_content_object);
 	parsed_content_object = _pyccn_content_object_get_pco(py_content_object);
+	if (!parsed_content_object)
+		return NULL;
 
 	/*
 	 * sanity check (sigh, I guess pco and comps should be carried in
