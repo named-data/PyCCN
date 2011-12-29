@@ -678,13 +678,15 @@ _pyccn_cmd_put(PyObject *UNUSED(self), PyObject *args)
 	}
 
 	py_o = PyObject_GetAttrString(py_ccn, "ccn_data");
-	assert(py_o);
+	JUMP_IF_NULL(py_o, error);
+
 	handle = CCNObject_Get(HANDLE, py_o);
 	Py_DECREF(py_o);
 	assert(handle);
 
 	py_o = PyObject_GetAttrString(py_content_object, "ccn_data");
-	assert(py_o);
+	JUMP_IF_NULL(py_o, error);
+
 	content_object = CCNObject_Get(CONTENT_OBJECT, py_o);
 	Py_DECREF(py_o);
 	assert(content_object);
@@ -696,6 +698,9 @@ _pyccn_cmd_put(PyObject *UNUSED(self), PyObject *args)
 	}
 
 	return Py_BuildValue("i", r);
+
+error:
+	return NULL;
 }
 
 PyObject *
