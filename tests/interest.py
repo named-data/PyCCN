@@ -1,12 +1,10 @@
 from pyccn import Interest, Name, Key, CCN, _pyccn
 import datetime
 
-h = CCN.CCN()
-k = h.getDefaultKey()
-del h
+k = CCN.getDefaultKey()
 
-i = Interest.Interest()
-i.name = Name.Name('/hello/world')
+i = Interest()
+i.name = Name('/hello/world')
 i.minSuffixComponents = 2
 i.maxSuffixComponents = 4
 i.publisherPublicKeyDigest = k.publicKeyID

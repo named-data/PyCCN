@@ -1,3 +1,3 @@
 from pyccn import CCN
-c = CCN.CCN()
+c = CCN()
 k = c.getDefaultKey()

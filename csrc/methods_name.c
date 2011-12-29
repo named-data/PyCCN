@@ -192,29 +192,26 @@ _pyccn_cmd_name_comps_from_ccn(PyObject *UNUSED(self), PyObject *py_cname)
 PyObject *
 Name_obj_from_ccn(PyObject *py_cname)
 {
-	PyObject *py_Name = NULL, *py_components;
+	PyObject *py_Name = NULL, *py_kargs;
 	int r;
 
 	assert(g_type_Name);
 	assert(CCNObject_IsValid(NAME, py_cname));
 
-	py_Name = PyObject_CallObject(g_type_Name, NULL);
+	py_kargs = PyDict_New();
+	JUMP_IF_NULL(py_kargs, error);
+
+	r = PyDict_SetItemString(py_kargs, "ccn_data", py_cname);
+	JUMP_IF_NEG(r, error);
+
+	py_Name = PyEval_CallObjectWithKeywords(g_type_Name, NULL, py_kargs);
 	JUMP_IF_NULL(py_Name, error);
-
-	py_components = name_comps_from_ccn(py_cname);
-	JUMP_IF_NULL(py_components, error);
-
-	r = PyObject_SetAttrString(py_Name, "components", py_components);
-	Py_DECREF(py_components);
-	JUMP_IF_NEG(r, error);
-
-	r = PyObject_SetAttrString(py_Name, "ccn_data", py_cname);
-	JUMP_IF_NEG(r, error);
+	Py_CLEAR(py_kargs);
 
 	return py_Name;
 
 error:
-	Py_XDECREF(py_Name);
+	Py_XDECREF(py_kargs);
 	return NULL;
 }
 

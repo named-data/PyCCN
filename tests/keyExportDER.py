@@ -1,14 +1,13 @@
 import os, filecmp
 from base64 import b64encode, b64decode
-from pyccn import Key, _pyccn
+from pyccn import Key, _pyccn, CCN
 
-k = Key.Key()
-k.generateRSA(1024)
+k = CCN.getDefaultKey()
 
 private1_der = k.privateToDER()
 public1_der = k.publicToDER()
 
-k2 = Key.Key()
+k2 = Key()
 k2.fromDER(private=private1_der)
 
 private2_der = k2.privateToDER()
@@ -20,7 +19,7 @@ assert(k.publicKeyID == k2.publicKeyID)
 
 del(k2)
 
-k2 = Key.Key()
+k2 = Key()
 k2.fromDER(public=public1_der)
 
 try:

@@ -1,4 +1,4 @@
-from pyccn import CCN, Name, ContentObject
+import pyccn
 from subprocess import Popen, PIPE
 import threading
 import sys
@@ -18,8 +18,8 @@ class sendMessage(threading.Thread):
 
 thread = sendMessage()
 
-name = Name.Name("ccnx:/messages/hello")
-handle = CCN.CCN()
+name = pyccn.Name("ccnx:/messages/hello")
+handle = pyccn.CCN()
 
 thread.start()
 co = handle.get(name)
@@ -34,7 +34,7 @@ print(co.name)
 assert str(co.name) == "/messages/hello"
 
 signedinfo = co.signedInfo
-assert signedinfo.type == ContentObject.ContentType.CCN_CONTENT_ENCR
+assert signedinfo.type == pyccn.CONTENT_ENCR
 
 signature = co.signature
 

@@ -25,41 +25,77 @@ from . import _pyccn
 
 from copy import copy
 import time, struct, random
+from warnings import warn
 
 NAME_NORMAL = 0
 NAME_ANY    = 1
 
+_name_immutable = 1
+
+def name_immutable():
+	global _name_immutable
+
+	_name_immutable = 1
+
 class Name(object):
-	def __init__(self, components=[], name_type=NAME_NORMAL):
-		self.version = None      # need put/get handlers for attr
-		self.segment = None
-		self.type = name_type
+	def __init__(self, components=[], name_type=NAME_NORMAL, ccn_data=None):
+		self._setattr('type', name_type)
 
 		# pyccn
-		self.ccn_data_dirty = True
-		self.ccn_data = None  # backing charbuf
+		#self._setattr('ccn_data_dirty', True)
+		self._setattr('ccn_data', ccn_data)
 
-		if isinstance(components, self.__class__):
-			self.components = copy(components.components)
+		# Name from CCN
+		if ccn_data:
+			self._setattr('components', _pyccn.name_comps_from_ccn(ccn_data))
+			self._setattr('ccn_data_dirty', False)
+
+		# Copy Name from another Name object
+		elif isinstance(components, self.__class__):
+			self._setattr('components', copy(components.components))
 			if not components.ccn_data_dirty:
-				self.ccn_data = components.ccn_data
-				self.ccn_data_dirty = False
-		elif type(components) is str:
-			self.setURI(components)
-		else:
-			self.components = copy(components)  # list of blobs
+				self._setattr('ccn_data', components.ccn_data)
+				self._setattr('ccn_data_dirty', False)
 
-	def setURI(self, uri):
-		ccn_data = _pyccn.name_from_uri(uri)
-		self.components = _pyccn.name_comps_from_ccn(ccn_data)
-		self.ccn_data = ccn_data
-		self.ccn_data_dirty = False
+		# Name as string (URI)
+		elif type(components) is str:
+			ccn_data = _pyccn.name_from_uri(components)
+			self._setattr('components', _pyccn.name_comps_from_ccn(ccn_data))
+			self._setattr('ccn_data', ccn_data)
+			self._setattr('ccn_data_dirty', False)
+
+		# Otherwise assume name is a list
+		else:
+			self._setattr('components', copy(components))
+
+	def _setattr(self, name, value):
+		if name == 'components' or name == 'ccn_data':
+			self._setattr('ccn_data_dirty', True)
+		super(Name, self).__setattr__(name, value)
+
+	def _warn(self):
+		warn('Name works in compatibility mode, please set _name_immutable to 1')
+
+	def _append(self, component):
+		components = copy(self.components)
+		components.append(component)
+
+		if not _name_immutable:
+			self._warn()
+			self.ccn_data_dirty = True
+			self.components.append(component)
+
+		return Name(components)
+
+	def append(self, component):
+		components = copy(self.components)
+		components.append(component)
+		return Name(components)
 
 	def appendKeyID(self, digest):
 		component = b'\xc1.M.K\x00'
 		component += digest
-		self.components.append(component)
-		self.ccn_data_dirty = True
+		return self._append(component)
 
 	def appendVersion(self, version=None):
 		if not version:
@@ -67,19 +103,16 @@ class Name(object):
 			bintime = struct.pack("!Q", inttime)
 			version = bintime.lstrip(b'\x00')
 		component = b'\xfd' + version
-		self.components.append(component)
-		self.ccn_data_dirty = True
+		return self._append(component)
 
 	def appendSegment(self, segment):
 		component = b'\x00' + struct.pack('!Q', segment).lstrip('\x00')
-		self.components.append(component)
-		self.ccn_data_dirty = True
+		return self._append(component)
 
 	def appendNonce(self):
 		val = random.getrandbits(64)
 		component = b'\xc1.N\x00' + struct.pack("@Q", val)
-		self.components.append(component)
-		self.ccn_data_dirty = True
+		return self._append(component)
 
 	def appendNumeric(self):   # tagged numerics p4 of code
 		pass
@@ -98,24 +131,31 @@ class Name(object):
 		return len(self.components)
 
 	def __iadd__(self, component):
+		self._warn()
 		self.ccn_data_dirty = True
 		self.components.append(component)
 		return self
 
 	def __concat__(self, c):
-		self.components.append(c)
+		self._warn()
 		self.ccn_data_dirty = True
+		self.components.append(c)
 
 	def __setattr__(self, name, value):
-		if name == 'components' or name == 'version' or name == 'segment' or name == 'ccn_data':
-			self.ccn_data_dirty=True
-		object.__setattr__(self, name, value)
+		raise TypeError("can't modify immutable instance")
+
+	__delattr__ = __setattr__
+
+#	def __setattr__(self, name, value):
+#		if name == 'components' or name == 'version' or name == 'segment' or name == 'ccn_data':
+#			self.ccn_data_dirty=True
+#		object.__setattr__(self, name, value)
 
 	def __getattribute__(self, name):
 		if name == "ccn_data":
 			if object.__getattribute__(self, 'ccn_data_dirty'):
-				self.ccn_data = _pyccn.name_comps_to_ccn(self.components)
-				self.ccn_data_dirty = False
+				self._setattr('ccn_data', _pyccn.name_comps_to_ccn(self.components))
+				self._setattr('ccn_data_dirty', False)
 		return object.__getattribute__(self, name)
 
 	def __getitem__(self, key):
@@ -127,9 +167,11 @@ class Name(object):
 			raise ValueError("Unknown __getitem__ type: %s" % type(key))
 
 	def __setitem__(self, key, value):
+		self._warn()
 		self.components[key] = value
 
 	def __delitem__(self, key):
+		self._warn()
 		del self.components[key]
 
 	def __len__(self):

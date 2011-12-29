@@ -99,7 +99,8 @@ class CCN(object):
 		finally:
 			self._release_lock()
 
-	def getDefaultKey(self):
+	@staticmethod
+	def getDefaultKey():
 		return _pyccn.get_default_key()
 
 class EventLoop(object):

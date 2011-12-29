@@ -3,7 +3,7 @@ from time import sleep
 
 worked = False
 
-class MyClosure(Closure.Closure):
+class MyClosure(Closure):
 	def upcall(self, kind, upcallInfo):
 		global worked
 
@@ -12,13 +12,12 @@ class MyClosure(Closure.Closure):
 		print(upcallInfo)
 		worked = True
 
-n = Name.Name()
-n.setURI("ccnx:/ccnx/ping")
+n = Name("ccnx:/ccnx/ping")
 
-i = Interest.Interest()
+i = Interest()
 closure = MyClosure()
 
-c = CCN.CCN()
+c = CCN()
 res = c.expressInterest(n, closure, i)
 print(res)
 

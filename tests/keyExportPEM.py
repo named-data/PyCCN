@@ -1,6 +1,6 @@
 import os, filecmp
 from base64 import b64encode, b64decode
-from pyccn import Key, _pyccn
+from pyccn import Key, _pyccn, CCN
 
 print(os.getcwd())
 
@@ -17,13 +17,12 @@ def rm_files(*list):
 
 rm_files(private_pem1, public_pem1, private_pem2, public_pem2)
 
-k = Key.Key()
-k.generateRSA(1024)
+k = CCN.getDefaultKey()
 
 k.privateToPEM(filename=private_pem1)
 k.publicToPEM(filename=public_pem1)
 
-k2 = Key.Key()
+k2 = Key()
 k2.fromPEM(filename=private_pem1)
 
 k2.privateToPEM(filename=private_pem2)
@@ -38,7 +37,7 @@ assert(k.publicKeyID == k2.publicKeyID)
 del(k2)
 rm_files(private_pem2, public_pem2)
 
-k2 = Key.Key()
+k2 = Key()
 k2.fromPEM(filename=public_pem1)
 
 try:
@@ -58,14 +57,14 @@ rm_files(private_pem1, public_pem1, private_pem2, public_pem2)
 private = k.privateToPEM()
 public = k.publicToPEM()
 
-k2 = Key.Key()
+k2 = Key()
 k2.fromPEM(private=private)
 
 assert(k.privateToDER() == k2.privateToDER())
 assert(k.publicToDER() == k2.publicToDER())
 assert(k.publicKeyID == k2.publicKeyID)
 
-k2 = Key.Key()
+k2 = Key()
 k2.fromPEM(public=public)
 
 try:

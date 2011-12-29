@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([PyCCN], [0.1], [takeda@takeda.tk])
+AC_INIT([PyCCN], [0.2], [takeda@takeda.tk])
 
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux])

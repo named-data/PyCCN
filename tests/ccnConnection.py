@@ -22,6 +22,6 @@ else:
 
 del handle
 
-c = CCN.CCN()
+c = CCN()
 _pyccn.disconnect(c.ccn_data)
 del c

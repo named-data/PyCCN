@@ -13,7 +13,7 @@ else:
 
 del handle
 
-c = CCN.CCN()
+c = CCN()
 c.run(0)
 
 def change_timeout():

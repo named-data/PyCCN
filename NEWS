@@ -1,0 +1,33 @@
+What's new in version 0.2?
+--------------------------
+
+Completly changed the way pyccn was being imported. Now the pyccn is imported
+in a very similar way to other Python modules.
+For example, the old way of importing looked like this:
+
+from pyccn import *
+handle = CCN.CCN()
+key = handle.getDefaultKey()
+
+The new version is:
+
+import pyccn
+handle = pyccn.CCN()
+key = handle.getDefaultKey()
+
+The Name objet is now immutable, all opperations that were modifying Name's
+contents now return a new Name object. For example:
+
+Old way:
+from pyccn import Name
+
+n = Name.Name('/hello/world')
+segment = Name.Name(n)
+n.appendSegment(42)
+
+New way:
+import pyccn
+
+n = pyccn.Name('/hello/world')
+segment = n.appendSegment(42)
+

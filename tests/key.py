@@ -1,7 +1,6 @@
-from pyccn import Key, Name, _pyccn
+from pyccn import Key, Name, _pyccn, CCN
 
-n = Name.Name()
-n.setURI("/this/is/a/name")
+n = Name("/this/is/a/name")
 
 ccn_name1 = n.ccn_data
 name1 = _pyccn.name_comps_from_ccn(ccn_name1)
@@ -20,8 +19,7 @@ for comp1, comp2 in zip(name1, name2):
 	if comp1 != comp2:
 		raise AssertionError("Got a different output: '%s' != '%s'" % (comp1, comp2))
 
-key1 = Key.Key()
-key1.generateRSA(1024)
+key1 = CCN.getDefaultKey()
 
 locator2 = _pyccn.KeyLocator_to_ccn(key=key1.ccn_data_public)
 print(locator2)

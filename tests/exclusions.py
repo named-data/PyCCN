@@ -1,10 +1,11 @@
-from pyccn import Name, Interest, _pyccn
+import pyccn
+from pyccn import _pyccn
 
-e = Interest.ExclusionFilter()
+e = pyccn.ExclusionFilter()
 e.add_any()
-e.add_names([Name.Name('/one'), Name.Name('/two'), Name.Name('/three'), Name.Name('/four')])
+e.add_names([pyccn.Name('/one'), pyccn.Name('/two'), pyccn.Name('/three'), pyccn.Name('/four')])
 e.add_any()
-e.add_name(Name.Name('/forty/two'))
+e.add_name(pyccn.Name('/forty/two'))
 
 str(e)
 d = _pyccn.ExclusionFilter_obj_from_ccn(e.ccn_data)

@@ -135,26 +135,28 @@ error:
 static PyObject *
 Exclusion_Any_Obj(void)
 {
-	PyObject *py_name = NULL, *py_type_any;
+	PyObject *py_o, *py_kwds;
 	int r;
 
 	assert(g_type_Name);
 
-	py_type_any = PyLong_FromLong(NAME_TYPE_ANY);
-	JUMP_IF_NULL(py_type_any, error);
+	py_kwds = PyDict_New();
+	JUMP_IF_NULL(py_kwds, error);
 
-	py_name = PyObject_CallObject(g_type_Name, NULL);
-	JUMP_IF_NULL(py_name, error);
+	py_o = PyLong_FromLong(NAME_TYPE_ANY);
+	JUMP_IF_NULL(py_o, error);
 
-	r = PyObject_SetAttrString(py_name, "type", py_type_any);
-	Py_CLEAR(py_type_any);
+	r = PyDict_SetItemString(py_kwds, "name_type", py_o);
+	Py_DECREF(py_o);
 	JUMP_IF_NEG(r, error);
 
-	return py_name;
+	py_o = PyEval_CallObjectWithKeywords(g_type_Name, NULL, py_kwds);
+	Py_CLEAR(py_kwds);
+
+	return py_o;
 
 error:
-	Py_XDECREF(py_name);
-	Py_XDECREF(py_type_any);
+	Py_XDECREF(py_kwds);
 	return NULL;
 }
 

@@ -23,7 +23,7 @@ check_SCRIPTS = run
 
 TEST_EXTENSIONS = .py
 PY_LOG_COMPILER = ./run
-AM_PY_LOG_FLAGS = -v
+#AM_PY_LOG_FLAGS = -v
 
 #%.gdb: %
 #	gdb $(TESTS_ENVIRONMENT) $*
