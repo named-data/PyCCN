@@ -114,13 +114,15 @@ class Signature(object):
 		return "\n".join(res)
 
 class SignedInfo(object):
-	def __init__(self):
-		self.publisherPublicKeyDigest = None     # SHA256 hash
-		self.timeStamp = None   # CCNx timestamp
-		self.type = ContentType.CCN_CONTENT_DATA
-		self.freshnessSeconds = None
-		self.finalBlockID = None
-		self.keyLocator = None
+	def __init__(self, key_digest = None, key_locator = None, type = CONTENT_DATA,
+			freshness = None, final_block = None, timestamp = None):
+
+		self.publisherPublicKeyDigest = key_digest # SHA256 hash
+		self.timeStamp = timestamp   # CCNx timestamp
+		self.type = type
+		self.freshnessSeconds = freshness
+		self.finalBlockID = final_block
+		self.keyLocator = key_locator
 
 		# pyccn
 		self.ccn_data_dirty = True
@@ -151,7 +153,7 @@ class SignedInfo(object):
 			% b64encode(self.publisherPublicKeyDigest)
 		timestamp = "<Timestamp>%s</Timestamp>" % (b64encode(self.timeStamp) if self.timeStamp else None)
 		type = "<Type>%s</Type>" % ("None" if self.type == None else "0x%0.6X" % self.type)
-		freshness = "<FreshnessSeconds>%s<FreshnessSeconds>" % self.freshnessSeconds
+		freshness = "<FreshnessSeconds>%s</FreshnessSeconds>" % self.freshnessSeconds
 		finalBlockID = "<FinalBlockID>%r</FinalBlockID>" % self.finalBlockID
 		res = "<SignedInfo>%s%s%s%s%s%s</SignedInfo>" % (pubkeydigest, timestamp, type, freshness, finalBlockID, self.keyLocator)
 		return res
