@@ -7,7 +7,8 @@
 
 from . import _pyccn
 import select, time
-import threading, dummy_threading
+#import threading
+import dummy_threading as threading
 
 # Fronts ccn
 
@@ -19,17 +20,17 @@ class CCN(object):
 		self.ccn_data = _pyccn.create()
 		_pyccn.connect(self.ccn_data)
 
-	def _acquire_lock(self):
+	def _acquire_lock(self, tag):
 		if not _pyccn.is_upcall_executing(self.ccn_data):
-			#print("acquiring lock")
+#			print("%s: acquiring lock" % tag)
 			self._handle_lock.acquire()
-			#print("lock acquired")
+#			print("%s: lock acquired" % tag)
 
-	def _release_lock(self):
+	def _release_lock(self, tag):
 		if not _pyccn.is_upcall_executing(self.ccn_data):
-			#print("releasing lock")
+#			print("%s: releasing lock" % tag)
 			self._handle_lock.release()
-			#print("lock released")
+#			print("%s: lock released" % tag)
 
 	def fileno(self):
 		return _pyccn.get_connection_fd(self.ccn_data)
@@ -68,36 +69,39 @@ class CCN(object):
 	# Application-focused methods
 	#
 	def expressInterest(self, name, closure, template=None):
-		self._acquire_lock()
+		self._acquire_lock("expressInterest")
 		try:
 			return _pyccn.express_interest(self, name, closure, template)
 		finally:
-			self._release_lock()
+			self._release_lock("expressInterest")
 
 	def setInterestFilter(self, name, closure, flags = None):
-		self._acquire_lock()
+		self._acquire_lock("setInterestFilter")
 		try:
 			if flags is None:
 				return _pyccn.set_interest_filter(self.ccn_data, name.ccn_data, closure)
 			else:
 				return _pyccn.set_interest_filter(self.ccn_data, name.ccn_data, closure, flags)
 		finally:
-			self._release_lock()
+			self._release_lock("setInterestFilter")
 
 	# Blocking!
 	def get(self, name, template = None, timeoutms = 3000):
-		self._acquire_lock()
+#		if not _pyccn.is_upcall_executing(self.ccn_data):
+#			raise Exception, "Get called outside of upcall"
+
+		self._acquire_lock("get")
 		try:
 			return _pyccn.get(self, name, template, timeoutms)
 		finally:
-			self._release_lock()
+			self._release_lock("get")
 
 	def put(self, contentObject):
-		self._acquire_lock()
+		self._acquire_lock("put")
 		try:
 			return _pyccn.put(self, contentObject)
 		finally:
-			self._release_lock()
+			self._release_lock("put")
 
 	@staticmethod
 	def getDefaultKey():
