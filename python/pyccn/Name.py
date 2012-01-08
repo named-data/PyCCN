@@ -106,7 +106,7 @@ class Name(object):
 		return self._append(component)
 
 	def appendSegment(self, segment):
-		component = b'\x00' + struct.pack('!Q', segment).lstrip('\x00')
+		component = b'\x00' + struct.pack('!Q', segment).lstrip(b'\x00')
 		return self._append(component)
 
 	def appendNonce(self):
