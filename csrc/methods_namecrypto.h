@@ -15,6 +15,10 @@ PyObject *_pyccn_cmd_nc_verify_command(PyObject *self, PyObject *args,
 		PyObject *kwds);
 PyObject *_pyccn_cmd_nc_app_id(PyObject *self, PyObject *py_appname);
 PyObject *_pyccn_cmd_nc_app_key(PyObject *self, PyObject *args);
+PyObject *_pyccn_cmd_nc_build_first_authenticator(PyObject *self,
+		PyObject *args);
+PyObject *_pyccn_cmd_nc_verify_first_authenticator(PyObject *self,
+		PyObject *args);
 
 #endif	/* METHODS_NAMECRYPTO_H */
 

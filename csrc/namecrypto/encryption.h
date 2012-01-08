@@ -27,7 +27,7 @@
 
 int decrypt_name(unsigned char * enc_name, RSA * key, unsigned char ** plaintext);
 int encrypt_name(unsigned char * name, unsigned int name_length, RSA * key, unsigned char ** encrypted_name);
-unsigned char * KDF(unsigned char * key, unsigned int keylen, char * s, unsigned int slen);
+unsigned char *KDF(const unsigned char *key, unsigned int keylen, const char *s, unsigned int slen);
 int getSessionKey(unsigned char * session_id, unsigned char ** session_key, unsigned char * node_key);
 int createSession(unsigned char ** session_id, unsigned char ** session_key, unsigned char * node_key);
 int encrypt_encode(unsigned char * name, unsigned int name_length, unsigned char * symmkey, unsigned int symmkey_length, RSA * key, unsigned char ** encrypted_name);
@@ -39,8 +39,8 @@ int decrypt_name_on_node(unsigned char * ciphertext, RSA * node_pubkey, unsigned
 int session_encrypt_name_for_node(unsigned char * sessionkey, unsigned char * session_id, unsigned char * privateName, int privateName_length, unsigned char * symmkey, unsigned int symmkey_length, unsigned char ** encryptedName);
 int session_decrypt_name_on_node(unsigned char * ciphertext, int ciphertext_length, unsigned char * node_key, unsigned char ** symmkey, unsigned int * symmkey_length, unsigned char ** decryptedName);
 int symm_enc(unsigned char * plaintext, unsigned int plaintext_length, unsigned char * ciphertext, unsigned char * key);
-int symm_enc_no_mac(unsigned char * plaintext, unsigned int plaintext_length, unsigned char * ciphertext, unsigned char * key);
-int symm_dec_no_mac(unsigned char * ciphertext, unsigned int ciphertext_length, unsigned char * plaintext, unsigned char * key);
+int symm_enc_no_mac(const unsigned char *plaintext, unsigned int plaintext_length, unsigned char *ciphertext, const unsigned char *key);
+int symm_dec_no_mac(const unsigned char *ciphertext, unsigned int ciphertext_length, unsigned char *plaintext, const unsigned char *key);
 unsigned char * decrypt_data(unsigned char * ciphertext, unsigned int ciphertext_length, unsigned char * plaintext, unsigned int * len, unsigned char * key, unsigned int keylen);
 unsigned char * encrypt_data(unsigned char * plaintext, unsigned int len, unsigned char * ciphertext, unsigned int * ciphertextlen, unsigned char * key, unsigned int keylen);
 int session_encrypt_name_for_node_B64(unsigned char * sessionkey, unsigned char * session_id, unsigned char * privateName, int privateName_length, unsigned char * symmkey, unsigned int symmkey_length, unsigned char ** encryptedName);

@@ -23,6 +23,7 @@
 #define FAIL_INVALID_AUTHENTICATOR -5
 #define FAIL_DUPLICATE_INTEREST -6
 #define FAIL_VERIFICATION_KEY_NOT_PROVIDED -7
+#define FAIL_NO_MEMORY -8
 
 #define INFO_STATE_NOT_VERIFIED -21
 
@@ -62,9 +63,20 @@ int verifyCommand(struct ccn_charbuf * authenticatedname, unsigned char * fixtur
 
 
 // First authentication
-char * buildEncodedFirstAuthenticatorForFixture(char * fixture_name, unsigned char * initial_authenticator, unsigned int initial_authenticator_len, unsigned char * encrypted_info, unsigned int encrypted_info_len, unsigned char * unencrypted_info, unsigned int unencrypted_info_len);
-int verifyFirstEncodedAuthenticator(unsigned char * initial_authenticator,  unsigned int initial_authenticator_len, char * encoded_authenticator_token, unsigned char ** encrypted_info, unsigned int * encrypted_info_len, unsigned char ** unencrypted_info, unsigned int * unencrypted_info_len);
-int buildFirstAuthenticator(unsigned char * initial_authenticator, unsigned int initial_authenticator_len, unsigned char * encrypted_info, unsigned int encrypted_info_len, unsigned char * unencrypted_info, unsigned int unencrypted_info_len, unsigned char ** authenticator_token);
-int verifyFirstAuthenticator(unsigned char * initial_authenticator,  unsigned int initial_authenticator_len, unsigned char * authenticator_token, unsigned int authenticator_token_len, unsigned char ** encrypted_info, unsigned int * encrypted_info_len, unsigned char ** unencrypted_info, unsigned int * unencrypted_info_len);
+char *buildEncodedFirstAuthenticatorForFixture(char * fixture_name, unsigned char * initial_authenticator, unsigned int initial_authenticator_len, unsigned char * encrypted_info, unsigned int encrypted_info_len, unsigned char * unencrypted_info, unsigned int unencrypted_info_len);
+int verifyFirstEncodedAuthenticator(const unsigned char *initial_authenticator,
+		unsigned int initial_authenticator_len, char *encoded_authenticator_token,
+		unsigned char **encrypted_info, unsigned int *encrypted_info_len,
+		unsigned char **unencrypted_info, unsigned int *unencrypted_info_len);
+int buildFirstAuthenticator(const unsigned char *initial_authenticator,
+		unsigned int initial_authenticator_len, const unsigned char *encrypted_info,
+		unsigned int encrypted_info_len, const unsigned char *unencrypted_info,
+		unsigned int unencrypted_info_len, unsigned char **authenticator_token);
+int verifyFirstAuthenticator(const unsigned char *initial_authenticator,
+		unsigned int initial_authenticator_len,
+		const unsigned char *authenticator_token,
+		unsigned int authenticator_token_len, unsigned char **encrypted_info,
+		unsigned int *encrypted_info_len, unsigned char **unencrypted_info,
+		unsigned int *unencrypted_info_len);
 
 #endif

@@ -40,3 +40,9 @@ def verify_command(state, name, max_time, **args):
 	if args.has_key('pub_key'):
 		args['pub_key'] = args['pub_key'].ccn_data_public
 	return _pyccn.nc_verify_command(state, name.ccn_data, max_time, **args)
+
+def build_first_authenticator(initial_authenticator, encrypted_info, unencrypted_info):
+	return _pyccn.nc_build_first_authenticator(initial_authenticator, encrypted_info, unencrypted_info)
+
+def verify_first_authenticator(initial_authenticator, authenticator_token):
+	return _pyccn.nc_verify_first_authenticator(initial_authenticator, authenticator_token)

@@ -25,10 +25,10 @@
 
 //#define AUTHDEBUG
 
-int verify_update_state_freshness(state * currstate, state * new_state, unsigned long int maxTimeDifferenceMsec);
-int parseAuthenticator_token(unsigned char * authenticator_token, unsigned int authenticator_token_len, unsigned char ** encrypted_info, unsigned int * encrypted_info_len, unsigned char ** unencrypted_info, unsigned int * unencrypted_info_len, unsigned char ** mac);
-int verifyCommandSymm(unsigned char * authenticator, unsigned int auth_len, unsigned char * authenticatedCommand, unsigned int commandLen, unsigned char * fixtureKey, unsigned int keylen, state * currstate, unsigned long int maxTimeDifferenceMsec, int (*checkPolicy)(unsigned char *, int));
-int verifyCommandSig(unsigned char * authenticator, unsigned int authenticator_len, unsigned char * command, unsigned int command_len, state * currstate, RSA * pubKey, unsigned long maxTimeDifferenceMsec);
+static int verify_update_state_freshness(state * currstate, state * new_state, unsigned long int maxTimeDifferenceMsec);
+static int parseAuthenticator_token(const unsigned char *authenticator_token, unsigned int authenticator_token_len, const unsigned char **encrypted_info, unsigned int *encrypted_info_len, const unsigned char **unencrypted_info, unsigned int *unencrypted_info_len, const unsigned char **mac);
+static int verifyCommandSymm(unsigned char * authenticator, unsigned int auth_len, unsigned char * authenticatedCommand, unsigned int commandLen, unsigned char * fixtureKey, unsigned int keylen, state * currstate, unsigned long int maxTimeDifferenceMsec, int (*checkPolicy)(unsigned char *, int));
+static int verifyCommandSig(unsigned char * authenticator, unsigned int authenticator_len, unsigned char * command, unsigned int command_len, state * currstate, RSA * pubKey, unsigned long maxTimeDifferenceMsec);
 
 char *
 retToString(int r)
@@ -54,6 +54,9 @@ retToString(int r)
 
 	case FAIL_VERIFICATION_KEY_NOT_PROVIDED:
 		return("The appropriate verification key has not been supplied\n");
+
+	case FAIL_NO_MEMORY:
+		return("malloc() failed");
 
 	default:
 		return("Unknown value\n");
@@ -591,11 +594,15 @@ verifyCommandSig(unsigned char * authenticator, unsigned int authenticator_len, 
  *
  */
 int
-buildFirstAuthenticator(unsigned char * initial_authenticator, unsigned int initial_authenticator_len, unsigned char * encrypted_info, unsigned int encrypted_info_len, unsigned char * unencrypted_info, unsigned int unencrypted_info_len, unsigned char ** authenticator_token)
+buildFirstAuthenticator(const unsigned char *initial_authenticator,
+		unsigned int initial_authenticator_len,
+		const unsigned char *encrypted_info, unsigned int encrypted_info_len,
+		const unsigned char *unencrypted_info, unsigned int unencrypted_info_len,
+		unsigned char **authenticator_token)
 {
 	int authenticatorLen = 0;
-	unsigned char * mac_key;
-	unsigned char * aes_key = NULL;
+	unsigned char *mac_key;
+	unsigned char *aes_key = NULL;
 
 	unsigned int encrypted_info_offset, unencrypted_info_offset, mac_offset;
 
@@ -611,10 +618,14 @@ buildFirstAuthenticator(unsigned char * initial_authenticator, unsigned int init
 	authenticatorLen = mac_offset + MACLEN;
 
 	mac_key = KDF(initial_authenticator, initial_authenticator_len, "\0", 1);
-
+	if (!mac_key)
+		return -1;
 
 	*authenticator_token = (unsigned char *) malloc(authenticatorLen);
-
+	if (!*authenticator_token) {
+		free(mac_key);
+		return -1;
+	}
 
 	// encrypted_info
 	(*authenticator_token)[0] = (encrypted_info_enc_len >> 8) & 0xFF;
@@ -622,28 +633,37 @@ buildFirstAuthenticator(unsigned char * initial_authenticator, unsigned int init
 
 	if (encrypted_info_enc_len) {
 		aes_key = KDF(initial_authenticator, initial_authenticator_len, "\1", 1);
-		symm_enc_no_mac(encrypted_info, encrypted_info_len, (*authenticator_token) + encrypted_info_offset, aes_key);
+		symm_enc_no_mac(encrypted_info, encrypted_info_len,
+				(*authenticator_token) + encrypted_info_offset, aes_key);
 	}
 
 	// unencrypted_info
-	(*authenticator_token)[unencrypted_info_offset - 2] = (unencrypted_info_len >> 8) & 0xFF;
-	(*authenticator_token)[unencrypted_info_offset - 1] = unencrypted_info_len & 0xFF;
+	(*authenticator_token)[unencrypted_info_offset - 2]
+			= (unencrypted_info_len >> 8) & 0xFF;
+	(*authenticator_token)[unencrypted_info_offset - 1]
+			= unencrypted_info_len & 0xFF;
 
 	if (unencrypted_info_len)
-		memcpy((*authenticator_token) + unencrypted_info_offset, unencrypted_info, unencrypted_info_len);
+		memcpy((*authenticator_token) + unencrypted_info_offset,
+			unencrypted_info, unencrypted_info_len);
 
-	HMAC(EVP_sha256(), mac_key, MACKLEN, (*authenticator_token), mac_offset, (*authenticator_token) + mac_offset, NULL);
+	HMAC(EVP_sha256(), mac_key, MACKLEN, (*authenticator_token), mac_offset,
+			(*authenticator_token) + mac_offset, NULL);
 
 	free(mac_key);
 	if (aes_key)
 		free(aes_key);
+
 	return authenticatorLen;
 }
 
 int
-parseAuthenticator_token(unsigned char * authenticator_token, unsigned int authenticator_token_len, unsigned char ** encrypted_info, unsigned int * encrypted_info_len, unsigned char ** unencrypted_info, unsigned int * unencrypted_info_len, unsigned char ** mac)
+parseAuthenticator_token(const unsigned char *authenticator_token,
+		unsigned int authenticator_token_len, const unsigned char **encrypted_info,
+		unsigned int *encrypted_info_len, const unsigned char **unencrypted_info,
+		unsigned int *unencrypted_info_len, const unsigned char **mac)
 {
-	unsigned char * curr;
+	const unsigned char *curr;
 
 	int tot_len = 0;
 
@@ -666,20 +686,29 @@ parseAuthenticator_token(unsigned char * authenticator_token, unsigned int authe
 }
 
 int
-verifyFirstAuthenticator(unsigned char * initial_authenticator, unsigned int initial_authenticator_len, unsigned char * authenticator_token, unsigned int authenticator_token_len, unsigned char ** encrypted_info, unsigned int * encrypted_info_len, unsigned char ** unencrypted_info, unsigned int * unencrypted_info_len)
+verifyFirstAuthenticator(const unsigned char *initial_authenticator,
+		unsigned int initial_authenticator_len,
+		const unsigned char *authenticator_token,
+		unsigned int authenticator_token_len,
+		unsigned char **encrypted_info, unsigned int *encrypted_info_len,
+		unsigned char **unencrypted_info,
+		unsigned int *unencrypted_info_len)
 {
-	unsigned char * mac_key;
-	unsigned char * aes_key = NULL;
+	unsigned char *mac_key;
+	unsigned char *aes_key = NULL;
 	unsigned char mac[MACLEN];
-	unsigned char * amac;
-	unsigned char * tmp_encrypted_info, * tmp_unencrypted_info;
+	const unsigned char *amac;
+	const unsigned char *tmp_encrypted_info, *tmp_unencrypted_info;
 	int mac_offset;
+	int rc;
 
+	*unencrypted_info = *encrypted_info = NULL;
 
-	mac_offset = parseAuthenticator_token(authenticator_token, authenticator_token_len, &tmp_encrypted_info, encrypted_info_len, &tmp_unencrypted_info, unencrypted_info_len, &amac);
+	mac_offset = parseAuthenticator_token(authenticator_token,
+			authenticator_token_len, &tmp_encrypted_info, encrypted_info_len,
+			&tmp_unencrypted_info, unencrypted_info_len, &amac);
 	if (mac_offset < 0)
 		return mac_offset;
-
 
 	// Verify MAC
 	mac_key = KDF(initial_authenticator, initial_authenticator_len, "\0", 1);
@@ -687,27 +716,46 @@ verifyFirstAuthenticator(unsigned char * initial_authenticator, unsigned int ini
 	if (memcmp(mac, authenticator_token + mac_offset, MACLEN))
 		return FAIL_VERIFICATION_FAILED;
 
-
 	// Copy encrypted and unencrypted information
-
 	if (*encrypted_info_len) {
 		aes_key = KDF(initial_authenticator, initial_authenticator_len, "\1", 1);
+		if (!aes_key) {
+			rc = FAIL_NO_MEMORY;
+			goto error;
+		}
 		*encrypted_info = (unsigned char *) malloc(*encrypted_info_len - IVLEN);
-		symm_dec_no_mac(tmp_encrypted_info, *encrypted_info_len, *encrypted_info, aes_key);
+		if (!*encrypted_info) {
+			rc = FAIL_NO_MEMORY;
+			goto error;
+		}
+		symm_dec_no_mac(tmp_encrypted_info, *encrypted_info_len,
+				*encrypted_info, aes_key);
 		*encrypted_info_len -= IVLEN;
 	}
 
-
 	if (*unencrypted_info_len) {
 		*unencrypted_info = (unsigned char *) malloc(*unencrypted_info_len);
+		if (!*unencrypted_info) {
+			rc = FAIL_NO_MEMORY;
+			goto error;
+		}
 		memcpy(*unencrypted_info, tmp_unencrypted_info, *unencrypted_info_len);
 	}
-
 
 	free(mac_key);
 	if (aes_key)
 		free(aes_key);
 	return AUTH_OK;
+
+error:
+	if (*unencrypted_info)
+		free(*unencrypted_info);
+	if (*encrypted_info)
+		free(*encrypted_info);
+	if (aes_key)
+		free(aes_key);
+	free(mac_key);
+	return rc;
 }
 
 /*
@@ -755,7 +803,11 @@ buildEncodedFirstAuthenticatorForFixture(char * fixture_name, unsigned char * in
  */
 
 int
-verifyFirstEncodedAuthenticator(unsigned char * initial_authenticator, unsigned int initial_authenticator_len, char * encoded_authenticator_token, unsigned char ** encrypted_info, unsigned int * encrypted_info_len, unsigned char ** unencrypted_info, unsigned int * unencrypted_info_len)
+verifyFirstEncodedAuthenticator(const unsigned char *initial_authenticator,
+		unsigned int initial_authenticator_len,
+		char *encoded_authenticator_token, unsigned char **encrypted_info,
+		unsigned int *encrypted_info_len, unsigned char ** unencrypted_info,
+		unsigned int * unencrypted_info_len)
 {
 	unsigned char * decoded;
 	int len;
@@ -767,7 +819,9 @@ verifyFirstEncodedAuthenticator(unsigned char * initial_authenticator, unsigned 
 		encoded_authenticator_token = encoded_auth + 1;
 
 	decoded = base64_decode_len(encoded_authenticator_token, &len);
-	ret = verifyFirstAuthenticator(initial_authenticator, initial_authenticator_len, decoded, len, encrypted_info, encrypted_info_len, unencrypted_info, unencrypted_info_len);
+	ret = verifyFirstAuthenticator(initial_authenticator,
+			initial_authenticator_len, decoded, len, encrypted_info,
+			encrypted_info_len, unencrypted_info, unencrypted_info_len);
 	free(decoded);
 	return ret;
 }
