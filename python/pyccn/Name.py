@@ -71,7 +71,7 @@ class Name(object):
 		self.ccn_data_dirty = True
 
 	def appendSegment(self, segment):
-		component = b'\x00' + struct.pack('!Q', segment).lstrip('\x00')
+		component = b'\x00' + struct.pack('!Q', segment).lstrip(b'\x00')
 		self.components.append(component)
 		self.ccn_data_dirty = True
 
