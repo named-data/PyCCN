@@ -18,23 +18,11 @@ def generate_application_key(master_key, app_name):
 
 def authenticate_command(state, name, app_name, app_key):
 	signed_name = _pyccn.nc_authenticate_command(state, name.ccn_data, app_name, app_key)
-	signed_name_comps = _pyccn.name_comps_from_ccn(signed_name)
-
-	new_name = Name.Name(signed_name_comps)
-	new_name.ccn_data = signed_name
-	new_name.ccn_data_dirty = False
-
-	return new_name
+	return Name(ccn_data = signed_name)
 
 def authenticate_command_sig(state, name, app_name, key):
 	signed_name = _pyccn.nc_authenticate_command_sig(state, name.ccn_data, app_name, key.ccn_data_private)
-	signed_name_comps = _pyccn.name_comps_from_ccn(signed_name)
-
-	new_name = Name.Name(signed_name_comps)
-	new_name.ccn_data = signed_name
-	new_name.ccn_data_dirty = False
-
-	return new_name
+	return Name(ccn_data = signed_name)
 
 def verify_command(state, name, max_time, **args):
 	if args.has_key('pub_key'):

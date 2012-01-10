@@ -16,6 +16,7 @@ try:
 	from pyccn.Interest import *
 	from pyccn.Key import *
 	from pyccn.Name import *
+	from pyccn import NameCrypto
 except ImportError:
 	del _sys.modules[__name__]
 	raise
