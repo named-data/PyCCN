@@ -24,3 +24,7 @@ Makefile.in
 *.la
 *.lo
 *.o
+
+csrc/namecrypto/.DS_Store
+
+csrc/.DS_Store
