@@ -223,8 +223,14 @@ EOD`
 	#
 	AC_MSG_CHECKING([for Python site-packages path])
 	if test -z "$PYTHON_SITE_PKG"; then
-		PYTHON_SITE_PKG=`$PYTHON -c "import distutils.sysconfig; \
-			print (distutils.sysconfig.get_python_lib(True, False, '${ac_python_prefix}'));"`
+		if test "${prefix}" = "NONE"; then
+			PYTHON_SITE_PKG=`$PYTHON -c "import sys; import distutils.sysconfig; \
+				path = distutils.sysconfig.get_python_lib(False, False, '${ac_default_prefix}'); \
+				print(path in sys.path and path or distutils.sysconfig.get_python_lib())"`
+		else
+			PYTHON_SITE_PKG=`$PYTHON -c "import distutils.sysconfig; \
+				print (distutils.sysconfig.get_python_lib(False, False, '${prefix}'))"`
+		fi
 	fi
 	AC_MSG_RESULT([$PYTHON_SITE_PKG])
 	AC_SUBST([PYTHON_SITE_PKG])
