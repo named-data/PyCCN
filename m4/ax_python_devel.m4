@@ -208,17 +208,6 @@ EOD`
 	AC_SUBST([PYTHON_LDFLAGS])
 
 	#
-	# Check for installation prefix
-	#
-	AC_MSG_CHECKING([for given installation prefix])
-	if test "${prefix}" = "NONE"; then
-		ac_python_prefix=${ac_default_prefix}
-	else
-		ac_python_prefix=${prefix}
-	fi
-	AC_MSG_RESULT([${ac_python_prefix}])
-
-	#
 	# Check for site packages
 	#
 	AC_MSG_CHECKING([for Python site-packages path])
