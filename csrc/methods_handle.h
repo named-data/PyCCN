@@ -16,7 +16,7 @@ PyObject *_pyccn_get_connection_fd(PyObject *self, PyObject *py_handle);
 PyObject *_pyccn_cmd_process_scheduled_operations(PyObject *self,
 		PyObject *py_handle);
 PyObject *_pyccn_cmd_output_is_pending(PyObject *self, PyObject *py_handle);
-PyObject *_pyccn_cmd_is_upcall_executing(PyObject *self, PyObject *py_handle);
+PyObject *_pyccn_cmd_is_run_executing(PyObject *self, PyObject *py_handle);
 PyObject *_pyccn_cmd_run(PyObject *UNUSED(self), PyObject *args);
 PyObject *_pyccn_cmd_set_run_timeout(PyObject *UNUSED(self), PyObject *args);
 PyObject *_pyccn_cmd_express_interest(PyObject *UNUSED(self),

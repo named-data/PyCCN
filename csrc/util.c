@@ -115,3 +115,62 @@ _pyccn_close_file_handle(FILE *fh)
 {
 	return fclose(fh);
 }
+
+int
+_pyccn_run_state_add(struct ccn *handle, PyThreadState *state)
+{
+	struct pyccn_run_state **states = GETSTATE(_pyccn_module)->run_state;
+	int i;
+
+	for (i = 0; i < MAX_RUN_STATES; i++) {
+		if (states[i])
+			continue;
+
+		states[i] = malloc(sizeof(struct pyccn_run_state));
+		if (!states[i]) {
+			PyErr_NoMemory();
+			return -1;
+		}
+
+		states[i]->handle = handle;
+		states[i]->thread_state = state;
+
+		return i;
+	}
+
+	PyErr_Format(g_PyExc_CCNError, "You're allowed to execute ccn_run"
+			" simultaneously maximum of %d times", MAX_RUN_STATES);
+
+	return -1;
+}
+
+struct pyccn_run_state *
+_pyccn_run_state_find(struct ccn *handle)
+{
+	struct pyccn_run_state **states = GETSTATE(_pyccn_module)->run_state;
+	int i;
+
+	for (i = 0; i < MAX_RUN_STATES; i++) {
+		if (!states[i])
+			continue;
+
+		if (states[i]->handle == handle)
+			return states[i];
+	}
+
+	return NULL;
+}
+
+void
+_pyccn_run_state_clear(int i)
+{
+	struct pyccn_run_state **states = GETSTATE(_pyccn_module)->run_state;
+
+	assert(i >= 0 && i < MAX_RUN_STATES);
+
+	if (!states[i])
+		return;
+
+	free(states[i]);
+	states[i] = NULL;
+}

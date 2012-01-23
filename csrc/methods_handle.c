@@ -105,7 +105,7 @@ ccn_upcall_handler(struct ccn_closure *selfp,
 	PyObject *upcall_method = NULL, *py_upcall_info = NULL;
 	PyObject *py_selfp, *py_closure, *arglist, *result;
 	struct pyccn_state *state;
-	int fd;
+	struct pyccn_run_state *run_state;
 
 	debug("upcall_handler dispatched kind %d\n", upcall_kind);
 
@@ -113,14 +113,14 @@ ccn_upcall_handler(struct ccn_closure *selfp,
 	assert(selfp->data);
 
 	//XXX: What to do when ccn_run is not called?
-	if (!_pyccn_thread_state) {
+	run_state = _pyccn_run_state_find(info->h);
+	if (!run_state) {
 		debug("ccn_run() is not currently running\n");
 		return CCN_UPCALL_RESULT_ERR;
 	}
 
 	/* acquiring lock */
-	assert(_pyccn_thread_state);
-	PyEval_RestoreThread(_pyccn_thread_state);
+	PyEval_RestoreThread(run_state->thread_state);
 
 	state = GETSTATE(_pyccn_module);
 
@@ -142,12 +142,7 @@ ccn_upcall_handler(struct ccn_closure *selfp,
 
 	debug("Calling upcall\n");
 
-	fd = ccn_get_connection_fd(info->h);
-	assert(state->upcall_running == -1);
-
-	state->upcall_running = fd;
 	result = PyObject_CallObject(upcall_method, arglist);
-	state->upcall_running = -1;
 
 	Py_CLEAR(upcall_method);
 	Py_DECREF(arglist);
@@ -162,7 +157,7 @@ ccn_upcall_handler(struct ccn_closure *selfp,
 	long r = _pyccn_Int_AsLong(result);
 
 	/* releasing lock */
-	_pyccn_thread_state = PyEval_SaveThread();
+	PyEval_SaveThread();
 
 	return r;
 
@@ -177,24 +172,18 @@ error:
 	Py_XDECREF(upcall_method);
 
 	//XXX: I hope this is the correct way to handle exceptions thrown
-	if (PyErr_Occurred()) {
+	if (PyErr_Occurred())
 		PyErr_Print();
-	}
 
-	_pyccn_thread_state = PyEval_SaveThread();
+	PyEval_SaveThread();
 	return CCN_UPCALL_RESULT_ERR;
 }
 
 PyObject *
-_pyccn_cmd_is_upcall_executing(PyObject *UNUSED(self), PyObject *py_handle)
+_pyccn_cmd_is_run_executing(PyObject *UNUSED(self), PyObject *py_handle)
 {
-	struct pyccn_state *state = GETSTATE(_pyccn_module);
 	struct ccn *handle;
 	PyObject *res;
-	int fd;
-
-	if (py_handle == Py_None)
-		return Py_BuildValue("i", state->upcall_running);
 
 	if (!CCNObject_IsValid(HANDLE, py_handle)) {
 		PyErr_SetString(PyExc_TypeError, "Expected CCN handle");
@@ -202,13 +191,7 @@ _pyccn_cmd_is_upcall_executing(PyObject *UNUSED(self), PyObject *py_handle)
 	}
 	handle = CCNObject_Get(HANDLE, py_handle);
 
-	fd = ccn_get_connection_fd(handle);
-	if (fd == -1) {
-		PyErr_SetString(PyExc_RuntimeError, "Handle is not connected");
-		return NULL;
-	}
-
-	res = state->upcall_running == fd ? Py_True : Py_False;
+	res = _pyccn_run_state_find(handle) ? Py_True : Py_False;
 
 	return Py_INCREF(res), res;
 }
@@ -347,6 +330,8 @@ _pyccn_cmd_run(PyObject *UNUSED(self), PyObject *args)
 	PyObject *py_handle;
 	int timeoutms = -1;
 	struct ccn *handle;
+	PyThreadState *state;
+	int state_slot;
 
 	if (!PyArg_ParseTuple(args, "O|i", &py_handle, &timeoutms))
 		return NULL;
@@ -357,23 +342,20 @@ _pyccn_cmd_run(PyObject *UNUSED(self), PyObject *args)
 	}
 	handle = CCNObject_Get(HANDLE, py_handle);
 
-	if (_pyccn_thread_state) {
-		PyErr_SetString(g_PyExc_CCNError, "You're allowed to run ccn_run only"
-				" once at the same time");
-		return NULL;
-	}
-
 	/* Enable threads */
 	debug("Entering ccn_run()\n");
-	_pyccn_thread_state = PyEval_SaveThread();
+	state = PyThreadState_Get();
+	state_slot = _pyccn_run_state_add(handle, state);
+	if (state_slot < 0)
+		return NULL;
+	PyEval_SaveThread();
 
 	r = ccn_run(handle, timeoutms);
 
 	/* disable threads */
 	debug("Exiting ccn_run()\n");
-	assert(_pyccn_thread_state);
-	PyEval_RestoreThread(_pyccn_thread_state);
-	_pyccn_thread_state = NULL;
+	_pyccn_run_state_clear(state_slot);
+	PyEval_RestoreThread(state);
 
 	/*
 		CCNObject_Purge_Closures();

@@ -28,5 +28,8 @@ PyObject *_pyccn_unicode_to_utf8(PyObject *string, char **buffer,
 		Py_ssize_t *length);
 FILE *_pyccn_open_file_handle(PyObject *py_file, const char *mode);
 int _pyccn_close_file_handle(FILE *fh);
+int _pyccn_run_state_add(struct ccn *handle, PyThreadState *state);
+struct pyccn_run_state *_pyccn_run_state_find(struct ccn *handle);
+void _pyccn_run_state_clear(int i);
 
 #endif	/* _UTIL_H_ */

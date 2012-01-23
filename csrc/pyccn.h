@@ -24,10 +24,16 @@ enum e_class_type {
 	CLASS_TYPE_COUNT
 };
 
-struct pyccn_state {
+#define MAX_RUN_STATES 5
+
+struct pyccn_run_state {
+	struct ccn *handle;
 	PyThreadState *thread_state;
-	PyObject * class_type[CLASS_TYPE_COUNT];
-	int upcall_running;
+};
+
+struct pyccn_state {
+	struct pyccn_run_state *run_state[MAX_RUN_STATES];
+	PyObject *class_type[CLASS_TYPE_COUNT];
 };
 
 extern PyObject *_pyccn_module;
@@ -38,8 +44,6 @@ extern PyObject *_pyccn_module;
 extern struct pyccn_state _pyccn_state;
 #    define GETSTATE(m) (&_pyccn_state)
 #  endif
-
-#  define _pyccn_thread_state (GETSTATE(_pyccn_module)->thread_state)
 
 PyObject *_pyccn_get_type(enum e_class_type type);
 

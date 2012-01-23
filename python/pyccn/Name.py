@@ -106,8 +106,7 @@ class Name(object):
 		return self._append(component)
 
 	def appendSegment(self, segment):
-		component = b'\x00' + struct.pack('!Q', segment).lstrip(b'\x00')
-		return self._append(component)
+		return self._append(self.num2seg(segment))
 
 	def appendNonce(self):
 		val = random.getrandbits(64)
@@ -116,6 +115,16 @@ class Name(object):
 
 	def appendNumeric(self):   # tagged numerics p4 of code
 		pass
+
+	def __repr__(self):
+		global NAME_NORMAL, NAME_ANY
+
+		if self.type == NAME_NORMAL:
+			return "pyccn.Name('ccnx:" + _pyccn.name_to_uri(self.ccn_data) + "')"
+		elif self.type == NAME_ANY:
+			return "pyccn.Name(name_type=pyccn.NAME_ANY)"
+		else:
+			raise ValueError("Name is of wrong type %d" % self.type)
 
 	def __str__(self):
 		global NAME_NORMAL, NAME_ANY
@@ -130,26 +139,13 @@ class Name(object):
 	def __len__(self):
 		return len(self.components)
 
-	def __iadd__(self, component):
-		self._warn()
-		self.ccn_data_dirty = True
-		self.components.append(component)
-		return self
-
-	def __concat__(self, c):
-		self._warn()
-		self.ccn_data_dirty = True
-		self.components.append(c)
+	def __add__(self, other):
+		return self.append(other)
 
 	def __setattr__(self, name, value):
 		raise TypeError("can't modify immutable instance")
 
 	__delattr__ = __setattr__
-
-#	def __setattr__(self, name, value):
-#		if name == 'components' or name == 'version' or name == 'segment' or name == 'ccn_data':
-#			self.ccn_data_dirty=True
-#		object.__setattr__(self, name, value)
 
 	def __getattribute__(self, name):
 		if name == "ccn_data":
@@ -194,3 +190,11 @@ class Name(object):
 
 	def __ne__(self, other):
 		return _pyccn.compare_names(self.ccn_data, other.ccn_data) != 0
+
+	@staticmethod
+	def num2seg(num):
+		return b'\x00' + struct.pack('!Q', num).lstrip(b'\x00')
+
+	@staticmethod
+	def seg2num(segment):
+		return long(struct.unpack("!Q", (8 - len(segment)) * "\x00" + segment)[0])

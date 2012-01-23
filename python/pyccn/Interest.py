@@ -17,6 +17,7 @@
 from . import _pyccn
 from . import Name
 
+AOK_NONE    = 0x0
 AOK_CS      = 0x1  # Answer from content store
 AOK_NEW     = 0x2  # OK to produce new content
 AOK_STALE   = 0x4  # OK to answer with stale data

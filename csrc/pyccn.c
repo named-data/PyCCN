@@ -64,7 +64,7 @@ static PyMethodDef g_module_methods[] = {
 	{"output_is_pending", _pyccn_cmd_output_is_pending, METH_O, NULL},
 	{"run", _pyccn_cmd_run, METH_VARARGS, NULL},
 	{"set_run_timeout", _pyccn_cmd_set_run_timeout, METH_VARARGS, NULL},
-	{"is_upcall_executing", _pyccn_cmd_is_upcall_executing, METH_O, NULL},
+	{"is_run_executing", _pyccn_cmd_is_run_executing, METH_O, NULL},
 	{"express_interest", _pyccn_cmd_express_interest, METH_VARARGS, NULL},
 	{"set_interest_filter", _pyccn_cmd_set_interest_filter, METH_VARARGS, NULL},
 	{"get", _pyccn_cmd_get, METH_VARARGS, NULL},
@@ -261,9 +261,6 @@ MODINIT(_pyccn)
 
 	/* needed so openssl's errors make sense to humans */
 	ERR_load_crypto_strings();
-
-	/* nothing is running right now */
-	GETSTATE(_pyccn_module)->upcall_running = -1;
 
 #if PY_MAJOR_VERSION >= 3
 	return _pyccn_module;
