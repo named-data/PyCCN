@@ -331,7 +331,7 @@ _pyccn_cmd_run(PyObject *UNUSED(self), PyObject *args)
 	int timeoutms = -1;
 	struct ccn *handle;
 	PyThreadState *state;
-	int state_slot;
+	void *state_slot;
 
 	if (!PyArg_ParseTuple(args, "O|i", &py_handle, &timeoutms))
 		return NULL;
@@ -346,7 +346,7 @@ _pyccn_cmd_run(PyObject *UNUSED(self), PyObject *args)
 	debug("Entering ccn_run()\n");
 	state = PyThreadState_Get();
 	state_slot = _pyccn_run_state_add(handle, state);
-	if (state_slot < 0)
+	if (!state_slot)
 		return NULL;
 	PyEval_SaveThread();
 

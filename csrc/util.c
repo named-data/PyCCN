@@ -116,61 +116,61 @@ _pyccn_close_file_handle(FILE *fh)
 	return fclose(fh);
 }
 
-int
-_pyccn_run_state_add(struct ccn *handle, PyThreadState *state)
+void *
+_pyccn_run_state_add(struct ccn *handle, PyThreadState *thread_state)
 {
-	struct pyccn_run_state **states = GETSTATE(_pyccn_module)->run_state;
-	int i;
+	struct pyccn_state *pyccn_state = GETSTATE(_pyccn_module);
+	struct pyccn_run_state *state;
 
-	for (i = 0; i < MAX_RUN_STATES; i++) {
-		if (states[i])
-			continue;
+	state = malloc(sizeof(struct pyccn_run_state));
+	if (!state)
+		return PyErr_NoMemory();
 
-		states[i] = malloc(sizeof(struct pyccn_run_state));
-		if (!states[i]) {
-			PyErr_NoMemory();
-			return -1;
-		}
+	state->handle = handle;
+	state->thread_state = thread_state;
+	state->next = pyccn_state->run_state;
 
-		states[i]->handle = handle;
-		states[i]->thread_state = state;
+	pyccn_state->run_state = state;
 
-		return i;
-	}
-
-	PyErr_Format(g_PyExc_CCNError, "You're allowed to execute ccn_run"
-			" simultaneously maximum of %d times", MAX_RUN_STATES);
-
-	return -1;
+	return handle;
 }
 
 struct pyccn_run_state *
 _pyccn_run_state_find(struct ccn *handle)
 {
-	struct pyccn_run_state **states = GETSTATE(_pyccn_module)->run_state;
-	int i;
+	struct pyccn_state *pyccn_state = GETSTATE(_pyccn_module);
+	struct pyccn_run_state *p;
 
-	for (i = 0; i < MAX_RUN_STATES; i++) {
-		if (!states[i])
+
+	for (p = pyccn_state->run_state; p; p = p->next) {
+		if (p->handle != handle)
 			continue;
 
-		if (states[i]->handle == handle)
-			return states[i];
+		return p;
 	}
 
 	return NULL;
 }
 
 void
-_pyccn_run_state_clear(int i)
+_pyccn_run_state_clear(void *handle)
 {
-	struct pyccn_run_state **states = GETSTATE(_pyccn_module)->run_state;
+	struct pyccn_state *pyccn_state = GETSTATE(_pyccn_module);
+	struct pyccn_run_state *p, *q;
 
-	assert(i >= 0 && i < MAX_RUN_STATES);
-
-	if (!states[i])
+	p = pyccn_state->run_state;
+	if (p->handle == handle) {
+		pyccn_state->run_state = p->next;
+		free(p);
 		return;
+	}
 
-	free(states[i]);
-	states[i] = NULL;
+	for (q = p, p = p->next; p; q = p, p = p->next) {
+		if (p->handle != handle)
+			continue;
+
+		q->next = p->next;
+		free(p);
+		return;
+	}
 }

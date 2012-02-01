@@ -29,10 +29,11 @@ enum e_class_type {
 struct pyccn_run_state {
 	struct ccn *handle;
 	PyThreadState *thread_state;
+	struct pyccn_run_state *next;
 };
 
 struct pyccn_state {
-	struct pyccn_run_state *run_state[MAX_RUN_STATES];
+	struct pyccn_run_state *run_state;
 	PyObject *class_type[CLASS_TYPE_COUNT];
 };
 
