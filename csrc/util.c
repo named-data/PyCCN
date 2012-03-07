@@ -141,7 +141,6 @@ _pyccn_run_state_find(struct ccn *handle)
 	struct pyccn_state *pyccn_state = GETSTATE(_pyccn_module);
 	struct pyccn_run_state *p;
 
-
 	for (p = pyccn_state->run_state; p; p = p->next) {
 		if (p->handle != handle)
 			continue;
