@@ -1,43 +1,56 @@
 import sys
-from pyccn import CCN, Name, Interest, ContentObject, Key, Closure
+import pyccn
 
-class ccnput(Closure.Closure):
+class ccnput(pyccn.Closure):
 	def __init__(self, name, content):
-		self.handle = CCN.CCN()
-		self.name = Name.Name(name)
+		self.handle = pyccn.CCN()
+		self.name = pyccn.Name(name)
 		self.content = self.prepareContent(content, self.handle.getDefaultKey())
 
 	# this is so we don't have to do signing each time someone requests data
 	# if we will be serving content multiple times
 	def prepareContent(self, content, key):
-		co = ContentObject.ContentObject()
+		# create a new data packet
+		co = pyccn.ContentObject()
 
 		# since they want us to use versions and segments append those to our name
-		co.name = Name.Name(self.name) # making copy, so any changes to co.name won't change self.name
-		co.name.appendVersion() # timestamp which is our version
-		co.name += b'\x00' # first segment
+		co.name = self.name.appendVersion().appendSegment(0)
 
+		# place the content
 		co.content = content
 
 		si = co.signedInfo
-		si.publisherPublicKeyDigest = key.publicKeyID
-		si.type = ContentObject.CONTENT_DATA
-		si.finalBlockID = b'\x00' # no more segments available
-		si.keyLocator = Key.KeyLocator(key)
 
+		# key used to sign data (required by ccnx)
+		si.publisherPublicKeyDigest = key.publicKeyID
+
+		# how to obtain the key (required by ccn); here we attach the
+		# key to the data (not too secure), we could also provide name
+		# of the key under which it is stored in DER format
+		si.keyLocator = pyccn.KeyLocator(key)
+
+		# data type (not needed, since DATA is the default)
+		si.type = pyccn.CONTENT_DATA
+
+		# number of the last segment (0 - i.e. this is the only
+		# segment)
+		si.finalBlockID = pyccn.Name.num2seg(0)
+
+		# signing the packet
 		co.sign(key)
+
 		return co
 
 	# Called when we receive interest
 	# once data is sent signal ccn_run() to exit
 	def upcall(self, kind, info):
-		if kind != Closure.UPCALL_INTEREST:
-			return Closure.RESULT_OK
+		if kind != pyccn.UPCALL_INTEREST:
+			return pyccn.RESULT_OK
 
 		self.handle.put(self.content) # send the prepared data
-		self.handle.setRunTimeout(0) # finish run()
+		self.handle.setRunTimeout(0) # finish run() by changing its timeout to 0
 
-		return Closure.RESULT_INTEREST_CONSUMED
+		return pyccn.RESULT_INTEREST_CONSUMED
 
 	def start(self):
 		# register our name, so upcall is called when interest arrives
@@ -66,3 +79,4 @@ if __name__ == '__main__':
 
 	put = ccnput(name, content)
 	put.start()
+
