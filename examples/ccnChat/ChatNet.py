@@ -4,9 +4,10 @@
 # Written by: Derek Kulinski <takeda@takeda.tk>
 #
 
-from pyccn import CCN, Name, Interest, Key, ContentObject, Closure
+#from pyccn import CCN, Name, Interest, Key, ContentObject, Closure
 import logging
 import sys, threading, getpass, time
+import pyccn
 
 from NetUtil import VersionedPull, FlowController
 
@@ -28,14 +29,13 @@ class ChatNet(object):
 		self.gui_callback = callback
 		self.friendly_names = {}
 
-		self.handle = CCN.CCN()
-		self.chat_uri = Name.Name(prefix)
-		self.members_uri = Name.Name(prefix)
-		self.members_uri += "members"
+		self.handle = pyccn.CCN()
+		self.chat_uri = pyccn.Name(prefix)
+		self.members_uri = self.chat_uri + "members"
 
 		self.net_pull = VersionedPull(self.chat_uri, None, handle=self.handle)
 
-		self.default_key = self.handle.getDefaultKey();
+		self.default_key = self.handle.getDefaultKey()
 		digest = fix_digest(self.default_key.publicKeyID)
 		self.friendly_names[digest] = getpass.getuser()
 
@@ -54,8 +54,7 @@ class ChatNet(object):
 		if digest in self.friendly_names:
 			return self.friendly_names.get(digest)
 
-		n = Name.Name(self.members_uri)
-		n.appendKeyID(digest)
+		n = self.members_uri.appendKeyID(digest)
 		co = self.handle.get(n)
 		if not co:
 			return "~unknown~"
@@ -65,21 +64,19 @@ class ChatNet(object):
 
 		return nick
 
-class ChatServer(Closure.Closure):
+class ChatServer(pyccn.Closure):
 	def __init__(self, prefix, nick=getpass.getuser()):
-		self.handle = CCN.CCN()
+		self.handle = pyccn.CCN()
 		self.flow = FlowController(prefix, self.handle)
 
 		#XXX: temporary, until we allow fetching key from key storage
 		self.key = self.handle.getDefaultKey()
-		self.keylocator = Key.KeyLocator(self.key)
+		self.keylocator = pyccn.KeyLocator(self.key)
 
-		self.prefix = Name.Name(prefix)
-		self.members_uri = Name.Name(prefix)
-		self.members_uri += "members"
+		self.prefix = pyccn.Name(prefix)
+		self.members_uri = self.prefix + "members"
 
-		member_name = Name.Name(self.members_uri)
-		member_name.appendKeyID(fix_digest(self.key.publicKeyID))
+		member_name = self.members_uri.appendKeyID(fix_digest(self.key.publicKeyID))
 		self.member_message = self.publish(member_name, nick)
 		self.flow.put(self.member_message)
 
@@ -90,18 +87,17 @@ class ChatServer(Closure.Closure):
 
 	def publish(self, name, content):
 		# Name
-		co_name = Name.Name(name)
-		co_name += b'\x00'
+		co_name = name.appendSegment(0)
 
 		# SignedInfo
-		si = ContentObject.SignedInfo()
-		si.type = ContentObject.ContentType.CCN_CONTENT_DATA
-		si.finalBlockID = b'\x00'
+		si = pyccn.SignedInfo()
+		si.type = pyccn.CONTENT_DATA
+		si.finalBlockID = pyccn.Name.num2seg(0)
 		si.publisherPublicKeyDigest = self.key.publicKeyID
 		si.keyLocator = self.keylocator
 
 		# ContentObject
-		co = ContentObject.ContentObject()
+		co = pyccn.ContentObject()
 		co.content = content
 		co.name = co_name
 		co.signedInfo = si
@@ -110,8 +106,7 @@ class ChatServer(Closure.Closure):
 		return co
 
 	def send_message(self, message):
-		name = Name.Name(self.prefix)
-		name.appendVersion()
+		name = self.prefix.appendVersion()
 		co = self.publish(name, message)
 		self.flow.put(co)
 
@@ -124,13 +119,13 @@ class ChatServer(Closure.Closure):
 		if self.message.matchesInterest(interest):
 			log.debug("Publishing content")
 			self.handle.put(self.message)
-			return Closure.UPCALL_RESULT_INTEREST_CONSUMED
+			return pyccn.RESULT_INTEREST_CONSUMED
 
 		if self.member_message.matchesInterest(interest):
 			log.debug("Publishing member's name")
 			self.handle.put(self.member_message)
-			return Closure.UPCALL_RESULT_INTEREST_CONSUMED
+			return pyccn.RESULT_INTEREST_CONSUMED
 
 		log.error("Got unknown request: %s" % name)
 
-		return Closure.RESULT_OK
+		return pyccn.RESULT_OK

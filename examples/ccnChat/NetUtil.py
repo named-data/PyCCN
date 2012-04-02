@@ -4,12 +4,12 @@
 # Written by: Derek Kulinski <takeda@takeda.tk>
 #
 
-from pyccn import Interest, Name, CCN, Closure
 import time
+import pyccn
 
-class FlowController(Closure.Closure):
+class FlowController(pyccn.Closure):
 	def __init__(self, prefix, handle):
-		self.prefix = Name.Name(prefix)
+		self.prefix = pyccn.Name(prefix)
 		self.handle = handle
 		self.content_objects = []
 
@@ -28,12 +28,12 @@ class FlowController(Closure.Closure):
 		return True
 
 	def upcall(self, kind, info):
-		if kind in [Closure.UPCALL_FINAL, Closure.UPCALL_CONSUMED_INTEREST]:
-			return Closure.RESULT_OK
+		if kind in [pyccn.UPCALL_FINAL, pyccn.UPCALL_CONSUMED_INTEREST]:
+			return pyccn.RESULT_OK
 
-		if kind != Closure.UPCALL_INTEREST:
+		if kind != pyccn.UPCALL_INTEREST:
 			print("Got weird upcall kind: %d" % kind)
-			return Closure.RESULT_ERR
+			return pyccn.RESULT_ERR
 
 		f = lambda elem: self.dispatch(info.Interest, elem)
 
@@ -46,19 +46,21 @@ class FlowController(Closure.Closure):
 			consumed = True
 		self.content_objects = new
 
-		return Closure.RESULT_INTEREST_CONSUMED if consumed else Closure.RESULT_OK
+		return pyccn.RESULT_INTEREST_CONSUMED if consumed else pyccn.RESULT_OK
 
-class VersionedPull(Closure.Closure):
-	def __init__(self, base_name, callback, handle=CCN.CCN(), version=None, latest=True):
+class VersionedPull(pyccn.Closure):
+	def __init__(self, base_name, callback, handle=None, version=None, latest=True):
+		handle = handle or pyccn.CCN()
+
 		# some constants
 		self.version_marker = '\xfd'
 		self.first_version_marker = self.version_marker
 		self.last_version_marker = '\xfe\x00\x00\x00\x00\x00\x00'
 
-		self.base_name = Name.Name(base_name)
+		self.base_name = pyccn.Name(base_name)
 		self.callback = callback
 		self.handle = handle
-		self.latest_version = version if version else self.first_version_marker
+		self.latest_version = version or self.first_version_marker
 		self.start_with_latest = latest
 
 	def build_interest(self, latest):
@@ -66,14 +68,14 @@ class VersionedPull(Closure.Closure):
 			latest=True
 			self.start_with_latest = False
 
-		excl = Interest.ExclusionFilter()
+		excl = pyccn.ExclusionFilter()
 		excl.add_any()
-		excl.add_name(Name.Name([self.latest_version]))
+		excl.add_name(pyccn.Name([self.latest_version]))
 		# expected result should be between those two names
-		excl.add_name(Name.Name([self.last_version_marker]))
+		excl.add_name(pyccn.Name([self.last_version_marker]))
 		excl.add_any()
 
-		interest = Interest.Interest(name=self.base_name, exclude=excl, \
+		interest = pyccn.Interest(name=self.base_name, exclude=excl, \
 			minSuffixComponents=3, maxSuffixComponents=3)
 		interest.childSelector = 1 if latest else 0
 		return interest
@@ -93,38 +95,37 @@ class VersionedPull(Closure.Closure):
 		self.handle.expressInterest(interest.name, self, interest)
 
 	def upcall(self, kind, info):
-		if kind == Closure.UPCALL_FINAL:
-			return Closure.RESULT_OK
+		if kind == pyccn.UPCALL_FINAL:
+			return pyccn.RESULT_OK
 
 		# update version
-		if kind in [Closure.UPCALL_CONTENT, Closure.UPCALL_CONTENT_UNVERIFIED]:
+		if kind in [pyccn.UPCALL_CONTENT, pyccn.UPCALL_CONTENT_UNVERIFIED]:
 			base_len = len(self.base_name)
 			self.latest_version = info.ContentObject.name[base_len]
 
 		self.callback(kind, info)
 
-		return Closure.RESULT_OK
+		return pyccn.RESULT_OK
 
 if __name__ == '__main__':
 	from pyccn import _pyccn, Key, ContentObject
 
 	def publish(name, content):
-		key = _pyccn.get_default_key()
-		keylocator = Key.KeyLocator(key)
+		key = pyccn.CCN.getDefaultKey()
+		keylocator = pyccn.KeyLocator(key)
 
 		# Name
-		co_name = Name.Name(name)
-		co_name += b'\x00'
+		co_name = pyccn.Name(name).appendSegment(0)
 
 		# SignedInfo
-		si = ContentObject.SignedInfo()
-		si.type = ContentObject.ContentType.CCN_CONTENT_DATA
-		si.finalBlockID = b'\x00'
+		si = pyccn.SignedInfo()
+		si.type = pyccn.CONTENT_DATA
+		si.finalBlockID = pyccn.Name.num2seg(0)
 		si.publisherPublicKeyDigest = key.publicKeyID
 		si.keyLocator = keylocator
 
 		# ContentObject
-		co = ContentObject.ContentObject()
+		co = pyccn.ContentObject()
 		co.content = content
 		co.name = co_name
 		co.signedInfo = si
@@ -135,12 +136,12 @@ if __name__ == '__main__':
 	def callback(kind, info):
 		print(info.ContentObject.content)
 
-	fc = FlowController("/test", CCN.CCN())
+	fc = FlowController("/test", pyccn.CCN())
 	fc.put(publish('/test/1', 'one'))
 	fc.put(publish('/test/2', 'two'))
 	fc.put(publish('/test/3', 'three'))
 	vp = VersionedPull("/chat", callback)
-	el = CCN.EventLoop(fc.handle, vp.handle)
+	el = pyccn.EventLoop(fc.handle, vp.handle)
 
 	while True:
 		vp.requestNext()
