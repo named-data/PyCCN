@@ -1,3 +1,7 @@
+#
+# This example was written for older version of PyCCN and it is currently broken
+#
+
 from pyccn.Repository import RepoUpload
 from pyccn import CCN, ContentObject, Name, Key
 import struct
