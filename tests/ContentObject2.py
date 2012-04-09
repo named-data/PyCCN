@@ -1,19 +1,18 @@
-from pyccn import CCN, ContentObject, Interest, Name, Key, _pyccn
+import pyccn
+import pyccn._pyccn as _pyccn
 
-h = CCN.CCN()
-k = h.getDefaultKey()
-del h
+k = pyccn.CCN.getDefaultKey()
 
-kl = Key.KeyLocator(k)
+kl = pyccn.KeyLocator(k)
 
-i = Interest.Interest()
-i.name = Name.Name('/chat')
+i = pyccn.Interest()
+i.name = pyccn.Name('/chat')
 i.minSuffixComponents = 3
 i.maxSuffixComponents = 3
 i.childSelector = 1
 
-co = ContentObject.ContentObject()
-co.name = Name.Name('/chat/%FD%04%E6%93.%18K/%00')
+co = pyccn.ContentObject()
+co.name = pyccn.Name('/chat/%FD%04%E6%93.%18K/%00')
 co.content = "number 0"
 co.signedInfo.publisherPublicKeyDigest = k.publicKeyID
 co.signedInfo.finalBlockID = b'\x00'

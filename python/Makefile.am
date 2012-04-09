@@ -9,7 +9,8 @@ pyccn_PYTHON = \
 	pyccn/Interest.py \
 	pyccn/Key.py \
 	pyccn/Name.py \
-	pyccn/Repository.py
+	pyccn/Repository.py \
+	pyccn/utils.py
 
 #pyccnstaging_PYTHON = \
 #	pyccn/staging/__init__.py \

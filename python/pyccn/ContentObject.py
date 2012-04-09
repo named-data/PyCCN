@@ -5,8 +5,6 @@
 #             Jeff Burke <jburke@ucla.edu>
 #
 
-# Front ccn_parsed_ContentObject.
-# Sort of.
 from . import _pyccn
 
 from base64 import b64encode, b64decode
@@ -20,11 +18,11 @@ CONTENT_LINK = 0x2C834A
 CONTENT_NACK = 0x34008A
 
 class ContentObject(object):
-	def __init__(self, name=None, content=None, signed_info=None):
+	def __init__(self, name = None, content = None, signed_info = None):
 		self.name = name
 		self.content = content
 
-		self.signedInfo = signed_info if signed_info else SignedInfo()
+		self.signedInfo = signed_info or SignedInfo()
 		self.digestAlgorithm = None # Default
 
 		# generated
@@ -60,7 +58,7 @@ class ContentObject(object):
 
 	def __setattr__(self, name, value):
 		if name == 'name' or name == 'content' or name == 'signedInfo' or name == 'digestAlgorithm':
-			self.ccn_data_dirty=True
+			self.ccn_data_dirty = True
 
 		if name == 'content':
 			object.__setattr__(self, name, _pyccn.content_to_bytes(value))
@@ -95,12 +93,12 @@ class Signature(object):
 		self.ccn_data = None  # backing charbuf
 
 	def __setattr__(self, name, value):
-		if name=='witness' or name=='signatureBits' or name=='digestAlgorithm':
-			self.ccn_data_dirty=True
+		if name == 'witness' or name == 'signatureBits' or name == 'digestAlgorithm':
+			self.ccn_data_dirty = True
 		object.__setattr__(self, name, value)
 
 	def __getattribute__(self, name):
-		if name=="ccn_data":
+		if name == "ccn_data":
 			if object.__getattribute__(self, 'ccn_data_dirty'):
 				self.ccn_data = _pyccn.Signature_obj_to_ccn(self)
 				self.ccn_data_dirty = False
@@ -137,7 +135,7 @@ class SignedInfo(object):
 		if name == "ccn_data":
 			if object.__getattribute__(self, 'ccn_data_dirty'):
 				key_locator = self.keyLocator.ccn_data if self.keyLocator else None
-				self.ccn_data = _pyccn.SignedInfo_to_ccn( \
+				self.ccn_data = _pyccn.SignedInfo_to_ccn(\
 					self.publisherPublicKeyDigest, self.type, self.timeStamp, \
 					self.freshnessSeconds if self.freshnessSeconds else -1, \
 					self.finalBlockID, key_locator)
@@ -163,7 +161,7 @@ class ContentType(object):
 	CCN_CONTENT_DATA = 0x0C04C0
 	CCN_CONTENT_ENCR = 0x10D091
 	CCN_CONTENT_GONE = 0x18E344
-	CCN_CONTENT_KEY  = 0x28463F
+	CCN_CONTENT_KEY = 0x28463F
 	CCN_CONTENT_LINK = 0x2C834A
 	CCN_CONTENT_NACK = 0x34008A
 #	CCN_CONTENT_DATA = b64decode("DATA")
@@ -180,12 +178,12 @@ class ContentType(object):
 # is needed.
 
 class SigningParams(object):
-	CCN_SP_TEMPL_TIMESTAMP      = 0x0001
+	CCN_SP_TEMPL_TIMESTAMP = 0x0001
 	CCN_SP_TEMPL_FINAL_BLOCK_ID = 0x0002
-	CCN_SP_TEMPL_FRESHNESS      = 0x0004
-	CCN_SP_TEMPL_KEY_LOCATOR    = 0x0008
-	CCN_SP_FINAL_BLOCK          = 0x0010
-	CCN_SP_OMIT_KEY_LOCATOR     = 0x0020
+	CCN_SP_TEMPL_FRESHNESS = 0x0004
+	CCN_SP_TEMPL_KEY_LOCATOR = 0x0008
+	CCN_SP_FINAL_BLOCK = 0x0010
+	CCN_SP_OMIT_KEY_LOCATOR = 0x0020
 
 	def __init__(self):
 		self.flags;       # Use the CCN_SP flags above
@@ -205,11 +203,11 @@ class SigningParams(object):
 
 	def __setattr__(self, name, value):
 		if name != "ccn_data" and name != "ccn_data_dirty":
-			self.ccn_data_dirty=True
+			self.ccn_data_dirty = True
 		object.__setattr__(self, name, value)
 
 	def __getattribute__(self, name):
-		if name=="ccn_data":
+		if name == "ccn_data":
 			if object.__getattribute__(self, 'ccn_data_dirty'):
 				self.ccn_data = _pyccn._pyccn_SigningParams_to_ccn(self)
 				self.ccn_data_dirty = False

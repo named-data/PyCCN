@@ -2,6 +2,7 @@
 
 TESTS = \
 	importModule.py \
+	enums.py \
 	ccnConnection.py \
 	ccnRun.py \
 	names.py \
@@ -10,6 +11,7 @@ TESTS = \
 	generateKey.py \
 	defaultKey.py \
 	ContentObject.py \
+	ContentObject2.py \
 	key.py \
 	keyExportPEM.py \
 	keyExportDER.py \
