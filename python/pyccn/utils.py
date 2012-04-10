@@ -7,6 +7,7 @@
 class Flag(int):
 	__initialized = False
 	_flags = None
+	_prefix = None
 	__flags_values__ = None
 
 	@classmethod
@@ -39,6 +40,9 @@ class Flag(int):
 		return " | ".join(flags)
 
 	def __repr__(self):
+		if self._prefix:
+			return self._prefix + "." + self.generate_repr()
+
 		t = type(self)
 		type_name = "%s.%s" % (t.__module__, t.__name__)
 		return "<flags %s of type %s>" % (self.generate_repr(), type_name)

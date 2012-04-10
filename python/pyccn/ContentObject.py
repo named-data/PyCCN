@@ -8,11 +8,8 @@
 from . import _pyccn
 import utils
 
-from base64 import b64encode, b64decode
-from binascii import a2b_hex
-
 class ContentType(utils.Enum):
-	pass
+	_prefix = "pyccn"
 
 CONTENT_DATA = ContentType.new_flag('CONTENT_DATA', 0x0C04C0)
 CONTENT_ENCR = ContentType.new_flag('CONTENT_ENCR', 0x10D091)
@@ -87,6 +84,23 @@ class ContentObject(object):
 		ret.append("Signature: %s" % self.signature)
 		return "\n".join(ret)
 
+	def __repr__(self):
+		args = []
+
+		if self.name is not None:
+			args += ["name=%r" % self.name]
+
+		if self.content is not None:
+			args += ["content=%r" % self.content]
+
+		if self.signedInfo is not None:
+			args += ["signed_info=%r" % self.signedInfo]
+
+		if self.signature is not None:
+			args += ["<signed>"]
+
+		return "pyccn.ContentObject(%s)" % ", ".join(args)
+
 class Signature(object):
 	def __init__(self):
 		self.digestAlgorithm = None
@@ -146,19 +160,9 @@ class SignedInfo(object):
 				key_locator = self.keyLocator.ccn_data if self.keyLocator else None
 				self.ccn_data = _pyccn.SignedInfo_to_ccn(\
 					self.publisherPublicKeyDigest, self.type, self.timeStamp, \
-					self.freshnessSeconds or -1, self.finalBlockID, key_locator)
+					self.freshnessSeconds or (-1), self.finalBlockID, key_locator)
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)
-
-	def __str__(self):
-		pubkeydigest = "<PublisherPublicKeyDigest>%s</PublisherPublicKeyDigest>" \
-			% b64encode(self.publisherPublicKeyDigest)
-		timestamp = "<Timestamp>%s</Timestamp>" % (b64encode(self.timeStamp) if self.timeStamp else None)
-		type = "<Type>%s</Type>" % ("None" if self.type == None else "0x%0.6X" % self.type)
-		freshness = "<FreshnessSeconds>%s</FreshnessSeconds>" % self.freshnessSeconds
-		finalBlockID = "<FinalBlockID>%r</FinalBlockID>" % self.finalBlockID
-		res = "<SignedInfo>%s%s%s%s%s%s</SignedInfo>" % (pubkeydigest, timestamp, type, freshness, finalBlockID, self.keyLocator)
-		return res
 
 	def __repr__(self):
 		args = []
