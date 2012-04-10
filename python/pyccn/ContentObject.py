@@ -6,16 +6,20 @@
 #
 
 from . import _pyccn
+import utils
 
 from base64 import b64encode, b64decode
 from binascii import a2b_hex
 
-CONTENT_DATA = 0x0C04C0
-CONTENT_ENCR = 0x10D091
-CONTENT_GONE = 0x18E344
-CONTENT_KEY  = 0x28463F
-CONTENT_LINK = 0x2C834A
-CONTENT_NACK = 0x34008A
+class ContentType(utils.Enum):
+	pass
+
+CONTENT_DATA = ContentType.new_flag('CONTENT_DATA', 0x0C04C0)
+CONTENT_ENCR = ContentType.new_flag('CONTENT_ENCR', 0x10D091)
+CONTENT_GONE = ContentType.new_flag('CONTENT_GONE', 0x18E344)
+CONTENT_KEY = ContentType.new_flag('CONTENT_KEY', 0x28463F)
+CONTENT_LINK = ContentType.new_flag('CONTENT_LINK', 0x2C834A)
+CONTENT_NACK = ContentType.new_flag('CONTENT_NACK', 0x34008A)
 
 class ContentObject(object):
 	def __init__(self, name = None, content = None, signed_info = None):
@@ -88,9 +92,10 @@ class Signature(object):
 		self.digestAlgorithm = None
 		self.witness = None
 		self.signatureBits = None
+
 		# pyccn
 		self.ccn_data_dirty = False
-		self.ccn_data = None  # backing charbuf
+		self.ccn_data = None
 
 	def __setattr__(self, name, value):
 		if name == 'witness' or name == 'signatureBits' or name == 'digestAlgorithm':
@@ -115,8 +120,8 @@ class SignedInfo(object):
 	def __init__(self, key_digest = None, key_locator = None, type = CONTENT_DATA,
 			freshness = None, final_block = None, timestamp = None):
 
-		self.publisherPublicKeyDigest = key_digest # SHA256 hash
-		self.timeStamp = timestamp   # CCNx timestamp
+		self.publisherPublicKeyDigest = key_digest
+		self.timeStamp = timestamp
 		self.type = type
 		self.freshnessSeconds = freshness
 		self.finalBlockID = final_block
@@ -129,6 +134,10 @@ class SignedInfo(object):
 	def __setattr__(self, name, value):
 		if name != "ccn_data" and name != "ccn_data_dirty":
 			self.ccn_data_dirty = True
+
+		if name == "type" and type(value) is not ContentType:
+			value = ContentType(value)
+
 		object.__setattr__(self, name, value)
 
 	def __getattribute__(self, name):
@@ -137,14 +146,9 @@ class SignedInfo(object):
 				key_locator = self.keyLocator.ccn_data if self.keyLocator else None
 				self.ccn_data = _pyccn.SignedInfo_to_ccn(\
 					self.publisherPublicKeyDigest, self.type, self.timeStamp, \
-					self.freshnessSeconds if self.freshnessSeconds else -1, \
-					self.finalBlockID, key_locator)
+					self.freshnessSeconds or -1, self.finalBlockID, key_locator)
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)
-
-	def __get_ccn(self):
-		pass
-		# Call ccn_signed_info_create
 
 	def __str__(self):
 		pubkeydigest = "<PublisherPublicKeyDigest>%s</PublisherPublicKeyDigest>" \
@@ -156,20 +160,23 @@ class SignedInfo(object):
 		res = "<SignedInfo>%s%s%s%s%s%s</SignedInfo>" % (pubkeydigest, timestamp, type, freshness, finalBlockID, self.keyLocator)
 		return res
 
-#Don't use this class, it is deprecated
-class ContentType(object):
-	CCN_CONTENT_DATA = 0x0C04C0
-	CCN_CONTENT_ENCR = 0x10D091
-	CCN_CONTENT_GONE = 0x18E344
-	CCN_CONTENT_KEY = 0x28463F
-	CCN_CONTENT_LINK = 0x2C834A
-	CCN_CONTENT_NACK = 0x34008A
-#	CCN_CONTENT_DATA = b64decode("DATA")
-#	CCN_CONTENT_ENCR = b64decode("ENCR")
-#	CCN_CONTENT_GONE = b64decode("GONE")
-#	CCN_CONTENT_KEY  = b64decode("KEY/")
-#	CCN_CONTENT_LINK = b64decode("LINK")
-#	CCN_CONTENT_NACK = b64decode("NACK")
+	def __repr__(self):
+		args = []
+
+		if self.publisherPublicKeyDigest is not None:
+			args += ["key_digest=%r" % self.publisherPublicKeyDigest]
+		if self.keyLocator is not None:
+			args += ["key_locator=%r" % self.keyLocator]
+		if self.type is not None:
+			args += ["type=%r" % self.type]
+		if self.freshnessSeconds is not None:
+			args += ["freshness=%r" % self.freshnessSeconds]
+		if self.finalBlockID is not None:
+			args += ["final_block=%r" % self.finalBlockID]
+		if self.timeStamp is not None:
+			args += ["timestamp=%r" % self.timeStamp]
+
+		return "pyccn.SignedInfo(%s)" % ", ".join(args)
 
 #
 #
