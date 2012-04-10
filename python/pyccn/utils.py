@@ -4,6 +4,8 @@
 # Written by: Derek Kulinski <takeda@takeda.tk>
 #
 
+import struct
+
 class Flag(int):
 	__initialized = False
 	_flags = None
@@ -71,3 +73,13 @@ class Enum(Flag):
 
 	def generate_repr(self):
 		return self._flags[long(self)]
+
+def ccn2py_time(value):
+	bintime = b'\x00' * (8 - len(value)) + value
+	inttime = struct.unpack("!Q", bintime)[0]
+	return inttime / 4096.0
+
+def py2ccn_time(value):
+	inttime = int(value * 4096 + 0.5)
+	bintime = struct.pack("!Q", inttime)
+	return bintime.lstrip(b'\x00')

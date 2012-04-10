@@ -132,10 +132,18 @@ class Signature(object):
 
 class SignedInfo(object):
 	def __init__(self, key_digest = None, key_locator = None, type = CONTENT_DATA,
-			freshness = None, final_block = None, timestamp = None):
+			freshness = None, final_block = None, py_timestamp = None,
+			timestamp = None):
 
 		self.publisherPublicKeyDigest = key_digest
-		self.timeStamp = timestamp
+
+		if py_timestamp is not None:
+			if timestamp:
+				raise ValueError("You can define only timestamp or py_timestamp")
+			self.timeStamp = utils.py2ccn_time(py_timestamp)
+		else:
+			self.timeStamp = timestamp
+
 		self.type = type
 		self.freshnessSeconds = freshness
 		self.finalBlockID = final_block
@@ -162,6 +170,13 @@ class SignedInfo(object):
 					self.publisherPublicKeyDigest, self.type, self.timeStamp, \
 					self.freshnessSeconds or (-1), self.finalBlockID, key_locator)
 				self.ccn_data_dirty = False
+
+		if name == "py_timestamp":
+			ts = self.timeStamp
+			if ts is None:
+				return None
+			return None if ts is None else utils.ccn2py_time(ts)
+
 		return object.__getattribute__(self, name)
 
 	def __repr__(self):
@@ -178,7 +193,7 @@ class SignedInfo(object):
 		if self.finalBlockID is not None:
 			args += ["final_block=%r" % self.finalBlockID]
 		if self.timeStamp is not None:
-			args += ["timestamp=%r" % self.timeStamp]
+			args += ["py_timestamp=%r" % self.py_timestamp]
 
 		return "pyccn.SignedInfo(%s)" % ", ".join(args)
 
