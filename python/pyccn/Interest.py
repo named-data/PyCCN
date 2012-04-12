@@ -16,20 +16,24 @@
 
 from . import _pyccn
 from . import Name
+import utils
 
-AOK_NONE    = 0x0
-AOK_CS      = 0x1  # Answer from content store
-AOK_NEW     = 0x2  # OK to produce new content
-AOK_STALE   = 0x4  # OK to answer with stale data
-AOK_EXPIRE  = 0x10 # Mark as stale (requires scope 0)
+class AOKType(utils.Flag):
+	_prefix = "pyccn"
+
+AOK_NONE = AOKType.new_flag('AOK_NONE', 0x0)
+AOK_CS = AOKType.new_flag('AOK_CS', 0x1)  # Answer from content store
+AOK_NEW = AOKType.new_flag('AOK_NEW', 0x2)  # OK to produce new content
+AOK_STALE = AOKType.new_flag('AOK_STALE', 0x4)  # OK to answer with stale data
+AOK_EXPIRE = AOKType.new_flag('AOK_EXPIRE', 0x10) # Mark as stale (requires scope 0)
 
 AOK_DEFAULT = AOK_CS | AOK_NEW
 
 class Interest(object):
-	def __init__(self, name=None, minSuffixComponents=None, \
-				 maxSuffixComponents=None, publisherPublicKeyDigest=None, \
-				 exclude=None, childSelector=None, answerOriginKind=None, \
-				 scope=None, interestLifetime=None, nonce=None):
+	def __init__(self, name = None, minSuffixComponents = None, \
+				 maxSuffixComponents = None, publisherPublicKeyDigest = None, \
+				 exclude = None, childSelector = None, answerOriginKind = None, \
+				 scope = None, interestLifetime = None, nonce = None):
 
 		self.name = name  # Start from None to use for templates?
 		self.minSuffixComponents = minSuffixComponents  # default 0
@@ -38,7 +42,7 @@ class Interest(object):
 		self.exclude = exclude
 		self.childSelector = childSelector
 		self.answerOriginKind = answerOriginKind
-		self.scope  = scope
+		self.scope = scope
 		self.interestLifetime = interestLifetime
 		self.nonce = nonce
 
@@ -78,8 +82,35 @@ class Interest(object):
 		res.append("nonce: %r" % self.nonce)
 		return "\n".join(res)
 
+	def __repr__(self):
+		args = []
+
+		if self.name is not None:
+			args += ["name=%r" % self.name]
+		if self.minSuffixComponents is not None:
+			args += ["minSuffixComponents=%r" % self.minSuffixComponents]
+		if self.maxSuffixComponents is not None:
+			args += ["maxSuffixComponents=%r" % self.maxSuffixComponents]
+		if self.publisherPublicKeyDigest is not None:
+			args += ["publisherPublicKeyDigest=%r" % self.publisherPublicKeyDigest]
+		if self.exclude is not None:
+			args += ["exclude=%r" % self.exclude]
+		if self.childSelector is not None:
+			args += ["childSelector=%r" % self.childSelector]
+		if self.answerOriginKind is not None:
+			args += ["answerOriginKind=%r" % self.answerOriginKind]
+		if self.scope is not None:
+			args += ["scope=%r" % self.scope]
+		if self.interestLifetime is not None:
+			args += ["interestLifetime=%r" % self.interestLifetime]
+		if self.nonce is not None:
+			args += ["nonce=%r" % self.nonce]
+
+		return "pyccn.Interest(%s)" % ", ".join(args)
+
 	def get_aok_value(self):
 		global AOK_DEFAULT
+
 		return AOK_DEFAULT if not self.answerOriginKind else self.answerOriginKind
 
 	def matches_name(self, name):
@@ -100,6 +131,7 @@ class Interest(object):
 class ExclusionFilter(object):
 	def __init__(self):
 		self.components = []
+
 		# pyccn
 		self.ccn_data_dirty = False
 		self.ccn_data = None  # backing charbuf
@@ -119,7 +151,7 @@ class ExclusionFilter(object):
 		self.components.append(name)
 
 	def add_any(self):
-		self.components.append(Name.Name(name_type=Name.NAME_ANY))
+		self.components.append(Name.Name(name_type = Name.NAME_ANY))
 
 	def __setattr__(self, name, value):
 		if name != "ccn_data_dirty":
