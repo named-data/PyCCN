@@ -105,22 +105,14 @@ ccn_upcall_handler(struct ccn_closure *selfp,
 	PyObject *upcall_method = NULL, *py_upcall_info = NULL;
 	PyObject *py_selfp, *py_closure, *arglist, *result;
 	struct pyccn_state *state;
-	struct pyccn_run_state *run_state;
+	PyGILState_STATE gstate;
 
 	debug("upcall_handler dispatched kind %d\n", upcall_kind);
 
 	assert(selfp);
 	assert(selfp->data);
 
-	//XXX: What to do when ccn_run is not called?
-	run_state = _pyccn_run_state_find(info->h);
-	if (!run_state) {
-		debug("ccn_run() is not currently running\n");
-		return CCN_UPCALL_RESULT_ERR;
-	}
-
-	/* acquiring lock */
-	PyEval_RestoreThread(run_state->thread_state);
+	gstate = PyGILState_Ensure();
 
 	state = GETSTATE(_pyccn_module);
 
@@ -150,22 +142,15 @@ ccn_upcall_handler(struct ccn_closure *selfp,
 
 	if (upcall_kind == CCN_UPCALL_FINAL)
 		Py_DECREF(py_selfp);
-	/*
-		CCNObject_Complete_Closure(py_selfp);
-	 */
 
 	long r = _pyccn_Int_AsLong(result);
 
-	/* releasing lock */
-	PyEval_SaveThread();
+	PyGILState_Release(gstate);
 
 	return r;
 
 error:
 	debug("Error routine called (upcall_kind = %d)\n", upcall_kind);
-	/*
-		CCNObject_Complete_Closure(py_selfp);
-	 */
 	if (upcall_kind == CCN_UPCALL_FINAL)
 		Py_DECREF(py_selfp);
 	Py_XDECREF(py_upcall_info);
@@ -175,7 +160,7 @@ error:
 	if (PyErr_Occurred())
 		PyErr_Print();
 
-	PyEval_SaveThread();
+	PyGILState_Release(gstate);
 	return CCN_UPCALL_RESULT_ERR;
 }
 
@@ -330,7 +315,6 @@ _pyccn_cmd_run(PyObject *UNUSED(self), PyObject *args)
 	PyObject *py_handle;
 	int timeoutms = -1;
 	struct ccn *handle;
-	PyThreadState *state;
 	void *state_slot;
 
 	if (!PyArg_ParseTuple(args, "O|i", &py_handle, &timeoutms))
@@ -342,24 +326,17 @@ _pyccn_cmd_run(PyObject *UNUSED(self), PyObject *args)
 	}
 	handle = CCNObject_Get(HANDLE, py_handle);
 
-	/* Enable threads */
-	debug("Entering ccn_run()\n");
-	state = PyThreadState_Get();
-	state_slot = _pyccn_run_state_add(handle, state);
+	state_slot = _pyccn_run_state_add(handle);
 	if (!state_slot)
 		return NULL;
-	PyEval_SaveThread();
 
+	Py_BEGIN_ALLOW_THREADS
+	debug("Entering ccn_run()\n");
 	r = ccn_run(handle, timeoutms);
+	debug("Exited ccn_run()\n");
+	Py_END_ALLOW_THREADS
 
-	/* disable threads */
-	debug("Exiting ccn_run()\n");
-	PyEval_RestoreThread(state);
 	_pyccn_run_state_clear(state_slot);
-
-	/*
-		CCNObject_Purge_Closures();
-	 */
 
 	if (r < 0) {
 		int err = ccn_geterror(handle);

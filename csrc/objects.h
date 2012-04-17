@@ -49,7 +49,5 @@ void *CCNObject_Get(enum _pyccn_capsules type, PyObject *capsule);
 PyObject *CCNObject_New_Closure(struct ccn_closure **closure);
 PyObject *CCNObject_New_charbuf(enum _pyccn_capsules type,
 		struct ccn_charbuf **p);
-void CCNObject_Complete_Closure(PyObject *py_closure);
-void CCNObject_Purge_Closures(void);
 
 #endif	/* OBJECTS_H */

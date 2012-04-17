@@ -27,9 +27,8 @@ enum e_class_type {
 #define MAX_RUN_STATES 5
 
 struct pyccn_run_state {
-	struct ccn *handle;
-	PyThreadState *thread_state;
 	struct pyccn_run_state *next;
+	struct ccn *handle;
 };
 
 struct pyccn_state {

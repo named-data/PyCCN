@@ -316,35 +316,3 @@ CCNObject_New_charbuf(enum _pyccn_capsules type,
 
 	return py_o;
 }
-
-#if 0
-
-void
-CCNObject_Complete_Closure(PyObject *py_closure)
-{
-	struct completed_closure *p;
-
-	debug("Adding called closure to be purged\n");
-
-	assert(py_closure);
-	p = malloc(sizeof(*p));
-	p->closure = py_closure;
-	p->next = g_completed_closures;
-	g_completed_closures = p;
-}
-
-void
-CCNObject_Purge_Closures()
-{
-	struct completed_closure *p;
-
-	debug("Purging old closures\n");
-
-	while (g_completed_closures) {
-		p = g_completed_closures;
-		Py_DECREF(p->closure);
-		g_completed_closures = p->next;
-		free(p);
-	}
-}
-#endif

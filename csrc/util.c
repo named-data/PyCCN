@@ -117,7 +117,7 @@ _pyccn_close_file_handle(FILE *fh)
 }
 
 void *
-_pyccn_run_state_add(struct ccn *handle, PyThreadState *thread_state)
+_pyccn_run_state_add(struct ccn *handle)
 {
 	struct pyccn_state *pyccn_state = GETSTATE(_pyccn_module);
 	struct pyccn_run_state *state;
@@ -127,7 +127,6 @@ _pyccn_run_state_add(struct ccn *handle, PyThreadState *thread_state)
 		return PyErr_NoMemory();
 
 	state->handle = handle;
-	state->thread_state = thread_state;
 	state->next = pyccn_state->run_state;
 
 	pyccn_state->run_state = state;
