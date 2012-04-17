@@ -104,7 +104,6 @@ ccn_upcall_handler(struct ccn_closure *selfp,
 {
 	PyObject *upcall_method = NULL, *py_upcall_info = NULL;
 	PyObject *py_selfp, *py_closure, *arglist, *result;
-	struct pyccn_state *state;
 	PyGILState_STATE gstate;
 
 	debug("upcall_handler dispatched kind %d\n", upcall_kind);
@@ -113,8 +112,6 @@ ccn_upcall_handler(struct ccn_closure *selfp,
 	assert(selfp->data);
 
 	gstate = PyGILState_Ensure();
-
-	state = GETSTATE(_pyccn_module);
 
 	/* equivalent of selfp, wrapped into PyCapsule */
 	py_selfp = selfp->data;
