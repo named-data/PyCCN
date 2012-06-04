@@ -125,6 +125,13 @@ error:
 	return -1;
 }
 
+void
+initialize_crypto(void)
+{
+	/* needed so openssl's errors make sense to humans */
+	ERR_load_crypto_strings();
+}
+
 int
 create_public_key_digest(RSA *private_key_rsa,
 		PyObject **py_public_key_digest, int *public_key_digest_len)
@@ -759,11 +766,11 @@ read_keypair_pem(FILE *fp, struct keypair** KP)
 int
 release_key(struct ccn_pkey** private_key_ccn, struct ccn_pkey** public_key_ccn, unsigned char** public_key_digest)
 {
-	if (public_key_ccn != NULL && *public_key_ccn != NULL)
+	if (public_key_ccn && *public_key_ccn)
 		EVP_PKEY_free((EVP_PKEY*) * public_key_ccn);
-	if (private_key_ccn != NULL && private_key_ccn != NULL)
+	if (private_key_ccn && *private_key_ccn)
 		EVP_PKEY_free((EVP_PKEY*) * private_key_ccn);
-	if (public_key_digest != NULL && *public_key_digest != NULL)
+	if (public_key_digest && *public_key_digest)
 		free(*public_key_digest);
 	return 0;
 }
@@ -771,7 +778,7 @@ release_key(struct ccn_pkey** private_key_ccn, struct ccn_pkey** public_key_ccn,
 int
 release_keypair(struct keypair** KP)
 {
-	if (KP != NULL && (*KP) != NULL)
+	if (KP && *KP)
 		free(*KP);
 	return 0;
 }
@@ -780,12 +787,17 @@ int
 build_keylocator_from_key(struct ccn_charbuf** keylocator, struct ccn_pkey* key)
 {
 	int res = 0;
+
 	*keylocator = ccn_charbuf_create();
+
 	ccn_charbuf_append_tt(*keylocator, CCN_DTAG_KeyLocator, CCN_DTAG);
 	ccn_charbuf_append_tt(*keylocator, CCN_DTAG_Key, CCN_DTAG);
+
 	res = ccn_append_pubkey_blob(*keylocator, key);
+
 	ccn_charbuf_append_closer(*keylocator); /* </Key> */
 	ccn_charbuf_append_closer(*keylocator); /* </KeyLocator> */
+
 	return(res);
 }
 
@@ -799,4 +811,21 @@ get_ASN_public_key(unsigned char** public_key_der, int* public_key_der_len, stru
 	*public_key_der = pub = (unsigned char*) calloc(*public_key_der_len, 1);
 	i2d_RSAPublicKey(private_key_rsa, &pub);
 	return 0;
+}
+
+RSA *
+ccn_key_to_rsa(struct ccn_pkey *key_ccn)
+{
+	RSA *private_key_rsa;
+	unsigned int err;
+
+	private_key_rsa = EVP_PKEY_get1_RSA((EVP_PKEY *) key_ccn);
+	if (!private_key_rsa) {
+		err = ERR_get_error();
+		PyErr_Format(g_PyExc_CCNKeyError, "Error obtaining private key: %s",
+				ERR_reason_error_string(err));
+		return NULL;
+	}
+
+	return private_key_rsa;
 }

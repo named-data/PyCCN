@@ -8,8 +8,6 @@
 #include "python_hdr.h"
 #include <ccn/ccn.h>
 #include <ccn/signing.h>
-#include <openssl/evp.h>
-#include <openssl/err.h>
 
 #include "pyccn.h"
 #include "key_utils.h"
@@ -182,15 +180,8 @@ Key_obj_from_ccn(PyObject *py_key_ccn)
 	// it out to RSA
 	// Also, create the digest...
 	// These non-ccn functions assume the CCN defaults, RSA + SHA256
-	private_key_rsa = EVP_PKEY_get1_RSA((EVP_PKEY *) key_ccn);
-	if (!private_key_rsa) {
-		unsigned int err;
-
-		err = ERR_get_error();
-		PyErr_Format(g_PyExc_CCNKeyError, "Error obtaining private key: %s",
-				ERR_reason_error_string(err));
-		goto error;
-	}
+	private_key_rsa = ccn_key_to_rsa(key_ccn);
+	JUMP_IF_NULL(private_key_rsa, error);
 
 	r = ccn_keypair_from_rsa(public_only, private_key_rsa, &py_private_key_ccn,
 			&py_public_key_ccn);
