@@ -13,19 +13,30 @@ dnl			esac
 dnl		],[])
 
 	AC_MSG_CHECKING([for libcrypto used with ccnd])
-	if test -n "$OTOOL" ; then
-		libcrypto=$(OTOOL -L "$1" | $FGREP libcrypto | $AWK '{print $[]1}')
-	fi
 
 	module=no
 	eval libcrypto_ext=$shrext_cmds
-	libcrypto_ver=$(expr //${libcrypto} : '.*/libcrypto\.\(.*\)'${libcrypto_ext})
+
+	if test -n "$OTOOL" ; then
+		libcrypto=$($OTOOL -L "$1" | $FGREP libcrypto | $AWK '{print $[]1}')
+		libcrypto_ver=$(expr //${libcrypto} : '.*/libcrypto\.\(.*\)'${libcrypto_ext})
+		OPENSSL_LIBS="-lcrypto.$libcrypto_ver"
+	else
+		libcrypto=$(ldd "$1" | $FGREP libcrypto | $AWK '{print $[]3}')
+		libcrypto_ver=$(expr //${libcrypto} : '.*/libcrypto'${libcrypto_ext}'\.\(.*\)')
+		OPENSSL_LIBS="-l:$(basename "$libcrypto")"
+	fi
 
 	AC_MSG_RESULT([$libcrypto (version: $libcrypto_ver)])
 
-	ssldir=$(dirname $(dirname "$libcrypto"))
+	ssllibdir=$(dirname "$libcrypto")
+	if test "$ssllibdir" = "/lib"; then
+		ssldir="/usr"
+	else
+		ssldir=$(dirname "$ssllibdir")
+	fi
+
 	OPENSSL_INCLUDES="-I$ssldir/include"
-	OPENSSL_LIBS="-lcrypto.$libcrypto_ver"
 	OPENSSL_LDFLAGS="-L$ssldir/lib"
 
 	AC_MSG_RESULT([Detected settings:])
