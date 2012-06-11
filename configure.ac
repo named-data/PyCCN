@@ -15,6 +15,9 @@ LT_INIT
 # Checks for programs.
 AC_PROG_CC
 
+# Required by automake 1.12, not recognized by automake 1.11
+m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
+
 # Checks for libraries.
 AX_CHECK_CCN([], AC_MSG_ERROR([CCNx is required to compile PyCCN]))
 
