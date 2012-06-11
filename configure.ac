@@ -16,7 +16,7 @@ LT_INIT
 AC_PROG_CC
 
 # Checks for libraries.
-AX_CHECK_CCN(,AC_MSG_ERROR([CCNx is required to compile PyCCN]))
+AX_CHECK_CCN([], AC_MSG_ERROR([CCNx is required to compile PyCCN]))
 
 # Checks for header files.
 AX_PYTHON_DEVEL([>= 2.7])
