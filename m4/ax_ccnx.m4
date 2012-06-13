@@ -195,10 +195,10 @@ AC_DEFUN([AX_CHECK_CCN], [
 	for ccndir in $ccndirs; do
 		AC_MSG_CHECKING([for include/ccn/ccn.h in $ccndir])
 		if test -f "$ccndir/include/ccn/ccn.h"; then
-			CCN_INCLUDES="-I$ccndir/include"
-			CCN_LDFLAGS="-L$ccndir/lib"
-			CCN_LIBS="-lccn"
-			CCN_BIN="$ccndir/bin"
+			: ${CCN_INCLUDES:="-I$ccndir/include"}
+			: ${CCN_LDFLAGS:="-L$ccndir/lib"}
+			: ${CCN_LIBS:="-lccn"}
+			: ${CCN_BIN:="$ccndir/bin"}
 			AC_MSG_RESULT([yes])
 			break
 		else
