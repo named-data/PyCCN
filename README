@@ -40,8 +40,8 @@ with no options.
 
 - GNU automake 1.11
 - GNU libtool (not sure of minimum version, using 2.2.6b)
-- CCNx 0.4
-- OpenSSL
+- CCNx 0.4+
+- OpenSSL (need to be linked to the same version used by libccn
 - Python 2.7+ (tested with 2.7.0 and 3.2.1)
 
 1.2 CONFIGURING AND BUILDING
@@ -49,12 +49,14 @@ with no options.
 Run ./configure script.
 
 Relevant options:
-* --with-openssl=DIR - if you have OpenSSL installed in not standard place
 * --with-ccn=DIR - path to CCNx distribution directory
 * PYTHON=<python interpreter> - path to python interpreter you want to use
                                 In some cases you might need to specify
                                 LDFLAGS=-L/usr/lib
 * PYTHON_SITE_PKG=<path> - custom path where pyccn should be installed
+* OPENSSL_CRYPTO=<library> - full path to the library used by libccn
+* OPENSSL_INCLUDES, OPENSSL_LDFLAGS, OPENSSL_LIBS - to override determined
+                                                    values
 
 Then do `make` to compile the code.
 
@@ -107,13 +109,13 @@ All of the files are contained inside of pyccn package. To use you can call:
   "Fatal Python error: PyThreadState_Get: no current thread"
   when trying to import pyccn. I'm looking into ways to make code also work
   when python is statically compiled.
+
 - On MacOS X 10.7 (Lion) while compiling the module you'll get bunch of
-  messages about openssl functions being deprecatead. It seems that Apple is
-  replacing openssl with their own implementation called Common Crypto.
-  You might want to point to alternative version (e.g. from Mac Ports) using
-  --with-openssl=<root of openssl dir>
-  If you have MacPorts installed and you put /opt/local/bin in front of PATH,
-  the PyCCN will use openssl from MacPorts due to MacPorts' pkg-config being
-  first in the path and pointing to packages in MacPorts. If you want to use
-  system's OpenSSL use --with-openssl=/usr to override that.
+  warnings about openssl functions being deprecatead. This is ok. The message
+  is because Apple decided to replace openssl with their own implementation
+  called Common Crypto and want to discourage developers from using OpenSSL.
+  If you don't want to see the warnings you might want to point to alternative
+  version (e.g. from Mac Ports) using OPENSSL_* variables.  Remember that you
+  need to compile PyCCN with the same version of OpenSSL that you compiled CCNx
+  otherwise PyCCN will crash when trying to sign Content Objects.
 

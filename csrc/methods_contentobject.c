@@ -319,7 +319,6 @@ ContentObject_obj_from_ccn(PyObject *py_content_object)
 	r = PyObject_SetAttrString(py_obj_ContentObject, "ccn_data", py_content_object);
 	JUMP_IF_NEG(r, error);
 
-#pragma message "XXX: Test code if it works without setting ccn_data_dirty=False"
 	r = PyObject_SetAttrString(py_obj_ContentObject, "ccn_data_dirty", Py_False);
 	JUMP_IF_NEG(r, error);
 

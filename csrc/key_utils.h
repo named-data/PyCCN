@@ -34,6 +34,7 @@ struct keypair {
 	size_t public_key_digest_len;
 };
 
+void initialize_crypto(void);
 int create_public_key_digest(RSA *private_key_rsa,
 		PyObject **py_public_key_digest, int *public_key_digest_len);
 int ccn_keypair_from_rsa(int public_only, RSA *private_key_rsa,
@@ -69,5 +70,6 @@ int release_keypair(struct keypair** KP);
 int build_keylocator_from_key(struct ccn_charbuf** keylocator, struct ccn_pkey* key);
 
 int get_ASN_public_key(unsigned char** public_key_der, int* public_key_der_len, struct ccn_pkey* private_key);
+RSA *ccn_key_to_rsa(struct ccn_pkey *key_ccn);
 
 #endif /* _KEY_UTILS_H_ */

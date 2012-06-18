@@ -751,7 +751,6 @@ Interest_obj_from_ccn(PyObject *py_interest)
 		JUMP_IF_NEG(r, error);
 	}
 
-#pragma message "XXX: Test code if it works without setting ccn_data_dirty=False"
 	r = PyObject_SetAttrString(py_obj_Interest, "ccn_data_dirty", Py_False);
 	JUMP_IF_NEG(r, error);
 
