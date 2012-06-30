@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011, Regents of the University of California
+# Copyright (c) 2012, Regents of the University of California
 # BSD license, See the COPYING file for more information
 # Written by: Derek Kulinski <takeda@takeda.tk>
 #             Jeff Burke <jburke@ucla.edu>
@@ -7,35 +7,11 @@
 
 from . import _pyccn
 
-# Iterate through components and check types when serializing.
-# Serialize strings without the trailing 0
-
-# Expose the container types?
-# Allow init with a uri or a string?
-
-# Byte Array http://docs.python.org/release/2.7.1/library/functions.html#bytearray
-
-# do the appends need to include tags?
-
-# support standards? for now, just version & segment?
-# http://www.ccnx.org/releases/latest/doc/technical/NameConventions.html
-
-# incorporate ccn_compare_names for canonical ordering?
-#
-
 from copy import copy
 import time, struct, random
-from warnings import warn
 
 NAME_NORMAL = 0
 NAME_ANY    = 1
-
-_name_immutable = 1
-
-def name_immutable():
-	global _name_immutable
-
-	_name_immutable = 1
 
 class Name(object):
 	def __init__(self, components=[], name_type=NAME_NORMAL, ccn_data=None):
@@ -73,28 +49,22 @@ class Name(object):
 			self._setattr('ccn_data_dirty', True)
 		super(Name, self).__setattr__(name, value)
 
-	def _warn(self):
-		warn('Name works in compatibility mode, please set _name_immutable to 1')
-
 	def _append(self, component):
 		components = copy(self.components)
 		components.append(component)
-
-		if not _name_immutable:
-			self._warn()
-			self.ccn_data_dirty = True
-			self.components.append(component)
 
 		return Name(components)
 
 	def append(self, component):
 		components = copy(self.components)
 		components.append(component)
+
 		return Name(components)
 
 	def appendKeyID(self, digest):
 		component = b'\xc1.M.K\x00'
 		component += digest
+
 		return self._append(component)
 
 	def appendVersion(self, version=None):
@@ -103,6 +73,7 @@ class Name(object):
 			bintime = struct.pack("!Q", inttime)
 			version = bintime.lstrip(b'\x00')
 		component = b'\xfd' + version
+
 		return self._append(component)
 
 	def appendSegment(self, segment):
@@ -111,10 +82,11 @@ class Name(object):
 	def appendNonce(self):
 		val = random.getrandbits(64)
 		component = b'\xc1.N\x00' + struct.pack("@Q", val)
+
 		return self._append(component)
 
-	def appendNumeric(self):   # tagged numerics p4 of code
-		pass
+	def get_ccnb(self):
+		return _pyccn.dump_charbuf(self.ccn_data)
 
 	def __repr__(self):
 		global NAME_NORMAL, NAME_ANY
@@ -163,11 +135,9 @@ class Name(object):
 			raise ValueError("Unknown __getitem__ type: %s" % type(key))
 
 	def __setitem__(self, key, value):
-		self._warn()
 		self.components[key] = value
 
 	def __delitem__(self, key):
-		self._warn()
 		del self.components[key]
 
 	def __len__(self):

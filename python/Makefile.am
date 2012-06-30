@@ -15,6 +15,8 @@ pyccn_PYTHON = \
 
 pyccnimpl_PYTHON = \
 	pyccn/impl/__init__.py \
+	pyccn/impl/ccnb.py \
+	pyccn/impl/enumeration.py \
 	pyccn/impl/segmenter.py
 
 #pyccnstaging_PYTHON = \
