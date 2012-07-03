@@ -5,6 +5,7 @@
 #             Jeff Burke <jburke@ucla.edu>
 #
 
+import pyccn
 from . import _pyccn
 
 from copy import copy
@@ -62,12 +63,15 @@ class Name(object):
 		return Name(components)
 
 	def appendKeyID(self, digest):
+		if isinstance(digest, pyccn.Key):
+			digest = digest.publicKeyID
+
 		component = b'\xc1.M.K\x00'
 		component += digest
 
 		return self._append(component)
 
-	def appendVersion(self, version=None):
+	def appendVersion(self, version = None):
 		if not version:
 			inttime = int(time.time() * 4096 + 0.5)
 			bintime = struct.pack("!Q", inttime)

@@ -8,8 +8,8 @@
 
 import sys
 import pyccn
-from pyccn.impl.enumeration import enumerate
-from pyccn.impl.segmenter import segmenter, Wrapper
+from pyccn.impl.enumeration import ccnb_enumerate
+from pyccn.impl.segmenting import segmenter, Wrapper
 
 def generate_names():
 	names = ["/Hello", "/World", "/This", "/is", "/an", "/enumeration", "/example"]
@@ -20,10 +20,10 @@ def main(args):
 		usage()
 
 	name = pyccn.Name(sys.argv[1])
-	data = enumerate(generate_names())
+	data = ccnb_enumerate(generate_names())
 
 	key = pyccn.CCN.getDefaultKey()
-	name = name.append('\xc1.E.be').appendKeyID(key.publicKeyID).appendVersion()
+	name = name.append('\xc1.E.be').appendKeyID(key).appendVersion()
 
 	wrapper = Wrapper(name, key)
 	sgmtr = segmenter(data, wrapper)
