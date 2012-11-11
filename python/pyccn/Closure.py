@@ -5,14 +5,15 @@
 #             Jeff Burke <jburke@ucla.edu>
 #
 
-#Upcall Result
+# Upcall Result
 RESULT_ERR               = -1 # upcall detected an error
 RESULT_OK                =  0 # normal upcall return
 RESULT_REEXPRESS         =  1 # reexpress the same interest again
 RESULT_INTEREST_CONSUMED =  2 # upcall claims to consume interest
 RESULT_VERIFY            =  3 # force an unverified result to be verified
+RESULT_FETCHKEY          =  4 # request fetching of an unfetched key
 
-#Upcall kind
+# Upcall kind
 UPCALL_FINAL              = 0 # handler is about to be deregistered
 UPCALL_INTEREST           = 1 # incoming interest
 UPCALL_CONSUMED_INTEREST  = 2 # incoming interest, someone has answered
