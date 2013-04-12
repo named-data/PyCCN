@@ -175,7 +175,7 @@ AC_DEFUN([AX_CCN_OPENSSL], [
 ])
 
 AC_DEFUN([AX_CHECK_CCN], [
-	ccndirs="/usr/local /usr $HOME/ccnx"
+	ccndirs="/opt/local /usr/local /usr $HOME/ccnx"
 	AC_ARG_WITH([ccn],
 		[AS_HELP_STRING([--with-ccn=DIR],
 			[root of the CCN directory])],
