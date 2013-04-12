@@ -2,8 +2,10 @@
 //  authentication.h
 //  namecrypto
 //
-//  Created by Paolo Gasti <pgasti@uci.edu> on 6/3/11.
-//  Copyright 2011 Paolo Gasti. All rights reserved.
+//  Originally created by Paolo Gasti <pgasti@uci.edu> on 6/3/11.
+//  Revised by Wentao Shang <wentao@cs.ucla.edu> to make compatible with NDN.JS
+//  Copyright (c) 2013, Regents of the University of California
+//  BSD license, See the COPYING file for more information
 //
 #ifndef __ndn_authentication__
 #define __ndn_authentication__
@@ -60,23 +62,5 @@ void authenticateCommandSig(state * st, struct ccn_charbuf * commandname, unsign
 
 // Use with both symmetric and asymmetric
 int verifyCommand(struct ccn_charbuf * authenticatedname, unsigned char * fixtureKey, unsigned int keylen, RSA * pubkey, state * currstate, unsigned long int maxTimeDifferenceMsec, int (*checkPolicy)(unsigned char *, int));
-
-
-// First authentication
-char *buildEncodedFirstAuthenticatorForFixture(char * fixture_name, unsigned char * initial_authenticator, unsigned int initial_authenticator_len, unsigned char * encrypted_info, unsigned int encrypted_info_len, unsigned char * unencrypted_info, unsigned int unencrypted_info_len);
-int verifyFirstEncodedAuthenticator(const unsigned char *initial_authenticator,
-		unsigned int initial_authenticator_len, char *encoded_authenticator_token,
-		unsigned char **encrypted_info, unsigned int *encrypted_info_len,
-		unsigned char **unencrypted_info, unsigned int *unencrypted_info_len);
-int buildFirstAuthenticator(const unsigned char *initial_authenticator,
-		unsigned int initial_authenticator_len, const unsigned char *encrypted_info,
-		unsigned int encrypted_info_len, const unsigned char *unencrypted_info,
-		unsigned int unencrypted_info_len, unsigned char **authenticator_token);
-int verifyFirstAuthenticator(const unsigned char *initial_authenticator,
-		unsigned int initial_authenticator_len,
-		const unsigned char *authenticator_token,
-		unsigned int authenticator_token_len, unsigned char **encrypted_info,
-		unsigned int *encrypted_info_len, unsigned char **unencrypted_info,
-		unsigned int *unencrypted_info_len);
 
 #endif

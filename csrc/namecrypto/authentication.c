@@ -2,8 +2,10 @@
 //  authentication.c
 //  namecrypto
 //
-//  Created by Paolo Gasti <pgasti@uci.edu> on 6/3/11.
-//  Copyright 2011 Paolo Gasti. All rights reserved.
+//  Originally created by Paolo Gasti <pgasti@uci.edu> on 6/3/11.
+//  Revised by Wentao Shang <wentao@cs.ucla.edu> to make compatible with NDN.JS
+//  Copyright (c) 2013, Regents of the University of California
+//  BSD license, See the COPYING file for more information
 //
 
 #include <stdlib.h>
@@ -26,7 +28,6 @@
 //#define AUTHDEBUG
 
 static int verify_update_state_freshness(state * currstate, state * new_state, unsigned long int maxTimeDifferenceMsec);
-static int parseAuthenticator_token(const unsigned char *authenticator_token, unsigned int authenticator_token_len, const unsigned char **encrypted_info, unsigned int *encrypted_info_len, const unsigned char **unencrypted_info, unsigned int *unencrypted_info_len, const unsigned char **mac);
 static int verifyCommandSymm(unsigned char * authenticator, unsigned int auth_len, unsigned char * authenticatedCommand, unsigned int commandLen, unsigned char * fixtureKey, unsigned int keylen, state * currstate, unsigned long int maxTimeDifferenceMsec, int (*checkPolicy)(unsigned char *, int));
 static int verifyCommandSig(unsigned char * authenticator, unsigned int authenticator_len, unsigned char * command, unsigned int command_len, state * currstate, RSA * pubKey, unsigned long maxTimeDifferenceMsec);
 
@@ -149,7 +150,7 @@ appKey(unsigned char *k, unsigned int keylen, unsigned char *appid,
 
 //return NOT_AUTHENTICATOR if no authenticator, AUTH_SYMMETRIC if symmetric, AUTH_ASYMMETRIC if asymmetric
 
-int
+static int
 detect_autenticator(unsigned char * component)
 {
 	if (!memcmp(component, PK_AUTH_MAGIC, AUTH_MAGIC_LEN))
@@ -160,7 +161,7 @@ detect_autenticator(unsigned char * component)
 	return NOT_AUTHENTICATOR;
 }
 
-int
+static int
 extractFromInterest(unsigned char ** authenticator, unsigned int * auth_len, unsigned char ** data, unsigned int * data_len, struct ccn_charbuf *name)
 {
 	struct ccn_indexbuf *nix = ccn_indexbuf_create();
@@ -216,7 +217,7 @@ state_init(state * st)
  * Updates the current state to reflect the new state
  * after a new authenticator is generated
  */
-void
+static void
 update_state(state * st)
 {
 	if (st) {
@@ -261,7 +262,7 @@ verify_update_state_freshness(state * currstate, state * new_state, unsigned lon
  * commandname is a full NDN name of a light including the command
  * e.g. commandname = /ndn/uci/room123/light4/switch/on
  * commandname is a '\0' terminated C string.
- * authenticatedCommand = commandname/Base64(appname_len||appname||state||MAC(commandname||state))
+ * authenticatedCommand = commandname/(appname_len||appname||state||MAC(commandname||state))
  */
 
 //COMMANDNAME IS A CCN_BUFFER, LIKE APPNAME ETC.
@@ -384,7 +385,7 @@ verifyCommand(struct ccn_charbuf *authenticatedname, unsigned char *fixtureKey,
 
 /*
  * maxTimeDifference is the number of seconds that the command can differ from now.
- * authenticatedCommand = commandname/Base64(appname_len||appname||state||MAC(commandname||state))
+ * authenticatedCommand = commandname/(appname_len||appname||state||MAC(commandname||state))
  */
 int
 verifyCommandSymm(unsigned char *authenticator, unsigned int auth_len,
@@ -466,7 +467,7 @@ verifyCommandSymm(unsigned char *authenticator, unsigned int auth_len,
 }
 
 /*
- * The interest is constructed as /command/Base64(appnamelen|Appname|state|RSA_signature)
+ * The interest is constructed as /command/(appnamelen|Appname|state|RSA_signature)
  * and RSA_signature is Sig(commandname|appid|state) ; commandname doesn't have
  * trailing '/'
  */
@@ -577,251 +578,4 @@ verifyCommandSig(unsigned char * authenticator, unsigned int authenticator_len, 
 		return AUTH_OK;
 	else
 		return FAIL_VERIFICATION_FAILED;
-}
-
-/*
- * First authentication:
- *
- * CM and fixture share an initial authenticator IA
- *
- * encrypted_info_len || encrypted_info || unencrypted_info_len || unencrypted_info || MAC
- *
- * - encrypted_info_len: 2 bytes. Can be 0. In this case, there is no encrypted information
- * - encrypted_info: some private information sent encrypted to the light. encrypted_info is encrypted under key KDF(IA, 1)
- * - unencrypted_info_len: 2 bytes. Can be 0. In this case no unencrypted information is present.
- * - unencrypted_info: some public unencrypted BUT AUTHENTICATED information
- * - MAC: length is MACLEN, is computed on all the previous components using the key KDF(IA,0)
- *
- */
-int
-buildFirstAuthenticator(const unsigned char *initial_authenticator,
-		unsigned int initial_authenticator_len,
-		const unsigned char *encrypted_info, unsigned int encrypted_info_len,
-		const unsigned char *unencrypted_info, unsigned int unencrypted_info_len,
-		unsigned char **authenticator_token)
-{
-	int authenticatorLen = 0;
-	unsigned char *mac_key;
-	unsigned char *aes_key = NULL;
-
-	unsigned int encrypted_info_offset, unencrypted_info_offset, mac_offset;
-
-	int encrypted_info_enc_len = encrypted_info_len;
-
-	if (encrypted_info_enc_len)
-		encrypted_info_enc_len += IVLEN;
-
-	encrypted_info_offset = 2;
-	unencrypted_info_offset = encrypted_info_offset + encrypted_info_enc_len + 2;
-	mac_offset = unencrypted_info_offset + unencrypted_info_len;
-
-	authenticatorLen = mac_offset + MACLEN;
-
-	mac_key = KDF(initial_authenticator, initial_authenticator_len, "\0", 1);
-	if (!mac_key)
-		return -1;
-
-	*authenticator_token = (unsigned char *) malloc(authenticatorLen);
-	if (!*authenticator_token) {
-		free(mac_key);
-		return -1;
-	}
-
-	// encrypted_info
-	(*authenticator_token)[0] = (encrypted_info_enc_len >> 8) & 0xFF;
-	(*authenticator_token)[1] = encrypted_info_enc_len & 0xFF;
-
-	if (encrypted_info_enc_len) {
-		aes_key = KDF(initial_authenticator, initial_authenticator_len, "\1", 1);
-		symm_enc_no_mac(encrypted_info, encrypted_info_len,
-				(*authenticator_token) + encrypted_info_offset, aes_key);
-	}
-
-	// unencrypted_info
-	(*authenticator_token)[unencrypted_info_offset - 2]
-			= (unencrypted_info_len >> 8) & 0xFF;
-	(*authenticator_token)[unencrypted_info_offset - 1]
-			= unencrypted_info_len & 0xFF;
-
-	if (unencrypted_info_len)
-		memcpy((*authenticator_token) + unencrypted_info_offset,
-			unencrypted_info, unencrypted_info_len);
-
-	HMAC(EVP_sha256(), mac_key, MACKLEN, (*authenticator_token), mac_offset,
-			(*authenticator_token) + mac_offset, NULL);
-
-	free(mac_key);
-	if (aes_key)
-		free(aes_key);
-
-	return authenticatorLen;
-}
-
-int
-parseAuthenticator_token(const unsigned char *authenticator_token,
-		unsigned int authenticator_token_len, const unsigned char **encrypted_info,
-		unsigned int *encrypted_info_len, const unsigned char **unencrypted_info,
-		unsigned int *unencrypted_info_len, const unsigned char **mac)
-{
-	const unsigned char *curr;
-
-	int tot_len = 0;
-
-	*encrypted_info_len = authenticator_token[0]*256 + authenticator_token[1];
-	tot_len += *encrypted_info_len + 2;
-	*encrypted_info = authenticator_token + 2;
-
-	curr = (*encrypted_info) + (*encrypted_info_len);
-
-	*unencrypted_info_len = curr[0]*256 + curr[1];
-	tot_len += *unencrypted_info_len + 2;
-	*unencrypted_info = curr + 2;
-
-	*mac = (*unencrypted_info) + (*unencrypted_info_len);
-
-	if (tot_len == authenticator_token_len - MACLEN)
-		return tot_len;
-	else
-		return FAIL_INVALID_AUTHENTICATOR;
-}
-
-int
-verifyFirstAuthenticator(const unsigned char *initial_authenticator,
-		unsigned int initial_authenticator_len,
-		const unsigned char *authenticator_token,
-		unsigned int authenticator_token_len,
-		unsigned char **encrypted_info, unsigned int *encrypted_info_len,
-		unsigned char **unencrypted_info,
-		unsigned int *unencrypted_info_len)
-{
-	unsigned char *mac_key;
-	unsigned char *aes_key = NULL;
-	unsigned char mac[MACLEN];
-	const unsigned char *amac;
-	const unsigned char *tmp_encrypted_info, *tmp_unencrypted_info;
-	int mac_offset;
-	int rc;
-
-	*unencrypted_info = *encrypted_info = NULL;
-
-	mac_offset = parseAuthenticator_token(authenticator_token,
-			authenticator_token_len, &tmp_encrypted_info, encrypted_info_len,
-			&tmp_unencrypted_info, unencrypted_info_len, &amac);
-	if (mac_offset < 0)
-		return mac_offset;
-
-	// Verify MAC
-	mac_key = KDF(initial_authenticator, initial_authenticator_len, "\0", 1);
-	HMAC(EVP_sha256(), mac_key, MACKLEN, authenticator_token, mac_offset, mac, NULL);
-	if (memcmp(mac, authenticator_token + mac_offset, MACLEN))
-		return FAIL_VERIFICATION_FAILED;
-
-	// Copy encrypted and unencrypted information
-	if (*encrypted_info_len) {
-		aes_key = KDF(initial_authenticator, initial_authenticator_len, "\1", 1);
-		if (!aes_key) {
-			rc = FAIL_NO_MEMORY;
-			goto error;
-		}
-		*encrypted_info = (unsigned char *) malloc(*encrypted_info_len - IVLEN);
-		if (!*encrypted_info) {
-			rc = FAIL_NO_MEMORY;
-			goto error;
-		}
-		symm_dec_no_mac(tmp_encrypted_info, *encrypted_info_len,
-				*encrypted_info, aes_key);
-		*encrypted_info_len -= IVLEN;
-	}
-
-	if (*unencrypted_info_len) {
-		*unencrypted_info = (unsigned char *) malloc(*unencrypted_info_len);
-		if (!*unencrypted_info) {
-			rc = FAIL_NO_MEMORY;
-			goto error;
-		}
-		memcpy(*unencrypted_info, tmp_unencrypted_info, *unencrypted_info_len);
-	}
-
-	free(mac_key);
-	if (aes_key)
-		free(aes_key);
-	return AUTH_OK;
-
-error:
-	if (*unencrypted_info)
-		free(*unencrypted_info);
-	if (*encrypted_info)
-		free(*encrypted_info);
-	if (aes_key)
-		free(aes_key);
-	free(mac_key);
-	return rc;
-}
-
-/*
- * Similar to buildFirstAuthenticator, but the auhtenticator here is encoded
- * using "my" Base64. ('-' rather than '/') and attached to a fixture name:
- * e.g. fixture name = /ndn/uci/room123/light1. authenticator =
- * /ndn/uci/room123/light1/Aasdadd[..]==
- * fixture_mame can be NULL. In that case, only the encoded authenticator is
- * returned.
- */
-char *
-buildEncodedFirstAuthenticatorForFixture(char * fixture_name, unsigned char * initial_authenticator, unsigned int initial_authenticator_len, unsigned char * encrypted_info, unsigned int encrypted_info_len, unsigned char * unencrypted_info, unsigned int unencrypted_info_len)
-{
-	char * ret;
-	char * encoded;
-	unsigned char * authenticator_token;
-	int authlen;
-	int fxname_len, encodedlen;
-
-	authlen = buildFirstAuthenticator(initial_authenticator, initial_authenticator_len, encrypted_info, encrypted_info_len, unencrypted_info, unencrypted_info_len, &authenticator_token);
-
-	encoded = base64_encode(authenticator_token, authlen);
-
-	if (fixture_name) {
-		fxname_len = (int) strlen(fixture_name);
-		if (fixture_name[fxname_len - 1] == '/')
-			fxname_len--; // remove trailing '/' from fixture name
-		encodedlen = (int) strlen(encoded);
-
-		ret = (char *) malloc(fxname_len + encodedlen + 2);
-		memcpy(ret, fixture_name, fxname_len);
-		ret[fxname_len] = '/';
-		memcpy(ret + fxname_len + 1, encoded, encodedlen + 1);
-		free(encoded);
-		free(authenticator_token);
-		return ret;
-	}
-
-	return encoded;
-}
-
-/*
- * encoded_authenticator_token can be both a name with authenticator (e.g. /ndn/uci/room123/light1/Aasdadd[..]==)
- * or just the encoded authenticator (e.g. Aasdadd[..]==)
- */
-
-int
-verifyFirstEncodedAuthenticator(const unsigned char *initial_authenticator,
-		unsigned int initial_authenticator_len,
-		char *encoded_authenticator_token, unsigned char **encrypted_info,
-		unsigned int *encrypted_info_len, unsigned char ** unencrypted_info,
-		unsigned int * unencrypted_info_len)
-{
-	unsigned char * decoded;
-	int len;
-	int ret;
-	char * encoded_auth;
-
-	encoded_auth = strrchr(encoded_authenticator_token, '/');
-	if (encoded_auth)
-		encoded_authenticator_token = encoded_auth + 1;
-
-	decoded = base64_decode_len(encoded_authenticator_token, &len);
-	ret = verifyFirstAuthenticator(initial_authenticator,
-			initial_authenticator_len, decoded, len, encrypted_info,
-			encrypted_info_len, unencrypted_info, unencrypted_info_len);
-	free(decoded);
-	return ret;
 }

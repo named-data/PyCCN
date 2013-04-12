@@ -151,10 +151,6 @@ static PyMethodDef g_module_methods[] = {
 		METH_VARARGS | METH_KEYWORDS, NULL},
 	{"nc_app_id", _pyccn_cmd_nc_app_id, METH_O, NULL},
 	{"nc_app_key", _pyccn_cmd_nc_app_key, METH_VARARGS, NULL},
-	{"nc_build_first_authenticator", _pyccn_cmd_nc_build_first_authenticator,
-		METH_VARARGS, NULL},
-	{"nc_verify_first_authenticator", _pyccn_cmd_nc_verify_first_authenticator,
-		METH_VARARGS, NULL},
 #endif
 	{NULL, NULL, 0, NULL} /* Sentinel */
 };

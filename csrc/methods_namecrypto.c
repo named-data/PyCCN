@@ -2,6 +2,7 @@
  * Copyright (c) 2011, Regents of the University of California
  * BSD license, See the COPYING file for more information
  * Written by: Derek Kulinski <takeda@takeda.tk>
+ * Updated by: Wentao Shang <wentao@cs.ucla.edu>
  */
 
 #include <python_hdr.h>
@@ -277,7 +278,7 @@ _pyccn_cmd_nc_app_key(PyObject *UNUSED(self), PyObject *args)
 		return NULL;
 
 	if (appid_len != APPIDLEN) {
-		PyErr_Format(PyExc_ValueError, "appid needs to be %zd bytes long",
+		PyErr_Format(PyExc_ValueError, "appid needs to be %d bytes long",
 				APPIDLEN);
 		return NULL;
 	}
@@ -297,93 +298,4 @@ _pyccn_cmd_nc_app_key(PyObject *UNUSED(self), PyObject *args)
 #else
 	return Py_BuildValue("s#", appkey, APPKEYLEN);
 #endif
-}
-
-PyObject *
-_pyccn_cmd_nc_build_first_authenticator(PyObject *UNUSED(self), PyObject *args)
-{
-	PyObject *py_initial_authenticator, *py_encrypted_info, *py_unencrypted_info;
-	unsigned char *initial_authenticator, *encrypted_info, *unencrypted_info;
-	int initial_authenticator_len, encrypted_info_len,
-			unencrypted_info_len;
-
-	unsigned char *authenticator_token;
-	int authenticator_token_len;
-	PyObject *py_r;
-
-	if (!PyArg_ParseTuple(args, "SSS", &py_initial_authenticator,
-			&py_encrypted_info, &py_unencrypted_info))
-		return NULL;
-
-
-	if (PyBytes_AsStringAndSize(py_initial_authenticator,
-			(char **) &initial_authenticator, &initial_authenticator_len) < 0)
-		return NULL;
-
-	if (PyBytes_AsStringAndSize(py_encrypted_info, (char **) &encrypted_info,
-			&encrypted_info_len) < 0)
-		return NULL;
-
-	if (PyBytes_AsStringAndSize(py_unencrypted_info, (char **) &unencrypted_info,
-			&unencrypted_info_len) < 0)
-		return NULL;
-
-	authenticator_token_len = buildFirstAuthenticator(initial_authenticator,
-			initial_authenticator_len, encrypted_info, encrypted_info_len,
-			unencrypted_info, unencrypted_info_len, &authenticator_token);
-	if (authenticator_token_len < 0)
-		return PyErr_NoMemory();
-
-	assert(authenticator_token);
-	py_r = PyBytes_FromStringAndSize((char *) authenticator_token,
-			authenticator_token_len);
-	free(authenticator_token);
-
-	return py_r;
-}
-
-PyObject *
-_pyccn_cmd_nc_verify_first_authenticator(PyObject *UNUSED(self), PyObject *args)
-{
-	PyObject *py_initial_authenticator, *py_authenticator_token;
-	unsigned char *initial_authenticator, *authenticator_token;
-	int initial_authenticator_len, authenticator_token_len;
-	unsigned char *encrypted_info, *unencrypted_info;
-	unsigned int encrypted_info_len, unencrypted_info_len;
-	int rc;
-	PyObject *py_ret;
-
-	if (!PyArg_ParseTuple(args, "SS", &py_initial_authenticator,
-			&py_authenticator_token))
-		return NULL;
-
-	if (PyBytes_AsStringAndSize(py_initial_authenticator,
-			(char **) &initial_authenticator, &initial_authenticator_len) < 0)
-		return NULL;
-
-	if (PyBytes_AsStringAndSize(py_authenticator_token,
-			(char **) &authenticator_token, &authenticator_token_len) < 0)
-		return NULL;
-
-	rc = verifyFirstAuthenticator(initial_authenticator,
-			initial_authenticator_len, authenticator_token,
-			authenticator_token_len, &encrypted_info, &encrypted_info_len,
-			&unencrypted_info, &unencrypted_info_len);
-	if (rc == FAIL_NO_MEMORY)
-		return PyErr_NoMemory();
-	if (rc < 0)
-		return PyErr_Format(PyExc_Exception, "verifyFirstAuthenticator failed"
-			" with err %d (%s)", rc, retToString(rc));
-
-#if PY_MAJOR_VERSION >= 3
-	py_ret = Py_BuildValue("(y#,y#)", encrypted_info, encrypted_info_len,
-			unencrypted_info, unencrypted_info_len);
-#else
-	py_ret = Py_BuildValue("(s#,s#)", encrypted_info, encrypted_info_len,
-			unencrypted_info, unencrypted_info_len);
-#endif
-	free(encrypted_info);
-	free(unencrypted_info);
-
-	return py_ret;
 }
