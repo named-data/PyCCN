@@ -19,15 +19,6 @@
 #include "methods_namecrypto.h"
 #include "objects.h"
 
-//return 1 - yes
-//return 0 - no
-
-static int
-verify_policy(unsigned char *UNUSED(appname), int UNUSED(appname_length))
-{
-	return 1;
-}
-
 PyObject *
 _pyccn_cmd_nc_new_state(PyObject *UNUSED(self), PyObject *UNUSED(args))
 {
@@ -62,8 +53,7 @@ _pyccn_cmd_nc_authenticate_command(PyObject *UNUSED(self), PyObject *args)
 	Py_ssize_t appname_len, appkey_len;
 	int r;
 
-	if (!PyArg_ParseTuple(args, "OOOO", &py_state, &py_name, &py_appname,
-			&py_appkey))
+	if (!PyArg_ParseTuple(args, "OOOO", &py_state, &py_name, &py_appname, &py_appkey))
 		return NULL;
 
 	if (!CCNObject_ReqType(NAMECRYPTO_STATE, py_state))
@@ -82,8 +72,7 @@ _pyccn_cmd_nc_authenticate_command(PyObject *UNUSED(self), PyObject *args)
 		return NULL;
 
 	if (appkey_len != APPKEYLEN) {
-		PyErr_Format(PyExc_ValueError, "key length needs to be %d bytes long",
-				APPKEYLEN);
+		PyErr_Format(PyExc_ValueError, "key length needs to be %d bytes long", APPKEYLEN);
 		return NULL;
 	}
 
@@ -117,8 +106,7 @@ _pyccn_cmd_nc_authenticate_command_sig(PyObject *UNUSED(self), PyObject *args)
 	int r;
 	unsigned long err;
 
-	if (!PyArg_ParseTuple(args, "OOOO", &py_state, &py_name, &py_appname,
-			&py_sigkey))
+	if (!PyArg_ParseTuple(args, "OOOO", &py_state, &py_name, &py_appname, &py_sigkey))
 		return NULL;
 
 	if (!CCNObject_ReqType(NAMECRYPTO_STATE, py_state))
@@ -148,8 +136,7 @@ _pyccn_cmd_nc_authenticate_command_sig(PyObject *UNUSED(self), PyObject *args)
 
 	rsa_priv_key = EVP_PKEY_get1_RSA((EVP_PKEY *) priv_key);
 	JUMP_IF_NULL(rsa_priv_key, openssl_error);
-	authenticateCommandSig(auth_state, new_name, appname, appname_len,
-			rsa_priv_key);
+	authenticateCommandSig(auth_state, new_name, appname, appname_len, rsa_priv_key);
 	RSA_free(rsa_priv_key);
 
 	return py_new_name;
@@ -170,8 +157,7 @@ _pyccn_cmd_nc_verify_command(PyObject *UNUSED(self), PyObject *args,
 	unsigned long maxtime_ms;
 	state *auth_state;
 	struct ccn_charbuf *name;
-	PyObject *py_fixture_key = Py_None, *py_pub_key = Py_None,
-			*py_policy = Py_None;
+	PyObject *py_fixture_key = Py_None, *py_pub_key = Py_None;
 	unsigned char *fixture_key;
 	Py_ssize_t fixture_key_len;
 	struct ccn_pkey *pub_key;
@@ -180,11 +166,10 @@ _pyccn_cmd_nc_verify_command(PyObject *UNUSED(self), PyObject *args,
 	unsigned long err;
 
 	static char *kwlist[] = {"state", "name", "maxdiff_ms", "fixture_key",
-		"pub_key", "policy", NULL};
+		"pub_key", NULL};
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOk|OOO", kwlist,
-			&py_auth_state, &py_name, &maxtime_ms, &py_fixture_key, &py_pub_key,
-			&py_policy))
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOk|OO", kwlist,
+			&py_auth_state, &py_name, &maxtime_ms, &py_fixture_key, &py_pub_key))
 		return NULL;
 
 	if (!CCNObject_ReqType(NAMECRYPTO_STATE, py_auth_state))
@@ -214,10 +199,8 @@ _pyccn_cmd_nc_verify_command(PyObject *UNUSED(self), PyObject *args,
 	} else
 		rsa_pub_key = NULL;
 
-	//TODO: handle policy
-
 	r = verifyCommand(name, fixture_key, fixture_key_len, rsa_pub_key,
-			auth_state, maxtime_ms, verify_policy);
+			auth_state, maxtime_ms);
 
 	if (py_pub_key != Py_None)
 		RSA_free(rsa_pub_key);
@@ -262,12 +245,12 @@ _pyccn_cmd_nc_app_id(PyObject *UNUSED(self), PyObject *py_appname)
 PyObject *
 _pyccn_cmd_nc_app_key(PyObject *UNUSED(self), PyObject *args)
 {
-	PyObject *py_fixture_key, *py_appid, *py_policy;
-	unsigned char *fixture_key, *appid, *policy, *res;
-	Py_ssize_t fixture_key_len, appid_len, policy_len;
+	PyObject *py_fixture_key, *py_appid;
+	unsigned char *fixture_key, *appid, *res;
+	Py_ssize_t fixture_key_len, appid_len;
 	unsigned char appkey[APPKEYLEN];
 
-	if (!PyArg_ParseTuple(args, "OOO", &py_fixture_key, &py_appid, &py_policy))
+	if (!PyArg_ParseTuple(args, "OOO", &py_fixture_key, &py_appid))
 		return NULL;
 
 	if (PyBytes_AsStringAndSize(py_fixture_key, (char **) &fixture_key,
@@ -283,11 +266,7 @@ _pyccn_cmd_nc_app_key(PyObject *UNUSED(self), PyObject *args)
 		return NULL;
 	}
 
-	if (PyBytes_AsStringAndSize(py_policy, (char **) &policy, &policy_len) < 0)
-		return NULL;
-
-	res = appKey(fixture_key, fixture_key_len, appid, policy, policy_len,
-			appkey);
+	res = appKey(fixture_key, fixture_key_len, appid, appkey);
 	if (!res) {
 		PyErr_NoMemory();
 		return NULL;

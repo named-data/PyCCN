@@ -10,11 +10,9 @@ from . import _pyccn, Name
 def new_state():
 	return _pyccn.nc_new_state()
 
-def generate_application_key(master_key, app_name):
-	policy = app_name # policy currently needs to be equal to app_name
-	appid = _pyccn.nc_app_id(app_name)
-	app_key = _pyccn.nc_app_key(master_key, appid, policy)
-
+def generate_application_key(fixture_key, app_name):
+	app_id = _pyccn.nc_app_id(app_name)
+	app_key = _pyccn.nc_app_key(fixture_key, app_id)
 	return app_key
 
 def authenticate_command(state, name, app_name, app_key):

@@ -14,8 +14,8 @@
 #include <openssl/sha.h>
 #include <ccn/ccn.h>
 
-#define APPIDLEN 128/8
-#define APPKEYLEN 128/8
+#define APPIDLEN SHA256_DIGEST_LENGTH
+#define APPKEYLEN SHA256_DIGEST_LENGTH
 
 #define AUTH_OK 0
 #define FAIL_MISSING_AUTHENTICATOR -1
@@ -44,15 +44,14 @@ typedef struct state_st {
     u_int32_t tv_sec;
     u_int32_t tv_usec;
     u_int32_t seq;
-    u_int16_t currRounTripTimeMs;
+    u_int32_t rsvd;  // reserved 4 bytes
 } state;
 
 void state_init(state * st);
 char * retToString(int r);
 
-
 unsigned char * appID(unsigned char * uniqueAppName, unsigned int uniqueAppName_len, unsigned char * appid);
-unsigned char * appKey(unsigned char * k, unsigned int keylen, unsigned char * appID, unsigned char * pol, unsigned int pol_len, unsigned char * appkey);
+unsigned char * appKey(unsigned char * k, unsigned int keylen, unsigned char * appid, unsigned char * appkey);
 
 // Symmetric
 void authenticateCommand(state * st, struct ccn_charbuf * commandname, unsigned char * appname, unsigned int appname_len, unsigned char * appkey);
@@ -61,6 +60,6 @@ void authenticateCommand(state * st, struct ccn_charbuf * commandname, unsigned 
 void authenticateCommandSig(state * st, struct ccn_charbuf * commandname, unsigned char * appname, unsigned int appname_len, RSA * app_signing_key);
 
 // Use with both symmetric and asymmetric
-int verifyCommand(struct ccn_charbuf * authenticatedname, unsigned char * fixtureKey, unsigned int keylen, RSA * pubkey, state * currstate, unsigned long int maxTimeDifferenceMsec, int (*checkPolicy)(unsigned char *, int));
+int verifyCommand(struct ccn_charbuf * authenticatedname, unsigned char * fixtureKey, unsigned int keylen, RSA * pubkey, state * currstate, unsigned long int maxTimeDifferenceMsec);
 
 #endif

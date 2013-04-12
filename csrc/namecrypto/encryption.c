@@ -24,8 +24,9 @@
 #include "encryption.h"
 #include "toolkit.h"
 
+/* Key Derivation Function */
 unsigned char *
-KDF(const unsigned char *key, unsigned int keylen, const char *s, unsigned int slen) // change this with something like HKDF
+KDF(const unsigned char *key, unsigned int keylen, const unsigned char *appid, unsigned int appid_len)
 {
 	unsigned int r;
 	unsigned char *ret;
@@ -34,7 +35,7 @@ KDF(const unsigned char *key, unsigned int keylen, const char *s, unsigned int s
 	if (!ret)
 		return NULL;
 
-	HMAC(EVP_sha256(), key, keylen, (const unsigned char *) s, slen, ret, &r);
+	HMAC(EVP_sha256(), key, keylen, appid, appid_len, ret, &r);
 
 	return ret;
 }

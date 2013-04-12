@@ -19,6 +19,8 @@
 #include <openssl/rsa.h>
 #include <openssl/err.h>
 
+#include <arpa/inet.h>
+
 #include <ccn/ccn.h>
 
 #include "toolkit.h"
@@ -28,8 +30,8 @@
 //#define AUTHDEBUG
 
 static int verify_update_state_freshness(state * currstate, state * new_state, unsigned long int maxTimeDifferenceMsec);
-static int verifyCommandSymm(unsigned char * authenticator, unsigned int auth_len, unsigned char * authenticatedCommand, unsigned int commandLen, unsigned char * fixtureKey, unsigned int keylen, state * currstate, unsigned long int maxTimeDifferenceMsec, int (*checkPolicy)(unsigned char *, int));
-static int verifyCommandSig(unsigned char * authenticator, unsigned int authenticator_len, unsigned char * command, unsigned int command_len, state * currstate, RSA * pubKey, unsigned long maxTimeDifferenceMsec);
+static int verifyCommandSymm(unsigned char * authenticator, unsigned int auth_len, unsigned char * command_name, unsigned int command_len, unsigned char * fixtureKey, unsigned int key_len, state * currstate, unsigned long int maxTimeDifferenceMsec);
+static int verifyCommandSig(unsigned char * authenticator, unsigned int auth_len, unsigned char * command_name, unsigned int command_len, state * currstate, RSA * pubKey, unsigned long maxTimeDifferenceMsec);
 
 char *
 retToString(int r)
@@ -66,13 +68,13 @@ retToString(int r)
 }
 
 /*
+ * Given an app_code, generate the SHA256 hash as the app_id (= hash(app_code)).
  * The result is stored in appid if appid!=NULL, otherwise
  * a new buffer is allocated and returned. if appid!=NULL,
  * appid must point to a buffer of size at least APPIDLEN.
  */
 unsigned char *
-appID(unsigned char *uniqueAppName, unsigned int uniqueAppName_len,
-		unsigned char *appid)
+appID(unsigned char *uniqueAppName, unsigned int uniqueAppName_len, unsigned char *appid)
 {
 	unsigned char * s;
 
@@ -100,7 +102,7 @@ appID(unsigned char *uniqueAppName, unsigned int uniqueAppName_len,
 }
 
 /*
- * Given a fixture key k, an application ID app and a policy pol,
+ * Given a fixture key k, an application ID appid,
  * appKey creates a secret key for the application and stores it
  * in appkey. appkey must be a memory area of size at least APPKEYLEN
  * or NULL. If NULL, a new memory area of size APPKEYLEN is allocated
@@ -108,22 +110,11 @@ appID(unsigned char *uniqueAppName, unsigned int uniqueAppName_len,
  */
 
 unsigned char *
-appKey(unsigned char *k, unsigned int keylen, unsigned char *appid,
-		unsigned char *pol, unsigned int pol_len, unsigned char *appkey)
+appKey(unsigned char *k, unsigned int keylen, unsigned char *appid, unsigned char *appkey)
 {
-	unsigned char * kdf;
-	char * s = (char *) malloc(APPIDLEN + pol_len);
-
-	if (!s)
+	unsigned char *kdf;
+	if (!(kdf = KDF(k, keylen, appid, APPIDLEN)))
 		return NULL;
-
-	memcpy(s, appid, APPIDLEN);
-	memcpy(s + APPIDLEN, pol, pol_len);
-
-	if (!(kdf = KDF(k, keylen, s, APPIDLEN + pol_len)))
-		return NULL; //XXX: memleak -dk
-
-	free(s);
 
 #ifdef AUTHDEBUG
 	printf("\nFunction appKey\nk     = ");
@@ -131,12 +122,9 @@ appKey(unsigned char *k, unsigned int keylen, unsigned char *appid,
 	printf("\nappid = ");
 	print_hex(appid, APPIDLEN);
 	printf("\npol   = ");
-	print_hex(pol, pol_len);
-	printf("\nkdf   = ");
 	print_hex(kdf, APPIDLEN);
 	printf("\n");
 #endif
-
 
 	if (appkey) {
 		// appkey != NULL
@@ -148,59 +136,6 @@ appKey(unsigned char *k, unsigned int keylen, unsigned char *appid,
 	return kdf;
 }
 
-//return NOT_AUTHENTICATOR if no authenticator, AUTH_SYMMETRIC if symmetric, AUTH_ASYMMETRIC if asymmetric
-
-static int
-detect_autenticator(unsigned char * component)
-{
-	if (!memcmp(component, PK_AUTH_MAGIC, AUTH_MAGIC_LEN))
-		return AUTH_ASYMMETRIC;
-	if (!memcmp(component, SK_AUTH_MAGIC, AUTH_MAGIC_LEN))
-		return AUTH_SYMMETRIC;
-
-	return NOT_AUTHENTICATOR;
-}
-
-static int
-extractFromInterest(unsigned char ** authenticator, unsigned int * auth_len, unsigned char ** data, unsigned int * data_len, struct ccn_charbuf *name)
-{
-	struct ccn_indexbuf *nix = ccn_indexbuf_create();
-	int num_components, i, atype;
-	size_t len;
-
-	unsigned char * out;
-
-	num_components = ccn_name_split(name, nix);
-
-	i = num_components - 1;
-	while (i > 0) // The first component cannot be an authenticator
-	{
-		if (ccn_name_comp_get(name->buf, nix, i, (const unsigned char **) &out, &len))
-			return FAIL_MISSING_AUTHENTICATOR; //XXX: memory leak (free nix) -dk
-		atype = detect_autenticator(out);
-		if (atype != NOT_AUTHENTICATOR) {
-			*authenticator = (unsigned char *) malloc(len);
-			memcpy(*authenticator, out, len);
-			*auth_len = (unsigned int) len;
-
-			ccn_name_comp_get(name->buf, nix, i - 1, (const unsigned char **) &out, &len);
-			*data_len = (unsigned int) (len + (out - name->buf));
-
-			*data = (unsigned char *) malloc(*data_len);
-			memcpy(*data, name->buf, *data_len);
-
-			ccn_indexbuf_destroy(&nix);
-
-			return atype;
-		}
-		i--;
-	}
-
-	//XXX: memory leak (free nix) -dk
-
-	return FAIL_MISSING_AUTHENTICATOR; // No authenticator in the string
-}
-
 /*
  * Initializes a preallocated state variable
  */
@@ -208,8 +143,10 @@ void
 state_init(state * st)
 {
 	if (st) {
+        st->tv_sec = 0;
+        st->tv_usec = 0;
 		st->seq = 0;
-		st->currRounTripTimeMs = 0;
+		st->rsvd = 0;
 	}
 }
 
@@ -259,60 +196,69 @@ verify_update_state_freshness(state * currstate, state * new_state, unsigned lon
 }
 
 /*
- * commandname is a full NDN name of a light including the command
- * e.g. commandname = /ndn/uci/room123/light4/switch/on
- * commandname is a '\0' terminated C string.
- * authenticatedCommand = commandname/(appname_len||appname||state||MAC(commandname||state))
+ * commandname is an NDN name of a light including the command
+ * e.g. commandname = /ndn/ucla.edu/apps/TV1/room123/light4/switch/on
+ * commandname is ccn_charbuf containing a ccnb encoded name with closing 0x00
+ * authenticatedCommand = commandname/(AUTH_MAGIC|appname_len|appname|state|MAC(commandname|appname|state))
+ * where appname_len is fixed 2 bytes and AUTH_MAGIC is fixed 4 bytes
  */
-
-//COMMANDNAME IS A CCN_BUFFER, LIKE APPNAME ETC.
-//WHEN DUMP CCN_BUFFER TO STRING, ASSERT(SIZEOF(CCN_BUFFER) == SIZEOF(INT) * 2 + SIZEOF(CHAR *))
-//struct ccn_charbuf *tempContentObj = ccn_charbuf_create();
-
 void
-authenticateCommand(state *st, struct ccn_charbuf *commandname,
-		unsigned char *appname, unsigned int appname_len, unsigned char *appkey)
+authenticateCommand(state *st, struct ccn_charbuf *commandname, unsigned char *appname, unsigned int appname_len, unsigned char *appkey)
 {
 	unsigned char mac[MACLEN];
 	unsigned char *m;
 	unsigned char *authenticator;
 	unsigned char *authenticatorwithmagic;
 	int authenticatorlen;
-	long int commandnameLen;
+	long int command_len;
 
-	int statelen = sizeof(state);
+	int state_len = sizeof(state);
 
 	int appname_offset = 2;
 	int state_offset = appname_offset + appname_len;
-	int mac_offset = state_offset + statelen;
+	int mac_offset = state_offset + state_len;
 
 	// update and store the current time in "state"
 	update_state(st);
+    state net_st;  // Convert 'st' into network byte order
+    net_st.tv_sec = htonl(st->tv_sec);
+    net_st.tv_usec = htonl(st->tv_usec);
+    net_st.seq = htonl(st->seq);
+    net_st.rsvd = htonl(st->rsvd);
 
-	// skip the initial 0xf2 and final 0x00
-	commandnameLen = commandname->length - 2;
+	command_len = commandname->length;
 
-	m = (unsigned char *) malloc(commandnameLen + statelen);
+	m = (unsigned char *) malloc(command_len + appname_len + state_len);
 
-	memcpy(m, commandname->buf + 1, commandnameLen);
-	memcpy(m + commandnameLen, st, statelen);
-	HMAC(EVP_sha256(), appkey, APPKEYLEN, m, commandnameLen + statelen, mac, NULL);
+	memcpy(m, commandname->buf, command_len);
+    memcpy(m + command_len, appname, appname_len);
+	memcpy(m + command_len + appname_len, &net_st, state_len);
+	HMAC(EVP_sha256(), appkey, APPKEYLEN, m, command_len + appname_len + state_len, mac, NULL);
 
-	authenticatorlen = 2 + appname_len + statelen + MACLEN;
+	authenticatorlen = 2 + appname_len + state_len + MACLEN;
 	authenticatorwithmagic = (unsigned char *) malloc(authenticatorlen + AUTH_MAGIC_LEN);
-	memcpy(authenticatorwithmagic, SK_AUTH_MAGIC, AUTH_MAGIC_LEN);
+	
+    // Add AUTH_MAGIC
+    memcpy(authenticatorwithmagic, SK_AUTH_MAGIC, AUTH_MAGIC_LEN);
 
+    // Add appname_len
 	authenticator = authenticatorwithmagic + AUTH_MAGIC_LEN;
 
-	authenticator[0] = (appname_len >> 8) & 0xFF;
-	authenticator[1] = appname_len & 0xFF;
+	authenticator[0] = (appname_len >> 8) & 0xff;
+	authenticator[1] = appname_len & 0xff;
 
+    // Add appname
 	memcpy(authenticator + appname_offset, appname, appname_len);
-	memcpy(authenticator + state_offset, st, statelen);
-	memcpy(authenticator + mac_offset, mac, MACLEN);
+	
+    // Add state
+    //memcpy(authenticator + state_offset, st, state_len);
+    memcpy(authenticator + state_offset, &net_st, state_len);
+	
+    // Add MAC signature
+    memcpy(authenticator + mac_offset, mac, MACLEN);
 
+    // Construct authenticated name
 	ccn_name_append(commandname, authenticatorwithmagic, authenticatorlen + AUTH_MAGIC_LEN);
-	//    ccn_charbuf_append(authenticatedname, authenticator, authenticatorlen);
 
 
 #ifdef AUTHDEBUG
@@ -323,7 +269,7 @@ authenticateCommand(state *st, struct ccn_charbuf *commandname,
 	printf("\nmac    = ");
 	print_hex(mac, MACLEN);
 	printf("\nm      = ");
-	print_hex(m, commandnameLen + statelen);
+	print_hex(m, commandnameLen + state_len);
 	printf("\n");
 #endif
 
@@ -331,233 +277,294 @@ authenticateCommand(state *st, struct ccn_charbuf *commandname,
 	free(authenticatorwithmagic);
 }
 
+
+/* return NOT_AUTHENTICATOR if no authenticator, AUTH_SYMMETRIC if symmetric, AUTH_ASYMMETRIC if asymmetric */
+static int
+detect_autenticator(unsigned char * component)
+{
+	if (!memcmp(component, PK_AUTH_MAGIC, AUTH_MAGIC_LEN))
+		return AUTH_ASYMMETRIC;
+	if (!memcmp(component, SK_AUTH_MAGIC, AUTH_MAGIC_LEN))
+		return AUTH_SYMMETRIC;
+    
+	return NOT_AUTHENTICATOR;
+}
+
+static int
+extractFromInterest(unsigned char ** authenticatorwithmagic, unsigned int * auth_len, unsigned char ** prefix, unsigned int * prefix_len, struct ccn_charbuf *name)
+{
+	struct ccn_indexbuf *nix = ccn_indexbuf_create();
+	int num_components, i, atype;
+	size_t len;
+    
+	unsigned char * out;
+    
+	num_components = ccn_name_split(name, nix);
+    
+	i = num_components - 1;
+	while (i > 0) // The first component cannot be an authenticator
+	{
+		if (ccn_name_comp_get(name->buf, nix, i, (const unsigned char **) &out, &len)) {
+            ccn_indexbuf_destroy(&nix);
+			return FAIL_MISSING_AUTHENTICATOR;
+        }
+		atype = detect_autenticator(out);
+		if (atype != NOT_AUTHENTICATOR) {
+			*authenticatorwithmagic = (unsigned char *) malloc(len);
+			memcpy(*authenticatorwithmagic, out, len);
+			*auth_len = (unsigned int) len;
+            
+			ccn_name_comp_get(name->buf, nix, i - 1, (const unsigned char **) &out, &len);
+			*prefix_len = (unsigned int) (len + (out - name->buf));
+            
+			*prefix = (unsigned char *) malloc(*prefix_len + 1);
+			memcpy(*prefix, name->buf, *prefix_len);
+            prefix[*prefix_len] = 0x00;  // Put a tailing '0' byte to close the name encoding
+            
+			ccn_indexbuf_destroy(&nix);
+            
+			return atype;
+		}
+		i--;
+	}
+    
+	ccn_indexbuf_destroy(&nix);
+    return FAIL_MISSING_AUTHENTICATOR; // No authenticator in the string
+}
+
+
 /* Determines if an interest is authenticated with symmetric or asymmetric crypto and verifies it accordingly */
 int
 verifyCommand(struct ccn_charbuf *authenticatedname, unsigned char *fixtureKey,
-		unsigned int keylen, RSA *pubkey, state *currstate,
-		unsigned long int maxTimeDifferenceMsec,
-		int (*checkPolicy)(unsigned char *, int))
+		unsigned int keylen, RSA *pubkey, state *currstate, unsigned long int maxTimeDifferenceMsec)
 {
-	unsigned char * authenticator, * data;
-	unsigned int auth_len, data_len;
+	unsigned char * authenticatorwithmagic, * prefix;
+	unsigned int auth_len, prefix_len;
 	int ret;
 
-	ret = extractFromInterest(&authenticator, &auth_len, &data, &data_len,
-			authenticatedname);
+	ret = extractFromInterest(&authenticatorwithmagic, &auth_len, &prefix, &prefix_len, authenticatedname);
 
-	//XXX: memory leak -dk
 	if (FAIL_MISSING_AUTHENTICATOR == ret)
 		return FAIL_MISSING_AUTHENTICATOR; // If the authenticator is not present
 
 	switch (ret) {
 	case AUTH_ASYMMETRIC:
 		if (!pubkey)
-			return FAIL_VERIFICATION_KEY_NOT_PROVIDED; //XXX: memory leak -dk
+			return FAIL_VERIFICATION_KEY_NOT_PROVIDED;
 
-		ret = verifyCommandSig(authenticator + AUTH_MAGIC_LEN,
-				auth_len - AUTH_MAGIC_LEN, data, data_len, currstate, pubkey,
+		ret = verifyCommandSig(authenticatorwithmagic + AUTH_MAGIC_LEN,
+				auth_len - AUTH_MAGIC_LEN, prefix, prefix_len, currstate, pubkey,
 				maxTimeDifferenceMsec);
 
-		free(data);
-		free(authenticator);
-
-		return ret;
 		break;
 
 	case AUTH_SYMMETRIC:
 		if (!(fixtureKey && keylen))
-			return FAIL_VERIFICATION_KEY_NOT_PROVIDED; //XXX: memory leak -dk
+			return FAIL_VERIFICATION_KEY_NOT_PROVIDED;
 
-		ret = verifyCommandSymm(authenticator + AUTH_MAGIC_LEN,
-				auth_len - AUTH_MAGIC_LEN, data + 1, data_len, fixtureKey,
-				keylen, currstate, maxTimeDifferenceMsec, checkPolicy);
+		ret = verifyCommandSymm(authenticatorwithmagic + AUTH_MAGIC_LEN,
+				auth_len - AUTH_MAGIC_LEN, prefix, prefix_len, fixtureKey,
+				keylen, currstate, maxTimeDifferenceMsec);
 
-		free(data);
-		free(authenticator);
-		return ret;
 		break;
 
 	default:
-		return FAIL_MISSING_AUTHENTICATOR; //XXX:memory leak -dk
+		ret = FAIL_MISSING_AUTHENTICATOR;
 	}
-	return 0; // Just to avoid complaints from the compiler -- never gets here.
+    
+	free(prefix);
+    free(authenticatorwithmagic);
+    
+    return ret;
 }
 
 /*
  * maxTimeDifference is the number of seconds that the command can differ from now.
- * authenticatedCommand = commandname/(appname_len||appname||state||MAC(commandname||state))
+ * Full name = commandname/(AUTH_MAGIC|authenticator)
+ * authenticator = appname_len|appname|state|MAC(commandname|appname|state), where appname_len is fixed 2 bytes
  */
 int
 verifyCommandSymm(unsigned char *authenticator, unsigned int auth_len,
-		unsigned char *authenticatedCommand, unsigned int commandLen,
-		unsigned char *fixtureKey, unsigned int keylen, state *currstate,
-		unsigned long int maxTimeDifferenceMsec,
-		int (*checkPolicy)(unsigned char *, int))
+        unsigned char *command_name, unsigned int command_len,
+		unsigned char *fixtureKey, unsigned int key_len, state *currstate,
+		unsigned long int maxTimeDifferenceMsec)
 {
 	state * st;
+    state host_st;
 
-	int statelen = sizeof(state);
+	int state_len = sizeof(state);
 	int appname_len;
 	int appname_offset = 2;
 	int state_offset;
 	int mac_offset;
-	int stateRet;
+	int state_ret;
+    int msg_len;
 
 	unsigned char * appname;
-	unsigned char appkey[APPKEYLEN];
-	unsigned char * appid;
+	unsigned char * app_key;
+	unsigned char * app_id;
 	unsigned char * m;
 	unsigned char * mac;
-	unsigned char computedmac[MACLEN];
+	unsigned char computed_mac[MACLEN];
 
-	appname_len = authenticator[0] * 256 + authenticator[1];
+	appname_len = (authenticator[0] << 8) + authenticator[1];
 	state_offset = appname_offset + appname_len;
-	mac_offset = state_offset + statelen;
+	mac_offset = state_offset + state_len;
+    
+    assert (auth_len == (unsigned int)(mac_offset + MACLEN));
 
 	appname = authenticator + appname_offset;
-	appid = appID(appname, appname_len, NULL);
+	app_id = appID(appname, appname_len, NULL);
 	st = (state *) (authenticator + state_offset);
+    host_st.tv_sec = ntohl(st->tv_sec);
+    host_st.tv_usec = ntohl(st->tv_usec);
+    host_st.seq = ntohl(st->seq);
+    host_st.rsvd = ntohl(st->rsvd);
 	mac = authenticator + mac_offset;
 
 	// Verify fresnhess of command
-
-	stateRet = verify_update_state_freshness(currstate, st, maxTimeDifferenceMsec);
-	if ((stateRet != AUTH_OK) && (stateRet != INFO_STATE_NOT_VERIFIED))
-		return stateRet;
-
-
-	// Verify poloicy related to appname through callback function (if present)
-	if (checkPolicy) {
-		if (!checkPolicy(appname, appname_len))
-			return FAIL_INVALID_POLICY;
-	}
-
+	state_ret = verify_update_state_freshness(currstate, &host_st, maxTimeDifferenceMsec);
+	if ((state_ret != AUTH_OK) && (state_ret != INFO_STATE_NOT_VERIFIED))
+		return state_ret;
+    
 	// Compute appkey
-	appKey(fixtureKey, keylen, appid, appname, appname_len, appkey);
+	app_key = appKey(fixtureKey, key_len, app_id, NULL);
 
-	m = (unsigned char *) malloc(commandLen + statelen);
-	memcpy(m, authenticatedCommand, commandLen);
-	memcpy(m + commandLen, authenticator + state_offset, statelen);
-
-	HMAC(EVP_sha256(), appkey, APPKEYLEN, m, commandLen + statelen, computedmac, NULL);
+    msg_len = command_len + appname_len + state_len;
+	m = (unsigned char *) malloc(msg_len);
+	memcpy(m, command_name, command_len);
+    memcpy(m + command_len, appname, appname_len);
+	memcpy(m + command_len + appname_len, authenticator + state_offset, state_len);
+    
+	HMAC(EVP_sha256(), app_key, APPKEYLEN, m, msg_len, computed_mac, NULL);
 
 #ifdef AUTHDEBUG
 	printf("\nFunction verifyCommandSymm:\nappname= ");
 	print_hex(appname, appname_len);
 	printf("\nappid  = ");
-	print_hex(appid, APPIDLEN);
+	print_hex(app_id, APPIDLEN);
 	printf("\nappkey = ");
-	print_hex(appkey, APPKEYLEN);
+	print_hex(app_key, APPKEYLEN);
 	printf("\nmac    = ");
 	print_hex(mac, MACLEN);
 	printf("\ncmac   = ");
-	print_hex(computedmac, MACLEN);
+	print_hex(computed_mac, MACLEN);
 	printf("\nm      = ");
-	print_hex(m, commandLen + statelen);
-	printf("\ncommandlen=%d, statelen=%d, struct timeval t=%d, time_t=%d, suseconds_t=%d, currstate->t.tv_sec=%d", commandLen, statelen, sizeof(struct timeval), sizeof(time_t), sizeof(suseconds_t), currstate->tv_sec);
+	print_hex(m, commandLen + appname_len + state_len);
+	printf("\ncommand_len=%d, state_len=%d, struct timeval t=%d, time_t=%d, suseconds_t=%d, currstate->t.tv_sec=%d", command_len, state_len, sizeof(struct timeval), sizeof(time_t), sizeof(suseconds_t), currstate->tv_sec);
 #endif
 
 	free(m);
-	//free(authenticatorwithmagic);
-	free(appid);
-	if (memcmp(computedmac, mac, MACLEN))
+	free(app_id);
+    free(app_key);
+	if (memcmp(computed_mac, mac, MACLEN))
 		return FAIL_VERIFICATION_FAILED;
 	else
 		return AUTH_OK;
 }
 
 /*
- * The interest is constructed as /command/(appnamelen|Appname|state|RSA_signature)
- * and RSA_signature is Sig(commandname|appid|state) ; commandname doesn't have
+ * The authenticated name is constructed as commandname/(AUTH_MAGIC|appname_len|appname|state|RSA_signature)
+ * and RSA_signature is Sig(commandname|appname|state) ; commandname doesn't have
  * trailing '/'
  */
-//void authenticateCommandSig(char ** authenticatedCommand, state * st, char * commandName, unsigned char * appID, RSA * app_signing_key)
-
 void
 authenticateCommandSig(state * st, struct ccn_charbuf * commandname, unsigned char * appname, unsigned int appname_len, RSA * app_signing_key)
 {
-	int namelen;
-	unsigned int siglen;
-	unsigned char * sigretwithmagic;
-	unsigned char * sigret;
+	int command_len;
+    int msg_len;
+	unsigned int auth_len;
+	unsigned char * authenticatorwithmagic;
+	unsigned char * authenticator;
 	unsigned char * m;
 	unsigned char md[SHA256_DIGEST_LENGTH];
 
-	int statelen = sizeof(state);
+	int state_len = sizeof(state);
 
 	update_state(st);
+    state net_st;  // Convert 'st' into network byte order
+    net_st.tv_sec = htonl(st->tv_sec);
+    net_st.tv_usec = htonl(st->tv_usec);
+    net_st.seq = htonl(st->seq);
+    net_st.rsvd = htonl(st->rsvd);
 
-	namelen = (int) commandname->length - 2;
+	command_len = (int) commandname->length;
 
-	// the signature is computed on <commandname||appname||state> ; commandname doesn't have trailing '/'
+	// the signature is computed on <commandname|appname|state> ; commandname doesn't have trailing '/'
+    msg_len = command_len + appname_len + state_len;
+	m = (unsigned char *) malloc(msg_len);
+	memcpy(m, commandname->buf, command_len);
+	memcpy(m + command_len, appname, appname_len);
+	memcpy(m + command_len + appname_len, &net_st, state_len);
 
-	m = (unsigned char *) malloc(namelen + appname_len + statelen);
-	memcpy(m, commandname->buf, namelen);
-	memcpy(m + namelen, appname, appname_len);
-	memcpy(m + namelen + appname_len, st, statelen);
+	authenticatorwithmagic = (unsigned char *) malloc(RSA_size(app_signing_key) + appname_len + state_len + AUTH_MAGIC_LEN + 2);
+	memcpy(authenticatorwithmagic, PK_AUTH_MAGIC, AUTH_MAGIC_LEN);
+	authenticator = authenticatorwithmagic + AUTH_MAGIC_LEN;
+	authenticator[0] = (appname_len >> 8) & 0xff;
+	authenticator[1] = appname_len & 0xff;
+	memcpy(authenticator + 2, appname, appname_len);
+	memcpy(authenticator + 2 + appname_len, &net_st, state_len);
 
-	sigretwithmagic = (unsigned char *) malloc(RSA_size(app_signing_key) + appname_len + statelen + AUTH_MAGIC_LEN + 2);
-	memcpy(sigretwithmagic, PK_AUTH_MAGIC, AUTH_MAGIC_LEN);
-	sigret = sigretwithmagic + AUTH_MAGIC_LEN;
-	sigret[0] = (appname_len >> 8) & 0xFF;
-	sigret[1] = appname_len & 0xFF;
-	memcpy(sigret + 2, appname, appname_len);
-	memcpy(sigret + 2 + appname_len, st, statelen);
+	SHA256(m, command_len + appname_len + state_len, md);
 
-	SHA256(m, namelen + appname_len + statelen, md);
-
-	RSA_sign(NID_sha256, md, SHA256_DIGEST_LENGTH, sigret + 2 + appname_len + statelen, &siglen, app_signing_key);
+	RSA_sign(NID_sha256, md, SHA256_DIGEST_LENGTH, authenticator + 2 + appname_len + state_len, &auth_len, app_signing_key);
 
 #ifdef AUTHDEBUG
 	printf("\nFunction authenticateCommandSig:\nappname   = ");
 	print_hex(appname, appname_len);
-	printf("\nsigretwithmagic = ");
-	print_hex(sigretwithmagic, AUTH_MAGIC_LEN + 2 + siglen + appname_len + statelen);
+	printf("\nauthenticatorwithmagic = ");
+	print_hex(authenticatorwithmagic, AUTH_MAGIC_LEN + 2 + command_len + appname_len + state_len);
 	printf("\nmd =         ");
 	print_hex(md, SHA256_DIGEST_LENGTH);
 	printf("\n");
 #endif
 
 
-	ccn_name_append(commandname, sigretwithmagic, AUTH_MAGIC_LEN + 2 + siglen + appname_len + statelen);
+	ccn_name_append(commandname, authenticatorwithmagic, AUTH_MAGIC_LEN + 2 + appname_len + state_len + auth_len);
 
-	free(sigretwithmagic);
+	free(authenticatorwithmagic);
 	free(m);
 }
 
 int
-verifyCommandSig(unsigned char * authenticator, unsigned int authenticator_len, unsigned char * command, unsigned int command_len, state * currstate, RSA * pubKey, unsigned long maxTimeDifferenceMsec)
+verifyCommandSig(unsigned char * authenticator, unsigned int auth_len, unsigned char * command_name, unsigned int command_len, state * currstate, RSA * pubKey, unsigned long maxTimeDifferenceMsec)
 {
-	int statelen = sizeof(state), stateRet, appname_len;
+	int state_len = sizeof(state);
+    int state_ret, appname_len;
 	state * st;
+    state host_st;
+    
 	unsigned char * appname;
 	unsigned char * signature;
-	unsigned char * signed_msg;
+	unsigned char * msg;
 	unsigned char * state_s;
 	unsigned char md[SHA256_DIGEST_LENGTH];
 
 	appname_len = authenticator[0] * 256 + authenticator[1];
 	appname = authenticator + 2;
 	state_s = appname + appname_len;
-	signature = state_s + statelen;
+	signature = state_s + state_len;
 
-
+    assert (auth_len > 0);
 
 	// Verify fresnhess of command
 	st = (state *) (state_s);
-	stateRet = verify_update_state_freshness(currstate, st, maxTimeDifferenceMsec);
-	if ((stateRet != AUTH_OK) && (stateRet != INFO_STATE_NOT_VERIFIED)) {
-		//free(authenticator);
-		return stateRet;
-	}
+    host_st.tv_sec = ntohl(st->tv_sec);
+    host_st.tv_usec = ntohl(st->tv_usec);
+    host_st.seq = ntohl(st->seq);
+    host_st.rsvd = ntohl(st->rsvd);
+	state_ret = verify_update_state_freshness(currstate, &host_st, maxTimeDifferenceMsec);
+	if ((state_ret != AUTH_OK) && (state_ret != INFO_STATE_NOT_VERIFIED))
+		return state_ret;
+	
 	// Verify RSA signature
-	signed_msg = (unsigned char *) malloc(command_len + appname_len + statelen);
-	memcpy(signed_msg, command, command_len);
-	memcpy(signed_msg + command_len, appname, appname_len);
-	memcpy(signed_msg + command_len + appname_len, st, statelen);
+	msg = (unsigned char *) malloc(command_len + appname_len + state_len);
+	memcpy(msg, command_name, command_len);
+	memcpy(msg + command_len, appname, appname_len);
+	memcpy(msg + command_len + appname_len, state_s, state_len);
 
 
-	SHA256(signed_msg, command_len + appname_len + statelen, md);
+	SHA256(msg, command_len + appname_len + state_len, md);
 
 #ifdef AUTHDEBUG
 	printf("\nFunction verifyCommandSig:\nappname   = ");
@@ -568,13 +575,11 @@ verifyCommandSig(unsigned char * authenticator, unsigned int authenticator_len, 
 	print_hex(md, SHA256_DIGEST_LENGTH);
 	printf("\n");
 #endif
-	stateRet = RSA_verify(NID_sha256, md, SHA256_DIGEST_LENGTH, signature, RSA_size(pubKey), pubKey);
+	state_ret = RSA_verify(NID_sha256, md, SHA256_DIGEST_LENGTH, signature, RSA_size(pubKey), pubKey);
 
-	//    free(authenticator);
-	free(signed_msg);
+	free(msg);
 
-
-	if (stateRet)
+	if (state_ret)
 		return AUTH_OK;
 	else
 		return FAIL_VERIFICATION_FAILED;
