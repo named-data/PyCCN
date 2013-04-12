@@ -26,6 +26,6 @@ def authenticate_command_sig(state, name, app_name, key):
 	return Name(ccn_data = signed_name)
 
 def verify_command(state, name, max_time, **args):
-	if args.has_key('pub_key'):
+	if args.has_key('pub_key'): # TODO: use magic bytes to detect signature type, instead of asking caller to explicitly specify key type
 		args['pub_key'] = args['pub_key'].ccn_data_public
 	return _pyccn.nc_verify_command(state, name.ccn_data, max_time, **args)

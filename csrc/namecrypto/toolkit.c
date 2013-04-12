@@ -9,18 +9,13 @@
 //
 
 
-#include <stdlib.h>
-#include <string.h>
-#include <openssl/bio.h>
-#include <openssl/buffer.h>
-#include <openssl/evp.h>
+#include <stdio.h>
 
 #include "toolkit.h"
 
 void print_hex(unsigned char * s, int len)
 {
-	int i;
-	for (i=0 ; i<len ; i++)
+	for (int i=0 ; i<len ; i++)
 	{
 		printf("%02X", 0xff & s[i]);
 	}

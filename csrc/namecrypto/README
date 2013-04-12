@@ -1,2 +1,4 @@
 namecrypto library
 ==================
+
+A new NameCrypto library that is compatible with NDN.JS while keeping the same interface as the old version
