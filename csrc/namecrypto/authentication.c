@@ -326,7 +326,13 @@ extractFromInterest(unsigned char ** authenticatorwithmagic, unsigned int * auth
             
 			*prefix = (unsigned char *) malloc(*prefix_len);
 			memcpy(*prefix, name->buf, *prefix_len - 1);
-            prefix[*prefix_len - 1] = 0x00;  // Put a tailing '0' byte to close the name encoding
+            (*prefix)[*prefix_len - 1] = 0x00;  // Put a tailing '0' byte to close the name encoding
+            
+#ifdef AUTHDEBUG
+            printf("extractFromInterest: *prefix=\n");
+            print_hex(*prefix, *prefix_len);
+            printf("\n");
+#endif
             
 			ccn_indexbuf_destroy(&nix);
             
@@ -482,7 +488,7 @@ authenticateCommandSig(state * st, struct ccn_charbuf * commandname, unsigned ch
 	unsigned int auth_len;
 	unsigned char * authenticatorwithmagic;
 	unsigned char * authenticator;
-	unsigned char * m;
+	unsigned char * msg;
 	unsigned char md[SHA256_DIGEST_LENGTH];
 
 	int state_len = sizeof(state);
@@ -498,10 +504,12 @@ authenticateCommandSig(state * st, struct ccn_charbuf * commandname, unsigned ch
 
 	// the signature is computed on <commandname|appname|state> ; commandname doesn't have trailing '/'
     msg_len = command_len + appname_len + state_len;
-	m = (unsigned char *) malloc(msg_len);
-	memcpy(m, commandname->buf, command_len);
-	memcpy(m + command_len, appname, appname_len);
-	memcpy(m + command_len + appname_len, &net_st, state_len);
+	msg = (unsigned char *) malloc(msg_len);
+	memcpy(msg, commandname->buf, command_len);
+	memcpy(msg + command_len, appname, appname_len);
+	memcpy(msg + command_len + appname_len, &net_st, state_len);
+    
+    SHA256(msg, command_len + appname_len + state_len, md);
 
 	authenticatorwithmagic = (unsigned char *) malloc(RSA_size(app_signing_key) + appname_len + state_len + AUTH_MAGIC_LEN + 2);
 	memcpy(authenticatorwithmagic, PK_AUTH_MAGIC, AUTH_MAGIC_LEN);
@@ -510,26 +518,26 @@ authenticateCommandSig(state * st, struct ccn_charbuf * commandname, unsigned ch
 	authenticator[1] = appname_len & 0xff;
 	memcpy(authenticator + 2, appname, appname_len);
 	memcpy(authenticator + 2 + appname_len, &net_st, state_len);
-
-	SHA256(m, command_len + appname_len + state_len, md);
-
-	RSA_sign(NID_sha256, md, SHA256_DIGEST_LENGTH, authenticator + 2 + appname_len + state_len, &auth_len, app_signing_key);
+    
+    RSA_sign(NID_sha256, md, SHA256_DIGEST_LENGTH, authenticator + 2 + appname_len + state_len, &auth_len, app_signing_key);
 
 #ifdef AUTHDEBUG
 	printf("\nFunction authenticateCommandSig:\nappname       = ");
 	print_hex(appname, appname_len);
 	printf("\nauthenticator = ");
 	print_hex(authenticator, 2 + appname_len + state_len);
+    printf("\nmsg           = ");
+    print_hex(msg, msg_len);
 	printf("\nmd            = ");
 	print_hex(md, SHA256_DIGEST_LENGTH);
-	printf("\n");
+    //printf("\nauth_len      = %u\n", auth_len);
+    printf("\n");
 #endif
-
 
 	ccn_name_append(commandname, authenticatorwithmagic, AUTH_MAGIC_LEN + 2 + appname_len + state_len + auth_len);
 
 	free(authenticatorwithmagic);
-	free(m);
+	free(msg);
 }
 
 int
@@ -577,6 +585,8 @@ verifyCommandSig(unsigned char * authenticator, unsigned int auth_len, unsigned 
 	print_hex(appname, appname_len);
 	printf("\nauthenticator = ");
 	print_hex(authenticator, auth_len - RSA_size(pubKey));
+    printf("\nmsg           = ");
+    print_hex(msg, command_len + appname_len + state_len);
 	printf("\nmd            = ");
 	print_hex(md, SHA256_DIGEST_LENGTH);
 	printf("\n");
