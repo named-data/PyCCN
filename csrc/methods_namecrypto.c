@@ -250,7 +250,7 @@ _pyccn_cmd_nc_app_key(PyObject *UNUSED(self), PyObject *args)
 	Py_ssize_t fixture_key_len, appid_len;
 	unsigned char appkey[APPKEYLEN];
 
-	if (!PyArg_ParseTuple(args, "OOO", &py_fixture_key, &py_appid))
+	if (!PyArg_ParseTuple(args, "OO", &py_fixture_key, &py_appid))
 		return NULL;
 
 	if (PyBytes_AsStringAndSize(py_fixture_key, (char **) &fixture_key,

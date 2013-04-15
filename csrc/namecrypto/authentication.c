@@ -269,7 +269,7 @@ authenticateCommand(state *st, struct ccn_charbuf *commandname, unsigned char *a
 	printf("\nmac    = ");
 	print_hex(mac, MACLEN);
 	printf("\nm      = ");
-	print_hex(m, commandnameLen + state_len);
+	print_hex(m, command_len + appname_len + state_len);
 	printf("\n");
 #endif
 
@@ -315,11 +315,18 @@ extractFromInterest(unsigned char ** authenticatorwithmagic, unsigned int * auth
 			*auth_len = (unsigned int) len;
             
 			ccn_name_comp_get(name->buf, nix, i - 1, (const unsigned char **) &out, &len);
-			*prefix_len = (unsigned int) (len + (out - name->buf));
+			*prefix_len = (unsigned int) (len + (out - name->buf)) + 2;
             
-			*prefix = (unsigned char *) malloc(*prefix_len + 1);
-			memcpy(*prefix, name->buf, *prefix_len);
-            prefix[*prefix_len] = 0x00;  // Put a tailing '0' byte to close the name encoding
+#ifdef AUTHDEBUG
+            printf("\nextractFromInterest: len=%lu\n", len);
+            printf("extractFromInterest: out=%p\n", out);
+            printf("extractFromInterest: name->buf=%p\n", name->buf);
+            printf("extractFromInterest: prefix_len=%u\n", *prefix_len);
+#endif
+            
+			*prefix = (unsigned char *) malloc(*prefix_len);
+			memcpy(*prefix, name->buf, *prefix_len - 1);
+            prefix[*prefix_len - 1] = 0x00;  // Put a tailing '0' byte to close the name encoding
             
 			ccn_indexbuf_destroy(&nix);
             
@@ -401,7 +408,7 @@ verifyCommandSymm(unsigned char *authenticator, unsigned int auth_len,
     int msg_len;
 
 	unsigned char * appname;
-	unsigned char * app_key;
+	unsigned char app_key[APPKEYLEN];
 	unsigned char * app_id;
 	unsigned char * m;
 	unsigned char * mac;
@@ -428,7 +435,7 @@ verifyCommandSymm(unsigned char *authenticator, unsigned int auth_len,
 		return state_ret;
     
 	// Compute appkey
-	app_key = appKey(fixtureKey, key_len, app_id, NULL);
+	appKey(fixtureKey, key_len, app_id, app_key);
 
     msg_len = command_len + appname_len + state_len;
 	m = (unsigned char *) malloc(msg_len);
@@ -450,13 +457,13 @@ verifyCommandSymm(unsigned char *authenticator, unsigned int auth_len,
 	printf("\ncmac   = ");
 	print_hex(computed_mac, MACLEN);
 	printf("\nm      = ");
-	print_hex(m, commandLen + appname_len + state_len);
-	printf("\ncommand_len=%d, state_len=%d, struct timeval t=%d, time_t=%d, suseconds_t=%d, currstate->t.tv_sec=%d", command_len, state_len, sizeof(struct timeval), sizeof(time_t), sizeof(suseconds_t), currstate->tv_sec);
+	print_hex(m, command_len + appname_len + state_len);
+//	printf("\ncommand_len=%d, state_len=%d, struct timeval t=%lu, time_t=%lu, suseconds_t=%lu, currstate->t.tv_sec=%d\n", command_len, state_len, sizeof(struct timeval), sizeof(time_t), sizeof(suseconds_t), currstate->tv_sec);
+    printf("\n");
 #endif
 
 	free(m);
 	free(app_id);
-    free(app_key);
 	if (memcmp(computed_mac, mac, MACLEN))
 		return FAIL_VERIFICATION_FAILED;
 	else
@@ -465,8 +472,7 @@ verifyCommandSymm(unsigned char *authenticator, unsigned int auth_len,
 
 /*
  * The authenticated name is constructed as commandname/(AUTH_MAGIC|appname_len|appname|state|RSA_signature)
- * and RSA_signature is Sig(commandname|appname|state) ; commandname doesn't have
- * trailing '/'
+ * and RSA_signature is Sig(commandname|appname|state) ; commandname doesn't have trailing '/'
  */
 void
 authenticateCommandSig(state * st, struct ccn_charbuf * commandname, unsigned char * appname, unsigned int appname_len, RSA * app_signing_key)
@@ -510,11 +516,11 @@ authenticateCommandSig(state * st, struct ccn_charbuf * commandname, unsigned ch
 	RSA_sign(NID_sha256, md, SHA256_DIGEST_LENGTH, authenticator + 2 + appname_len + state_len, &auth_len, app_signing_key);
 
 #ifdef AUTHDEBUG
-	printf("\nFunction authenticateCommandSig:\nappname   = ");
+	printf("\nFunction authenticateCommandSig:\nappname       = ");
 	print_hex(appname, appname_len);
-	printf("\nauthenticatorwithmagic = ");
-	print_hex(authenticatorwithmagic, AUTH_MAGIC_LEN + 2 + command_len + appname_len + state_len);
-	printf("\nmd =         ");
+	printf("\nauthenticator = ");
+	print_hex(authenticator, 2 + appname_len + state_len);
+	printf("\nmd            = ");
 	print_hex(md, SHA256_DIGEST_LENGTH);
 	printf("\n");
 #endif
@@ -545,7 +551,7 @@ verifyCommandSig(unsigned char * authenticator, unsigned int auth_len, unsigned 
 	state_s = appname + appname_len;
 	signature = state_s + state_len;
 
-    assert (auth_len > 0);
+    assert (auth_len == (unsigned int)(2 + appname_len + state_len + RSA_size(pubKey)));
 
 	// Verify fresnhess of command
 	st = (state *) (state_s);
@@ -567,14 +573,15 @@ verifyCommandSig(unsigned char * authenticator, unsigned int auth_len, unsigned 
 	SHA256(msg, command_len + appname_len + state_len, md);
 
 #ifdef AUTHDEBUG
-	printf("\nFunction verifyCommandSig:\nappname   = ");
+	printf("\nFunction verifyCommandSig:\nappname       = ");
 	print_hex(appname, appname_len);
-	printf("\nsigretwithmagic =         ");
-	print_hex(authenticator, authenticator_len);
-	printf("\nmd =         ");
+	printf("\nauthenticator = ");
+	print_hex(authenticator, auth_len - RSA_size(pubKey));
+	printf("\nmd            = ");
 	print_hex(md, SHA256_DIGEST_LENGTH);
 	printf("\n");
 #endif
+    
 	state_ret = RSA_verify(NID_sha256, md, SHA256_DIGEST_LENGTH, signature, RSA_size(pubKey), pubKey);
 
 	free(msg);

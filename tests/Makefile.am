@@ -19,7 +19,8 @@ TESTS = \
 	simpleCommunication.py \
 	receiving.py \
 	exclusions.py \
-	interest.py
+	interest.py \
+	namecrypto.py
 
 check_SCRIPTS = run
 
