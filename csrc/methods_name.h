@@ -13,6 +13,8 @@
 
 PyObject *_pyccn_cmd_name_comps_to_ccn(PyObject *self, PyObject *py_name_components);
 PyObject *_pyccn_cmd_name_comps_from_ccn(PyObject *self, PyObject *py_cname);
+PyObject *_pyccn_cmd_name_comps_from_ccn_buffer (PyObject *self, PyObject *py_buffer);
+
 PyObject *Name_obj_from_ccn(PyObject *ccn_data);
 PyObject *Name_obj_to_ccn(PyObject *py_name);
 PyObject *Name_from_ccn_tagged_bytearray(const unsigned char *buf,

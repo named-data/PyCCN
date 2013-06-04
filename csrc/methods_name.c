@@ -190,6 +190,60 @@ _pyccn_cmd_name_comps_from_ccn(PyObject *UNUSED(self), PyObject *py_cname)
 }
 
 PyObject *
+_pyccn_cmd_name_comps_from_ccn_buffer (PyObject *UNUSED(self), PyObject *py_buffer)
+{
+  int r;
+  Py_buffer buffer;
+  PyObject *py_component_list = NULL, *py_component;
+
+  if (!PyObject_CheckBuffer (py_buffer))
+    {
+      PyErr_SetString(PyExc_TypeError, "The argument is not a buffer");
+      return NULL;
+    }
+
+  r = PyObject_GetBuffer (py_buffer, &buffer, PyBUF_SIMPLE);
+  if (r < 0)
+    {
+      PyErr_SetString(PyExc_TypeError, "The argument is not a buffer");
+      return NULL;
+    }
+
+  // Create component list
+  py_component_list = PyList_New (0);
+  JUMP_IF_NULL (py_component_list, error);
+  
+  {
+    struct ccn_indexbuf *idx = ccn_indexbuf_create ();
+    const struct ccn_charbuf namebuf = { buffer.len, buffer.len, (unsigned char *)buffer.buf };
+    ccn_name_split (&namebuf, idx);
+
+    const unsigned char *compPtr = NULL;
+    size_t size = 0;
+    int i = 0;
+    while (ccn_name_comp_get(namebuf.buf, idx, i, &compPtr, &size) == 0)
+      {
+        py_component = PyBytes_FromStringAndSize ((char *) compPtr, size);
+        JUMP_IF_NULL (py_component, error);
+
+        r = PyList_Append (py_component_list, py_component);
+        Py_DECREF (py_component);
+        JUMP_IF_NEG (r, error);
+
+        i++;
+      }
+    ccn_indexbuf_destroy(&idx);
+  }
+
+  return py_component_list;
+  
+ error:
+  Py_XDECREF (py_component_list);
+  return NULL;
+}
+
+
+PyObject *
 Name_obj_from_ccn(PyObject *py_cname)
 {
 	PyObject *py_Name = NULL, *py_kargs;

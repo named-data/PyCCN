@@ -101,6 +101,13 @@ class ContentObject(object):
 
 		return "pyccn.ContentObject(%s)" % ", ".join(args)
 
+	def get_ccnb(self):
+		return _pyccn.dump_charbuf(self.ccn_data)
+
+        @staticmethod
+        def from_ccnb (ccnb):
+                return _pyccn.ContentObject_obj_from_ccn_buffer (ccnb)
+
 class Signature(object):
 	def __init__(self):
 		self.digestAlgorithm = None

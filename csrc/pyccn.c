@@ -107,6 +107,8 @@ static PyMethodDef g_module_methods[] = {
 
 	// Converters
 	{"name_comps_to_ccn", _pyccn_cmd_name_comps_to_ccn, METH_O, NULL},
+        
+        {"name_comps_from_ccn_buffer", _pyccn_cmd_name_comps_from_ccn_buffer, METH_O, NULL},
 	{"name_comps_from_ccn", _pyccn_cmd_name_comps_from_ccn, METH_O, NULL},
 	{"Interest_obj_to_ccn", _pyccn_cmd_Interest_obj_to_ccn, METH_O, NULL},
 	{"Interest_obj_from_ccn", _pyccn_cmd_Interest_obj_from_ccn, METH_O, NULL},
@@ -114,6 +116,7 @@ static PyMethodDef g_module_methods[] = {
 		NULL},
 	{"ContentObject_obj_from_ccn", _pyccn_cmd_ContentObject_obj_from_ccn,
 		METH_O, NULL},
+        {"ContentObject_obj_from_ccn_buffer", _pyccn_cmd_ContentObject_obj_from_ccn_buffer, METH_O, NULL},
 	{"digest_contentobject", _pyccn_cmd_digest_contentobject, METH_VARARGS,
 		NULL},
 	{"content_matches_interest", _pyccn_cmd_content_matches_interest,

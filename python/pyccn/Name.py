@@ -15,15 +15,19 @@ NAME_NORMAL = 0
 NAME_ANY    = 1
 
 class Name(object):
-	def __init__(self, components=[], name_type=NAME_NORMAL, ccn_data=None):
+	def __init__(self, components=[], name_type=NAME_NORMAL, ccn_data=None, ccnb_buffer=None):
 		self._setattr('type', name_type)
 
 		# pyccn
 		#self._setattr('ccn_data_dirty', True)
 		self._setattr('ccn_data', ccn_data)
 
+                # Name from simple buffer containing name in ccnb encoding
+                if ccnb_buffer:
+                        self._setattr('components', _pyccn.name_comps_from_ccn_buffer (bytes (ccnb_buffer)))
+
 		# Name from CCN
-		if ccn_data:
+		elif ccn_data:
 			self._setattr('components', _pyccn.name_comps_from_ccn(ccn_data))
 			self._setattr('ccn_data_dirty', False)
 
