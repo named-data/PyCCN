@@ -18,7 +18,13 @@ class CCN(object):
 	def __init__(self):
 		self._handle_lock = threading.Lock()
 		self.ccn_data = _pyccn.create()
-		_pyccn.connect(self.ccn_data)
+		self.connect ()
+
+        def connect (self):
+                _pyccn.connect(self.ccn_data)
+
+        def disconnect (self):
+                _pyccn.disconnect(self.ccn_data)
 
 	def _acquire_lock(self, tag):
 		if not _pyccn.is_run_executing(self.ccn_data):
@@ -147,3 +153,5 @@ class EventLoop(object):
 
 	def stop(self):
 		self.running = False
+                for fd, handle in zip(self.fds.keys(), self.fds.values()):
+                        handle.disconnect ()
