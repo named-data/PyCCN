@@ -6,6 +6,8 @@
 #
 
 from . import _pyccn
+
+import Closure
 import select, time
 import threading
 #import dummy_threading as threading
@@ -25,6 +27,9 @@ class CCN(object):
 
         def disconnect (self):
                 _pyccn.disconnect(self.ccn_data)
+
+        def defer_verification (self, deferVerification = True):
+                _pyccn.defer_verification(self.ccn_data, 1 if deferVerification else 0)
 
 	def _acquire_lock(self, tag):
 		if not _pyccn.is_run_executing(self.ccn_data):
@@ -69,6 +74,29 @@ class CCN(object):
 		finally:
 			self._release_lock("expressInterest")
 
+        def expressInterestSimple (self, name, onData, onTimeout, template = None):
+                class TrivialExpressClosure (Closure.Closure):
+                        __slots__ = ["_baseName", "_onData", "_onTimeout"];
+
+                        def __init__ (self, baseName, onData, onTimeout):
+                                self._baseName = baseName
+                                self._onData = onData
+                                self._onTimeout = onTimeout
+
+                        def upcall(self, kind, upcallInfo):
+                                if (kind == Closure.UPCALL_CONTENT or
+                                    kind == Closure.UPCALL_CONTENT_UNVERIFIED or
+                                    kind == Closure.UPCALL_CONTENT_UNVERIFIED or
+                                    kind == Closure.UPCALL_CONTENT_KEYMISSING or
+                                    kind == Closure.UPCALL_CONTENT_RAW):
+                                        return self._onData (self._baseName, upcallInfo.Interest, upcallInfo.ContentObject, kind)
+                                elif (kind == Closure.UPCALL_INTEREST_TIMED_OUT):
+                                        return self._onTimeout (self._baseName, upcallInfo.Interest)
+                                return Closure.RESULT_OK
+
+                trivial_closure = TrivialExpressClosure (name, onData, onTimeout)
+                self.expressInterest (name, trivial_closue, template)
+
 	def setInterestFilter(self, name, closure, flags = None):
 		self._acquire_lock("setInterestFilter")
 		try:
@@ -76,6 +104,29 @@ class CCN(object):
 				return _pyccn.set_interest_filter(self.ccn_data, name.ccn_data, closure)
 			else:
 				return _pyccn.set_interest_filter(self.ccn_data, name.ccn_data, closure, flags)
+		finally:
+			self._release_lock("setInterestFilter")
+
+        def setInterestFilterSimple (self, name, onInterest, flags = None):
+                class TrivialFilterClosure (Closure.Closure):
+                        # __slots__ = ["_baseName", "_onInterest"];
+
+                        def __init__ (self, baseName, onInterest):
+                                self._baseName = baseName
+                                self._onInterest = onInterest
+
+                        def upcall(self, kind, upcallInfo):
+                                if (kind == Closure.UPCALL_INTEREST):
+                                        return self._onInterest (self._baseName, upcallInfo.Interest)
+                                return Closure.RESULT_OK
+
+                trivial_closure = TrivialFilterClosure (name, onInterest)
+                self.setInterestFilter (name, trivial_closure, flags)
+
+        def clearInterestFilter(self, name):
+                self._acquire_lock("setInterestFilter")
+		try:
+                        return _pyccn.clear_interest_filter(self.ccn_data, name.ccn_data)
 		finally:
 			self._release_lock("setInterestFilter")
 
@@ -148,8 +199,12 @@ class EventLoop(object):
 
 	def run(self):
 		self.running = True
-		while self.running:
-			self.run_once()
+                try:
+                        while self.running:
+                                self.run_once()
+                except:
+                        pass
+                self.running = False
 
 	def stop(self):
 		self.running = False

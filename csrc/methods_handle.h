@@ -12,6 +12,7 @@ PyObject *_pyccn_cmd_create(PyObject *UNUSED(self), PyObject *UNUSED(args));
 PyObject *_pyccn_cmd_connect(PyObject *UNUSED(self), PyObject *py_ccn_handle);
 PyObject *_pyccn_cmd_disconnect(PyObject *UNUSED(self),
 		PyObject *py_ccn_handle);
+PyObject *_pyccn_cmd_defer_verification (PyObject *UNUSED(self), PyObject *args);
 PyObject *_pyccn_get_connection_fd(PyObject *self, PyObject *py_handle);
 PyObject *_pyccn_cmd_process_scheduled_operations(PyObject *self,
 		PyObject *py_handle);
@@ -23,6 +24,7 @@ PyObject *_pyccn_cmd_express_interest(PyObject *UNUSED(self),
 		PyObject *args);
 PyObject *_pyccn_cmd_set_interest_filter(PyObject *UNUSED(self),
 		PyObject *args);
+PyObject *_pyccn_cmd_clear_interest_filter(PyObject *UNUSED(self), PyObject *args);
 PyObject *_pyccn_cmd_get(PyObject *UNUSED(self), PyObject *args);
 PyObject *_pyccn_cmd_put(PyObject *UNUSED(self), PyObject *args);
 PyObject *_pyccn_cmd_get_default_key(PyObject *self, PyObject *arg);

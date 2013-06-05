@@ -21,6 +21,8 @@ UPCALL_CONTENT            = 3 # incoming verified content
 UPCALL_INTEREST_TIMED_OUT = 4 # interest timed out
 UPCALL_CONTENT_UNVERIFIED = 5 # content that has not been verified
 UPCALL_CONTENT_BAD        = 6 # verification failed
+UPCALL_CONTENT_KEYMISSING = 7 # key has not been fetched
+UPCALL_CONTENT_RAW        = 8 # verification has not been attempted
 
 # Fronts ccn_closure.
 

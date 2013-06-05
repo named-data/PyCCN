@@ -50,8 +50,10 @@ UpcallInfo_obj_from_ccn(enum ccn_upcall_kind upcall_kind,
 	JUMP_IF_NULL(py_o, error);
 
 	if (upcall_kind == CCN_UPCALL_CONTENT ||
-			upcall_kind == CCN_UPCALL_CONTENT_UNVERIFIED ||
-			upcall_kind == CCN_UPCALL_CONTENT_BAD) {
+            upcall_kind == CCN_UPCALL_CONTENT_UNVERIFIED ||
+            upcall_kind == CCN_UPCALL_CONTENT_BAD ||
+            upcall_kind == CCN_UPCALL_CONTENT_KEYMISSING ||
+            upcall_kind == CCN_UPCALL_CONTENT_RAW) {
 
 		py_data = CCNObject_New_charbuf(CONTENT_OBJECT, &data);
 		JUMP_IF_NULL(py_data, error);
@@ -69,11 +71,13 @@ UpcallInfo_obj_from_ccn(enum ccn_upcall_kind upcall_kind,
 	}
 
 	if (upcall_kind == CCN_UPCALL_INTEREST ||
-			upcall_kind == CCN_UPCALL_CONSUMED_INTEREST ||
-			upcall_kind == CCN_UPCALL_CONTENT ||
-			upcall_kind == CCN_UPCALL_INTEREST_TIMED_OUT ||
-			upcall_kind == CCN_UPCALL_CONTENT_UNVERIFIED ||
-			upcall_kind == CCN_UPCALL_CONTENT_BAD) {
+            upcall_kind == CCN_UPCALL_CONSUMED_INTEREST ||
+            upcall_kind == CCN_UPCALL_CONTENT ||
+            upcall_kind == CCN_UPCALL_INTEREST_TIMED_OUT ||
+            upcall_kind == CCN_UPCALL_CONTENT_UNVERIFIED ||
+            upcall_kind == CCN_UPCALL_CONTENT_BAD ||
+            upcall_kind == CCN_UPCALL_CONTENT_KEYMISSING ||
+            upcall_kind == CCN_UPCALL_CONTENT_RAW) {
 		py_data = CCNObject_New_charbuf(INTEREST, &data);
 		JUMP_IF_NULL(py_data, error);
 		r = ccn_charbuf_append(data, ui->interest_ccnb,
@@ -254,6 +258,31 @@ _pyccn_cmd_disconnect(PyObject *UNUSED(self), PyObject *py_ccn_handle)
 				" with CCN daemon: %s [%d]", strerror(err), err);
 	}
 
+	Py_RETURN_NONE;
+}
+
+PyObject *
+_pyccn_cmd_defer_verification (PyObject *UNUSED(self), PyObject *args)
+{
+	struct ccn *handle;
+        int deferral = 1;
+        PyObject *py_handle;
+	int r;
+
+	if (!PyArg_ParseTuple(args, "O|i", &py_handle, &deferral))
+		return NULL;
+
+	if (!CCNObject_IsValid(HANDLE, py_handle)) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a CCN Handle");
+		return NULL;
+	}
+	handle = CCNObject_Get(HANDLE, py_handle);
+
+        r = ccn_defer_verification(handle, deferral);
+	if (r < 0) {
+		int err = ccn_geterror(handle);
+		return PyErr_Format(g_PyExc_CCNError, "Unable to defer verification: %s [%d]", strerror(err), err);
+	}
 	Py_RETURN_NONE;
 }
 
@@ -519,6 +548,42 @@ _pyccn_cmd_set_interest_filter(PyObject *UNUSED(self), PyObject *args)
 
 		Py_DECREF(py_o);
 		PyErr_Format(PyExc_IOError, "Unable to set and interest filter: %s [%d]",
+				strerror(err), err);
+		return NULL;
+	}
+
+	return Py_BuildValue("i", r);
+}
+
+PyObject *
+_pyccn_cmd_clear_interest_filter(PyObject *UNUSED(self), PyObject *args)
+{
+	PyObject *py_ccn, *py_name;
+	struct ccn *handle;
+	struct ccn_charbuf *name;
+	int r;
+
+	if (!PyArg_ParseTuple(args, "OO|i", &py_ccn, &py_name))
+		return NULL;
+
+	if (!CCNObject_IsValid(HANDLE, py_ccn)) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a CCN handle as arg 1");
+		return NULL;
+	}
+
+	if (!CCNObject_IsValid(NAME, py_name)) {
+		PyErr_SetString(PyExc_TypeError, "Must pass a CCN Name as arg 1");
+		return NULL;
+	}
+
+	handle = CCNObject_Get(HANDLE, py_ccn);
+	name = CCNObject_Get(NAME, py_name);
+
+	r = ccn_set_interest_filter(handle, name, 0);
+	if (r < 0) {
+		int err = ccn_geterror(handle);
+
+		PyErr_Format(PyExc_IOError, "Unable to clear interest filter: %s [%d]",
 				strerror(err), err);
 		return NULL;
 	}
