@@ -568,7 +568,7 @@ _pyccn_cmd_DER_read_key(PyObject *UNUSED(self), PyObject *args,
 	PyObject *py_private_der = Py_None, *py_public_der = Py_None;
 	PyObject *py_der;
 	PyObject *py_private_key, *py_public_key, *py_digest, *py_ret;
-	int digest_len, r;
+	int digest_len, r = -1;
 	int is_public_only = -1, is_file = -1;
 
 	static char *kwlist[] = {"private", "public", NULL};
