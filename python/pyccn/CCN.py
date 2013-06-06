@@ -3,6 +3,7 @@
 # BSD license, See the COPYING file for more information
 # Written by: Derek Kulinski <takeda@takeda.tk>
 #             Jeff Burke <jburke@ucla.edu>
+#             Alexander Afanasyev <alexander.afanasyev@ucla.edu>
 #
 
 from . import _pyccn
@@ -191,7 +192,7 @@ class EventLoop(object):
 
 		timeout = min(self.run_scheduled(), 1000)
 
-		res = select.select(fd_read, fd_write, [], timeout)
+                res = select.select(fd_read, fd_write, [], timeout)
 
 		handles = set(res[0]).union(res[1])
 		for handle in handles:
@@ -199,11 +200,14 @@ class EventLoop(object):
 
 	def run(self):
 		self.running = True
-                try:
-                        while self.running:
+                while self.running:
+                        try:
                                 self.run_once()
-                except:
-                        pass
+                        except select.error, e:
+                                if e[0] == 4:
+                                        continue
+                                else:
+                                        raise
                 self.running = False
 
 	def stop(self):
