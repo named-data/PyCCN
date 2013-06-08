@@ -29,6 +29,9 @@ AOK_EXPIRE = AOKType.new_flag('AOK_EXPIRE', 0x10) # Mark as stale (requires scop
 
 AOK_DEFAULT = AOK_CS | AOK_NEW
 
+CHILD_SELECTOR_LEFT = 0
+CHILD_SELECTOR_RIGHT = 1
+
 class Interest(object):
 	def __init__(self, name = None, minSuffixComponents = None, \
 				 maxSuffixComponents = None, publisherPublicKeyDigest = None, \

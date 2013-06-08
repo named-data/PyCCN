@@ -9,6 +9,8 @@
 from . import _pyccn
 
 import Closure
+import Interest
+import Name
 import select, time
 import threading
 #import dummy_threading as threading
@@ -96,7 +98,52 @@ class CCN(object):
                                 return Closure.RESULT_OK
 
                 trivial_closure = TrivialExpressClosure (name, onData, onTimeout)
-                self.expressInterest (name, trivial_closue, template)
+                self.expressInterest (name, trivial_closure, template)
+
+        def expressInterestForLatest (self, name, onData, onTimeout, timeoutms = 1.0):
+                this = self
+
+                class VersionResolverClosure (Closure.Closure):
+                        __slots__ = ["_baseName", "_onData", "_onTimeout"];
+
+                        def __init__ (self, baseName, onData, onTimeout):
+                                self._baseName = baseName
+                                self._onData = onData
+                                self._onTimeout = onTimeout
+                                self._foundVersion = None
+
+                        def upcall(self, kind, upcallInfo):
+                                if (kind == Closure.UPCALL_CONTENT or
+                                    kind == Closure.UPCALL_CONTENT_UNVERIFIED or
+                                    kind == Closure.UPCALL_CONTENT_UNVERIFIED or
+                                    kind == Closure.UPCALL_CONTENT_KEYMISSING or
+                                    kind == Closure.UPCALL_CONTENT_RAW):
+                                        self._foundVersion = upcallInfo.ContentObject
+
+                                        template = upcallInfo.Interest
+                                        template.exclude = Interest.ExclusionFilter ()
+                                        template.exclude.add_any ()
+
+                                        name = upcallInfo.ContentObject.name
+                                        if len(self._baseName) == len(name):
+                                             return self._onData (self._baseName, upcallInfo.Interest, self._foundVersion, kind)
+
+                                        comp = upcallInfo.ContentObject.name[len(self._baseName)]
+                                        template.exclude.add_name (Name.Name ().append (comp))
+
+                                        this.expressInterest (upcallInfo.Interest.name, self, template)
+                                        return Closure.RESULT_OK
+
+                                elif (kind == Closure.UPCALL_INTEREST_TIMED_OUT):
+                                        if self._foundVersion:
+                                                return self._onData (self._baseName, upcallInfo.Interest, self._foundVersion, Closure.UPCALL_CONTENT)
+                                        else:
+                                                return self._onTimeout (self._baseName, upcallInfo.Interest)
+                                return Closure.RESULT_OK
+
+                trivial_closure = VersionResolverClosure (name, onData, onTimeout)
+                template = Interest.Interest (interestLifetime = timeoutms, childSelector = Interest.CHILD_SELECTOR_LEFT)
+                self.expressInterest (name, trivial_closure, template)
 
 	def setInterestFilter(self, name, closure, flags = None):
 		self._acquire_lock("setInterestFilter")
