@@ -495,7 +495,7 @@ _pyccn_cmd_encode_ContentObject(PyObject *UNUSED(self), PyObject *args)
 
 	// Key
 	private_key = Key_to_ccn_private(py_key);
-
+        
 	// Note that we don't load this key into the keystore hashtable in the library
 	// because it makes this method require access to a ccn handle, and in fact,
 	// ccn_sign_content just uses what's in signedinfo (after an error check by

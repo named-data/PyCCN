@@ -35,9 +35,9 @@ struct keypair {
 };
 
 void initialize_crypto(void);
-int create_public_key_digest(RSA *private_key_rsa,
+int create_public_key_digest(struct ccn_pkey*,
 		PyObject **py_public_key_digest, int *public_key_digest_len);
-int ccn_keypair_from_rsa(int public_only, RSA *private_key_rsa,
+int ccn_keypair(int public_only, struct ccn_pkey*,
 		PyObject **py_private_key_ccn,
 		PyObject **py_public_key_ccn);
 PyObject *_pyccn_privatekey_dup(const struct ccn_pkey *key);

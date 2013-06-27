@@ -147,7 +147,6 @@ Key_obj_from_ccn(PyObject *py_key_ccn)
 {
 	struct ccn_pkey *key_ccn;
 	PyObject *py_obj_Key;
-	RSA *private_key_rsa = NULL;
 	PyObject *py_private_key_ccn = NULL, *py_public_key_ccn = NULL,
 			*py_public_key_digest = NULL;
 	int public_key_digest_len;
@@ -180,17 +179,13 @@ Key_obj_from_ccn(PyObject *py_key_ccn)
 	// it out to RSA
 	// Also, create the digest...
 	// These non-ccn functions assume the CCN defaults, RSA + SHA256
-	private_key_rsa = ccn_key_to_rsa(key_ccn);
-	JUMP_IF_NULL(private_key_rsa, error);
 
-	r = ccn_keypair_from_rsa(public_only, private_key_rsa, &py_private_key_ccn,
+	r = ccn_keypair(public_only, key_ccn, &py_private_key_ccn,
 			&py_public_key_ccn);
 	JUMP_IF_NEG(r, error);
 
-	r = create_public_key_digest(private_key_rsa, &py_public_key_digest,
+	r = create_public_key_digest(key_ccn, &py_public_key_digest,
 			&public_key_digest_len);
-	RSA_free(private_key_rsa);
-	private_key_rsa = NULL;
 	JUMP_IF_NEG(r, error);
 
 	//  ccn_digest has a more convoluted API, with examples
@@ -232,7 +227,6 @@ error:
 	Py_XDECREF(py_private_key_ccn);
 	Py_XDECREF(py_public_key_ccn);
 	Py_XDECREF(py_public_key_digest);
-	RSA_free(private_key_rsa);
 	Py_XDECREF(py_obj_Key);
 	return NULL;
 }

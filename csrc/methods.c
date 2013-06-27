@@ -63,7 +63,7 @@ _pyccn_cmd_generate_RSA_key(PyObject *UNUSED(self), PyObject *args)
 	r = PyObject_SetAttrString(py_key, "publicKeyID", py_public_key_digest);
 	Py_DECREF(py_public_key_digest);
 	JUMP_IF_NEG(r, error);
-
+        
 	Py_RETURN_NONE;
 
 error:
