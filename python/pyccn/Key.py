@@ -74,6 +74,18 @@ class Key(object):
 			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID) = \
 				_pyccn.PEM_read_key(public=public)
 
+        @staticmethod
+        def createFromDER (private = None, public = None):
+                key = Key ()
+                key.fromDER (private, public)
+                return key
+
+        @staticmethod
+        def createFromPEM (filename = None, private = None, public = None):
+                key = Key ()
+                key.fromPEM (filename, private, public)
+                return key
+
 # plus library helper functions to generate and serialize keys?
 
 class KeyLocator(object):
