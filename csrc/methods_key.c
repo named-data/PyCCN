@@ -458,16 +458,23 @@ _pyccn_cmd_PEM_read_key(PyObject *UNUSED(self), PyObject *args,
 		PyObject *py_kwds)
 {
 	PyObject *py_file = Py_None, *py_private_pem = Py_None,
-			*py_public_pem = Py_None;
+          *py_public_pem = Py_None,
+          *py_password = Py_None;
+        char *password = NULL;
 	PyObject *py_private_key, *py_public_key, *py_digest, *py_ret;
 	int digest_len, r;
 	FILE *fin;
 
-	static char *kwlist[] = {"file", "private", "public", NULL};
+	static char *kwlist[] = {"file", "private", "public", "password", NULL};
 
-	if (!PyArg_ParseTupleAndKeywords(args, py_kwds, "|OOO", kwlist, &py_file,
-			&py_private_pem, &py_public_pem))
+	if (!PyArg_ParseTupleAndKeywords(args, py_kwds, "|OOOO", kwlist, &py_file,
+                                         &py_private_pem, &py_public_pem, &py_password))
 		return NULL;
+
+        if (py_password != Py_None)
+          {
+            password = PyString_AsString (py_password);
+          }
 
 	if (py_file != Py_None) {
 		fin = _pyccn_open_file_handle(py_file, "r");
@@ -475,18 +482,18 @@ _pyccn_cmd_PEM_read_key(PyObject *UNUSED(self), PyObject *args,
 			return NULL;
 
 		r = read_key_pem(fin, &py_private_key, &py_public_key, &py_digest,
-				&digest_len);
+                                 &digest_len, password);
 		_pyccn_close_file_handle(fin);
 		if (r < 0)
 			return NULL;
 	} else if (py_private_pem != Py_None) {
 		r = put_key_pem(0, py_private_pem, &py_private_key, &py_public_key,
-				&py_digest);
+				&py_digest, password);
 		if (r < 0)
 			return NULL;
 	} else if (py_public_pem != Py_None) {
 		r = put_key_pem(1, py_public_pem, &py_private_key, &py_public_key,
-				&py_digest);
+				&py_digest, NULL);
 		if (r < 0)
 			return NULL;
 	} else {
@@ -507,16 +514,17 @@ PyObject *
 _pyccn_cmd_PEM_write_key(PyObject *UNUSED(self), PyObject *args,
 		PyObject *py_kwds)
 {
-	PyObject *py_pkey, *py_file = Py_None;
+        PyObject *py_pkey, *py_file = Py_None, *py_password = Py_None;
 	struct ccn_pkey *pkey;
+        char *password = NULL;
 	FILE *of;
 	int r;
 	int private = -1;
 
-	static char *kwlist[] = {"key", "file", NULL};
+	static char *kwlist[] = {"key", "file", "password", NULL};
 
-	if (!PyArg_ParseTupleAndKeywords(args, py_kwds, "O|O", kwlist, &py_pkey,
-			&py_file))
+	if (!PyArg_ParseTupleAndKeywords(args, py_kwds, "O|OO", kwlist, &py_pkey,
+                                         &py_file, &py_password))
 		return NULL;
 
 	if (CCNObject_IsValid(PKEY_PRIV, py_pkey)) {
@@ -532,13 +540,18 @@ _pyccn_cmd_PEM_write_key(PyObject *UNUSED(self), PyObject *args,
 
 	assert(private >= 0 && private <= 1);
 
+        if (py_password != Py_None)
+          {
+            password = PyString_AsString (py_password);
+          }
+
 	if (py_file != Py_None) {
 		of = _pyccn_open_file_handle(py_file, "w");
 		if (!of)
 			return NULL;
 
 		if (private)
-			r = write_key_pem_private(of, pkey);
+                        r = write_key_pem_private(of, pkey, password);
 		else
 			r = write_key_pem_public(of, pkey);
 
@@ -547,7 +560,7 @@ _pyccn_cmd_PEM_write_key(PyObject *UNUSED(self), PyObject *args,
 			return NULL;
 	} else {
 		if (private)
-			return get_key_pem_private(pkey);
+                        return get_key_pem_private(pkey, password);
 		else
 			return get_key_pem_public(pkey);
 	}

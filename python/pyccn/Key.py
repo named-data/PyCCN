@@ -32,16 +32,16 @@ class Key(object):
 	def publicToDER(self):
 		return _pyccn.DER_write_key(self.ccn_data_public)
 
-	def privateToPEM(self, filename = None):
+	def privateToPEM(self, filename = None, password = None):
 		if not self.ccn_data_private:
 			raise _pyccn.CCNKeyError("Key is not private")
 
 		if filename:
 			f = open(filename, 'w')
-			_pyccn.PEM_write_key(self.ccn_data_private, file=f)
+			_pyccn.PEM_write_key(self.ccn_data_private, file=f, password = password)
 			f.close()
 		else:
-			return _pyccn.PEM_write_key(self.ccn_data_private)
+			return _pyccn.PEM_write_key(self.ccn_data_private, password = password)
 
 	def publicToPEM(self, filename = None):
 		if filename:
@@ -61,15 +61,15 @@ class Key(object):
 				_pyccn.DER_read_key(public=public)
 			return
 
-	def fromPEM(self, filename = None, private = None, public = None):
+	def fromPEM(self, filename = None, private = None, public = None, password = None):
 		if filename:
 			f = open(filename, 'r')
 			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID) = \
-				_pyccn.PEM_read_key(file=f)
+				_pyccn.PEM_read_key(file=f, password = password)
 			f.close()
 		elif private:
 			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID) = \
-				_pyccn.PEM_read_key(private=private)
+				_pyccn.PEM_read_key(private=private, password = password)
 		elif public:
 			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID) = \
 				_pyccn.PEM_read_key(public=public)
@@ -81,9 +81,9 @@ class Key(object):
                 return key
 
         @staticmethod
-        def createFromPEM (filename = None, private = None, public = None):
+        def createFromPEM (filename = None, private = None, public = None, password = None):
                 key = Key ()
-                key.fromPEM (filename, private, public)
+                key.fromPEM (filename, private, public, password)
                 return key
 
 # plus library helper functions to generate and serialize keys?

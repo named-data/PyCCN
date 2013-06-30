@@ -330,17 +330,25 @@ generate_key(int length, PyObject **py_private_key_ccn,
 //
 
 int
-write_key_pem_private(FILE *fp, struct ccn_pkey *private_key_ccn)
+write_key_pem_private(FILE *fp, struct ccn_pkey *private_key_ccn, char *password)
 {
 	unsigned long err;
+        int res = 0;
 
-	if (!PEM_write_PrivateKey(fp, (EVP_PKEY *) private_key_ccn, NULL, NULL, 0, NULL, NULL)) {
-		err = ERR_get_error();
-		PyErr_Format(g_PyExc_CCNKeyError, "Unable to write Private Key: %s",
-				ERR_reason_error_string(err));
-		return -1;
+        if (password) {
+          res = PEM_write_PKCS8PrivateKey (fp, (EVP_PKEY *) private_key_ccn, EVP_aes_256_cbc (), password, strlen(password), NULL, NULL);
+        }
+        else {
+          res = PEM_write_PrivateKey(fp, (EVP_PKEY *) private_key_ccn, NULL, NULL, 0, NULL, NULL);
+        }
+        
+	if (!res) {
+          err = ERR_get_error();
+          PyErr_Format(g_PyExc_CCNKeyError, "Unable to write Private Key: %s",
+                       ERR_reason_error_string(err));
+          return -1;
 	}
-
+        
 	return 0;
 }
 
@@ -360,7 +368,7 @@ write_key_pem_public(FILE *fp, struct ccn_pkey *public_key_ccn)
 }
 
 PyObject *
-get_key_pem_private(const struct ccn_pkey *private_key_ccn)
+get_key_pem_private(const struct ccn_pkey *private_key_ccn, char *password)
 {
 	unsigned long err;
 	BIO *bio;
@@ -371,8 +379,12 @@ get_key_pem_private(const struct ccn_pkey *private_key_ccn)
 	bio = BIO_new(BIO_s_mem());
 	JUMP_IF_NULL(bio, openssl_error);
 
-	r = PEM_write_bio_PrivateKey(bio, (EVP_PKEY *) private_key_ccn, NULL, NULL, 0, NULL,
-			NULL);
+        if (password) {
+          r = PEM_write_bio_PKCS8PrivateKey (bio, (EVP_PKEY *) private_key_ccn, EVP_aes_256_cbc (), NULL, 0, NULL, password);
+        }
+        else {
+          r = PEM_write_bio_PrivateKey(bio, (EVP_PKEY *) private_key_ccn, NULL, NULL, 0, NULL, NULL);
+        }
 	if (!r)
 		goto openssl_error;
 
@@ -480,8 +492,9 @@ error:
 
 int
 read_key_pem(FILE *fp, PyObject **py_private_key_ccn,
-		PyObject **py_public_key_ccn, PyObject **py_public_key_digest,
-		int *public_key_digest_len)
+             PyObject **py_public_key_ccn, PyObject **py_public_key_digest,
+             int *public_key_digest_len,
+             char *password)
 {
         struct ccn_pkey *private_key = NULL;
 	PyObject *py_private_key = NULL, *py_public_key = NULL;
@@ -493,7 +506,7 @@ read_key_pem(FILE *fp, PyObject **py_private_key_ccn,
 	r = fgetpos(fp, &fpos);
 	JUMP_IF_NEG(r, errno_error);
 
-	private_key = (struct ccn_pkey *)PEM_read_PrivateKey(fp, NULL, NULL, NULL);
+        private_key = (struct ccn_pkey *)PEM_read_PrivateKey(fp, NULL, NULL, password);
 	if (private_key) {
 		public_only = 0;
 		goto success;
@@ -551,7 +564,8 @@ error:
 int
 put_key_pem(int is_public_only, PyObject *py_key_pem,
             PyObject **py_private_key_ccn, PyObject **py_public_key_ccn,
-            PyObject **py_public_key_digest)
+            PyObject **py_public_key_digest,
+            char *password)
 {
 	unsigned char *key_pem;
 	Py_ssize_t pem_len;
@@ -569,7 +583,7 @@ put_key_pem(int is_public_only, PyObject *py_key_pem,
 	if (is_public_only)
           key = (struct ccn_pkey*)PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
 	else
-          key = (struct ccn_pkey*)PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
+          key = (struct ccn_pkey*)PEM_read_bio_PrivateKey(bio, NULL, NULL, password);
 	JUMP_IF_NULL(key, openssl_error);
 
 	r = ccn_keypair(is_public_only, key, py_private_key_ccn, py_public_key_ccn);
