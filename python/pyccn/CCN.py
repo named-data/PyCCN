@@ -177,7 +177,7 @@ class EventLoop(object):
 	#			flags |= select.POLLOUT
 	#		fd_state.register(handle, flags)
 	#
-	#	timeout = min(self.run_scheduled(), 1000)
+	#	timeout = min(self.run_scheduled(), 1.000)
 	#
 	#	res = fd_state.poll(timeout)
 	#	for fd, event in res:
@@ -190,7 +190,7 @@ class EventLoop(object):
 			if handle.output_is_pending():
 				fd_write.append(handle)
 
-		timeout = min(self.run_scheduled(), 1000)
+		timeout = min(self.run_scheduled(), 1.000)
 
                 res = select.select(fd_read, fd_write, [], timeout)
 
