@@ -159,6 +159,13 @@ class EventLoop(object):
 		self.fds = {}
 		for handle in handles:
 			self.fds[handle.fileno()] = handle
+                self.eventLock = threading.Lock ()
+                self.events = []
+
+        def execute (self, event):
+                self.eventLock.acquire ()
+                self.events.append (event)
+                self.eventLock.release ()
 
 	def run_scheduled(self):
 		wait = {}
@@ -202,6 +209,12 @@ class EventLoop(object):
 		self.running = True
                 while self.running:
                         try:
+                                self.eventLock.acquire ()
+                                for event in self.events:
+                                        event ()
+                                self.events = []
+                                self.eventLock.release ()
+
                                 self.run_once()
                         except select.error, e:
                                 if e[0] == 4:

@@ -60,10 +60,12 @@ class Name(object):
 
 		return Name(components)
 
-	def append(self, component):
+	def append(self, value):
 		components = copy(self.components)
-		components.append(component)
-
+                if isinstance (value, Name):
+                        components.extend (value.components)
+                else:   
+                        components.append (bytes (value))
 		return Name(components)
 
 	def appendKeyID(self, digest):
@@ -176,3 +178,6 @@ class Name(object):
 	@staticmethod
 	def seg2num(segment):
 		return long(struct.unpack("!Q", (8 - len(segment)) * "\x00" + segment)[0])
+
+        def isPrefixOf (self, other):
+                return self[:] == other[:len(self)]
