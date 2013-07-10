@@ -6,14 +6,14 @@
 #
 
 # Fronts ccn_pkey.
-from . import _pyccn
+from . import _ndn
 from . import Name
 
 class Key(object):
 	def __init__(self):
 		self.type = None
 		self.publicKeyID = None # SHA256 hash
-		# pyccn
+		# ndn
 		self.ccn_data_dirty = False
 		self.ccn_data_public = None  # backing pkey
 		self.ccn_data_private = None # backing pkey
@@ -22,57 +22,57 @@ class Key(object):
 		pass
 
 	def generateRSA(self, numbits):
-		_pyccn.generate_RSA_key(self, numbits)
+		_ndn.generate_RSA_key(self, numbits)
 
 	def privateToDER(self):
 		if not self.ccn_data_private:
-			raise _pyccn.CCNKeyError("Key is not private")
-		return _pyccn.DER_write_key(self.ccn_data_private)
+			raise _ndn.CCNKeyError("Key is not private")
+		return _ndn.DER_write_key(self.ccn_data_private)
 
 	def publicToDER(self):
-		return _pyccn.DER_write_key(self.ccn_data_public)
+		return _ndn.DER_write_key(self.ccn_data_public)
 
 	def privateToPEM(self, filename = None, password = None):
 		if not self.ccn_data_private:
-			raise _pyccn.CCNKeyError("Key is not private")
+			raise _ndn.CCNKeyError("Key is not private")
 
 		if filename:
 			f = open(filename, 'w')
-			_pyccn.PEM_write_key(self.ccn_data_private, file=f, password = password)
+			_ndn.PEM_write_key(self.ccn_data_private, file=f, password = password)
 			f.close()
 		else:
-			return _pyccn.PEM_write_key(self.ccn_data_private, password = password)
+			return _ndn.PEM_write_key(self.ccn_data_private, password = password)
 
 	def publicToPEM(self, filename = None):
 		if filename:
 			f = open(filename, 'w')
-			_pyccn.PEM_write_key(self.ccn_data_public, file=f)
+			_ndn.PEM_write_key(self.ccn_data_public, file=f)
 			f.close()
 		else:
-			return _pyccn.PEM_write_key(self.ccn_data_public)
+			return _ndn.PEM_write_key(self.ccn_data_public)
 
 	def fromDER(self, private = None, public = None):
 		if private:
 			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID) = \
-				_pyccn.DER_read_key(private=private)
+				_ndn.DER_read_key(private=private)
 			return
 		if public:
 			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID) = \
-				_pyccn.DER_read_key(public=public)
+				_ndn.DER_read_key(public=public)
 			return
 
 	def fromPEM(self, filename = None, private = None, public = None, password = None):
 		if filename:
 			f = open(filename, 'r')
 			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID) = \
-				_pyccn.PEM_read_key(file=f, password = password)
+				_ndn.PEM_read_key(file=f, password = password)
 			f.close()
 		elif private:
 			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID) = \
-				_pyccn.PEM_read_key(private=private, password = password)
+				_ndn.PEM_read_key(private=private, password = password)
 		elif public:
 			(self.ccn_data_private, self.ccn_data_public, self.publicKeyID) = \
-				_pyccn.PEM_read_key(public=public)
+				_ndn.PEM_read_key(public=public)
 
         @staticmethod
         def createFromDER (private = None, public = None):
@@ -96,7 +96,7 @@ class KeyLocator(object):
 		self.keyName = arg if type(arg) is Name.Name else None
 		self.certificate = None
 
-		# pyccn
+		# ndn
 		self.ccn_data_dirty = True
 		self.ccn_data = None  # backing charbuf
 
@@ -109,10 +109,10 @@ class KeyLocator(object):
 		if name=="ccn_data":
 			if object.__getattribute__(self, 'ccn_data_dirty'):
 				if object.__getattribute__(self, 'keyName'):
-					self.ccn_data = _pyccn.KeyLocator_to_ccn(
+					self.ccn_data = _ndn.KeyLocator_to_ccn(
 						name=self.keyName.ccn_data)
 				elif object.__getattribute__(self, 'key'):
-					self.ccn_data = _pyccn.KeyLocator_to_ccn(
+					self.ccn_data = _ndn.KeyLocator_to_ccn(
 						key=self.key.ccn_data_public)
 				elif object.__getattribute__(self, 'certificate'):
 					#same but with cert= arg

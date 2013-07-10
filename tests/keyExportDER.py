@@ -1,8 +1,8 @@
 import os, filecmp
 from base64 import b64encode, b64decode
-from pyccn import Key, _pyccn, CCN
+from ndn import Key, _ndn, Face
 
-k = CCN.getDefaultKey()
+k = Face.getDefaultKey()
 
 private1_der = k.privateToDER()
 public1_der = k.publicToDER()

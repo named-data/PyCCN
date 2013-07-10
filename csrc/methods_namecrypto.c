@@ -14,13 +14,13 @@
 
 #include "namecrypto/authentication.h"
 
-#include "pyccn.h"
+#include "py_ndn.h"
 #include "util.h"
 #include "methods_namecrypto.h"
 #include "objects.h"
 
 PyObject *
-_pyccn_cmd_nc_new_state(PyObject *UNUSED(self), PyObject *UNUSED(args))
+_ndn_cmd_nc_new_state(PyObject *UNUSED(self), PyObject *UNUSED(args))
 {
 	state *new_state;
 	PyObject *py_new_state;
@@ -43,7 +43,7 @@ error:
 }
 
 PyObject *
-_pyccn_cmd_nc_authenticate_command(PyObject *UNUSED(self), PyObject *args)
+_ndn_cmd_nc_authenticate_command(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_state, *py_name, *py_appname, *py_appkey;
 	PyObject *py_new_name;
@@ -93,7 +93,7 @@ error:
 }
 
 PyObject *
-_pyccn_cmd_nc_authenticate_command_sig(PyObject *UNUSED(self), PyObject *args)
+_ndn_cmd_nc_authenticate_command_sig(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_state, *py_name, *py_appname, *py_sigkey;
 	PyObject *py_new_name;
@@ -150,7 +150,7 @@ error:
 }
 
 PyObject *
-_pyccn_cmd_nc_verify_command(PyObject *UNUSED(self), PyObject *args,
+_ndn_cmd_nc_verify_command(PyObject *UNUSED(self), PyObject *args,
 		PyObject *kwds)
 {
 	PyObject *py_auth_state, *py_name;
@@ -218,7 +218,7 @@ openssl_error:
 }
 
 PyObject *
-_pyccn_cmd_nc_app_id(PyObject *UNUSED(self), PyObject *py_appname)
+_ndn_cmd_nc_app_id(PyObject *UNUSED(self), PyObject *py_appname)
 {
 	unsigned char appid[APPIDLEN];
 	unsigned char *appname, *ret;
@@ -243,7 +243,7 @@ _pyccn_cmd_nc_app_id(PyObject *UNUSED(self), PyObject *py_appname)
 }
 
 PyObject *
-_pyccn_cmd_nc_app_key(PyObject *UNUSED(self), PyObject *args)
+_ndn_cmd_nc_app_key(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_fixture_key, *py_appid;
 	unsigned char *fixture_key, *appid, *res;

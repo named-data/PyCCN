@@ -1,9 +1,9 @@
 #
-# This example was written for older version of PyCCN and it is currently broken
+# This example was written for older version of Ndn and it is currently broken
 #
 
-from pyccn.Repository import RepoUpload
-from pyccn import CCN, ContentObject, Name, Key
+from ndn.Repository import RepoUpload
+from ndn import Face, ContentObject, Name, Key
 import struct
 
 if __name__ == '__main__':
@@ -36,7 +36,7 @@ if __name__ == '__main__':
 	name_v = Name.Name(name)
 	name_v.appendVersion()
 
-	handle = CCN.CCN()
+	handle = Face.Face()
 	key = handle.getDefaultKey()
 	last_seg = segment(9)
 

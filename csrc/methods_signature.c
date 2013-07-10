@@ -8,7 +8,7 @@
 #include "python_hdr.h"
 #include <ccn/ccn.h>
 
-#include "pyccn.h"
+#include "py_ndn.h"
 #include "methods_signature.h"
 #include "objects.h"
 #include "util.h"
@@ -36,7 +36,7 @@ append_digest_algorithm(struct ccn_charbuf *signature,
 	JUMP_IF_NULL(py_digestAlgorithm, error);
 
 	if (py_digestAlgorithm != Py_None) {
-		py_o = _pyccn_unicode_to_utf8(py_digestAlgorithm, &str, &str_len);
+		py_o = _ndn_unicode_to_utf8(py_digestAlgorithm, &str, &str_len);
 		assert((Py_ssize_t) strlen(str) == str_len);
 		JUMP_IF_NULL(py_o, error);
 
@@ -272,7 +272,7 @@ error:
 }
 
 PyObject *
-_pyccn_cmd_Signature_obj_to_ccn(PyObject *UNUSED(self), PyObject *py_obj_Signature)
+_ndn_cmd_Signature_obj_to_ccn(PyObject *UNUSED(self), PyObject *py_obj_Signature)
 {
 	if (strcmp(py_obj_Signature->ob_type->tp_name, "Signature") != 0) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a Signature");
@@ -284,10 +284,10 @@ _pyccn_cmd_Signature_obj_to_ccn(PyObject *UNUSED(self), PyObject *py_obj_Signatu
 }
 
 PyObject *
-_pyccn_cmd_Signature_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_signature)
+_ndn_cmd_Signature_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_signature)
 {
 	if (!CCNObject_IsValid(SIGNATURE, py_signature)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a CCN object containing"
+		PyErr_SetString(PyExc_TypeError, "Must pass a ndn.Face object containing"
 				" signature");
 		return NULL;
 	}

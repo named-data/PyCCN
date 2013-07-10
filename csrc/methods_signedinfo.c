@@ -8,7 +8,7 @@
 #include "python_hdr.h"
 #include <ccn/ccn.h>
 
-#include "pyccn.h"
+#include "py_ndn.h"
 #include "util.h"
 #include "methods_key.h"
 #include "methods_signedinfo.h"
@@ -125,7 +125,7 @@ SignedInfo_obj_from_ccn(PyObject *py_signed_info)
 		goto error;
 	}
 
-	py_o = _pyccn_Int_FromLong(r);
+	py_o = _ndn_Int_FromLong(r);
 	JUMP_IF_NULL(py_o, error);
 	r = PyObject_SetAttrString(py_obj_SignedInfo, "type", py_o);
 	Py_DECREF(py_o);
@@ -154,7 +154,7 @@ SignedInfo_obj_from_ccn(PyObject *py_signed_info)
 	if (r >= 0) {
 		//    self.freshnessSeconds = None
 		debug("PyObject_SetAttrString freshnessSeconds\n");
-		py_o = _pyccn_Int_FromLong(r);
+		py_o = _ndn_Int_FromLong(r);
 		JUMP_IF_NULL(py_o, error);
 		r = PyObject_SetAttrString(py_obj_SignedInfo, "freshnessSeconds", py_o);
 		Py_DECREF(py_o);
@@ -281,7 +281,7 @@ error:
 }
 
 PyObject *
-_pyccn_cmd_SignedInfo_to_ccn(PyObject *UNUSED(self), PyObject *args,
+_ndn_cmd_SignedInfo_to_ccn(PyObject *UNUSED(self), PyObject *args,
 		PyObject *kwds)
 {
 	static char *kwlist[] = {"pubkey_digest", "type", "timestamp",
@@ -370,7 +370,7 @@ error:
 }
 
 PyObject *
-_pyccn_cmd_SignedInfo_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_signed_info)
+_ndn_cmd_SignedInfo_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_signed_info)
 {
 	if (!CCNObject_IsValid(SIGNED_INFO, py_signed_info)) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a CObject containing"

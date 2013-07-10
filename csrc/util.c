@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "pyccn.h"
+#include "py_ndn.h"
 #include "util.h"
 
 void
@@ -51,7 +51,7 @@ print_object(const PyObject *object)
 }
 
 PyObject *
-_pyccn_unicode_to_utf8(PyObject *string, char **buffer, Py_ssize_t *length)
+_ndn_unicode_to_utf8(PyObject *string, char **buffer, Py_ssize_t *length)
 {
 	PyObject *py_utf8;
 	int r;
@@ -86,7 +86,7 @@ _pyccn_unicode_to_utf8(PyObject *string, char **buffer, Py_ssize_t *length)
 }
 
 FILE *
-_pyccn_open_file_handle(PyObject *py_file, const char *mode)
+_ndn_open_file_handle(PyObject *py_file, const char *mode)
 {
 	FILE *handle;
 	int ofd, fd = -1;
@@ -111,36 +111,36 @@ error:
 }
 
 int
-_pyccn_close_file_handle(FILE *fh)
+_ndn_close_file_handle(FILE *fh)
 {
 	return fclose(fh);
 }
 
 void *
-_pyccn_run_state_add(struct ccn *handle)
+_ndn_run_state_add(struct ccn *handle)
 {
-	struct pyccn_state *pyccn_state = GETSTATE(_pyccn_module);
-	struct pyccn_run_state *state;
+	struct py_ndn_state *py_ndn_state = GETSTATE(_ndn_module);
+	struct py_ndn_run_state *state;
 
-	state = malloc(sizeof(struct pyccn_run_state));
+	state = malloc(sizeof(struct py_ndn_run_state));
 	if (!state)
 		return PyErr_NoMemory();
 
 	state->handle = handle;
-	state->next = pyccn_state->run_state;
+	state->next = py_ndn_state->run_state;
 
-	pyccn_state->run_state = state;
+	py_ndn_state->run_state = state;
 
 	return handle;
 }
 
-struct pyccn_run_state *
-_pyccn_run_state_find(struct ccn *handle)
+struct py_ndn_run_state *
+_ndn_run_state_find(struct ccn *handle)
 {
-	struct pyccn_state *pyccn_state = GETSTATE(_pyccn_module);
-	struct pyccn_run_state *p;
+	struct py_ndn_state *py_ndn_state = GETSTATE(_ndn_module);
+	struct py_ndn_run_state *p;
 
-	for (p = pyccn_state->run_state; p; p = p->next) {
+	for (p = py_ndn_state->run_state; p; p = p->next) {
 		if (p->handle != handle)
 			continue;
 
@@ -151,14 +151,14 @@ _pyccn_run_state_find(struct ccn *handle)
 }
 
 void
-_pyccn_run_state_clear(void *handle)
+_ndn_run_state_clear(void *handle)
 {
-	struct pyccn_state *pyccn_state = GETSTATE(_pyccn_module);
-	struct pyccn_run_state *p, *q;
+	struct py_ndn_state *py_ndn_state = GETSTATE(_ndn_module);
+	struct py_ndn_run_state *p, *q;
 
-	p = pyccn_state->run_state;
+	p = py_ndn_state->run_state;
 	if (p->handle == handle) {
-		pyccn_state->run_state = p->next;
+		py_ndn_state->run_state = p->next;
 		free(p);
 		return;
 	}

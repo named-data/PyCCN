@@ -10,7 +10,7 @@
 #include <ccn/uri.h>
 
 #include "methods_name.h"
-#include "pyccn.h"
+#include "py_ndn.h"
 #include "objects.h"
 #include "util.h"
 
@@ -112,7 +112,7 @@ name_comps_to_ccn(PyObject *py_name_components)
 			char *s;
 			Py_ssize_t len;
 
-			py_o = _pyccn_unicode_to_utf8(item, &s, &len);
+			py_o = _ndn_unicode_to_utf8(item, &s, &len);
 			JUMP_IF_NULL(py_o, error);
 
 			r = ccn_name_append(name, s, len);
@@ -137,14 +137,14 @@ name_comps_to_ccn(PyObject *py_name_components)
 			// representation; if we want numeric encoding, use a
 			// byte array and do it explicitly.
 		} else if (PyFloat_Check(item) || PyLong_Check(item) ||
-				_pyccn_Int_Check(item)) {
+				_ndn_Int_Check(item)) {
 			char *s;
 			PyObject *py_o2;
 
 			py_o = PyObject_Str(item);
 			JUMP_IF_NULL(py_o, error);
 
-			py_o2 = _pyccn_unicode_to_utf8(py_o, &s, NULL);
+			py_o2 = _ndn_unicode_to_utf8(py_o, &s, NULL);
 			Py_DECREF(py_o);
 			if (!py_o2)
 				goto error;
@@ -170,7 +170,7 @@ error:
 }
 
 PyObject *
-_pyccn_cmd_name_comps_to_ccn(PyObject *UNUSED(self), PyObject *py_name_components)
+_ndn_cmd_name_comps_to_ccn(PyObject *UNUSED(self), PyObject *py_name_components)
 {
 	return name_comps_to_ccn(py_name_components);
 }
@@ -179,10 +179,10 @@ _pyccn_cmd_name_comps_to_ccn(PyObject *UNUSED(self), PyObject *py_name_component
 //
 
 PyObject *
-_pyccn_cmd_name_comps_from_ccn(PyObject *UNUSED(self), PyObject *py_cname)
+_ndn_cmd_name_comps_from_ccn(PyObject *UNUSED(self), PyObject *py_cname)
 {
 	if (!CCNObject_IsValid(NAME, py_cname)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a CCN name");
+		PyErr_SetString(PyExc_TypeError, "Must pass a ndn.Face name");
 		return NULL;
 	}
 
@@ -190,7 +190,7 @@ _pyccn_cmd_name_comps_from_ccn(PyObject *UNUSED(self), PyObject *py_cname)
 }
 
 PyObject *
-_pyccn_cmd_name_comps_from_ccn_buffer (PyObject *UNUSED(self), PyObject *py_buffer)
+_ndn_cmd_name_comps_from_ccn_buffer (PyObject *UNUSED(self), PyObject *py_buffer)
 {
   int r;
   Py_buffer buffer;
@@ -312,14 +312,14 @@ Name_from_ccn_tagged_bytearray(const unsigned char *buf, size_t size)
 }
 
 PyObject *
-_pyccn_cmd_name_from_uri(PyObject *UNUSED(self), PyObject *py_uri)
+_ndn_cmd_name_from_uri(PyObject *UNUSED(self), PyObject *py_uri)
 {
 	struct ccn_charbuf *name;
 	PyObject *py_name = NULL, *py_o;
 	char *buf;
 	int r;
 
-	if (!_pyccn_STRING_CHECK(py_uri)) {
+	if (!_ndn_STRING_CHECK(py_uri)) {
 		PyErr_SetString(PyExc_TypeError, "Expected string");
 		return NULL;
 	}
@@ -327,7 +327,7 @@ _pyccn_cmd_name_from_uri(PyObject *UNUSED(self), PyObject *py_uri)
 	py_name = CCNObject_New_charbuf(NAME, &name);
 	JUMP_IF_NULL(py_name, error);
 
-	py_o = _pyccn_unicode_to_utf8(py_uri, &buf, NULL);
+	py_o = _ndn_unicode_to_utf8(py_uri, &buf, NULL);
 	JUMP_IF_NULL(py_o, error);
 
 	r = ccn_name_from_uri(name, buf);
@@ -345,10 +345,10 @@ error:
 }
 
 PyObject *
-_pyccn_cmd_name_to_uri(PyObject *UNUSED(self), PyObject *py_name)
+_ndn_cmd_name_to_uri(PyObject *UNUSED(self), PyObject *py_name)
 {
 	struct ccn_charbuf *cb, *uri = NULL;
-	enum _pyccn_capsules type;
+	enum _ndn_capsules type;
 	int r;
 	PyObject *py_o;
 
@@ -396,7 +396,7 @@ error:
 }
 
 PyObject *
-_pyccn_cmd_compare_names(PyObject *UNUSED(self), PyObject *args)
+_ndn_cmd_compare_names(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_name1, *py_name2;
 	struct ccn_charbuf *name1, *name2;
@@ -406,13 +406,13 @@ _pyccn_cmd_compare_names(PyObject *UNUSED(self), PyObject *args)
 		return NULL;
 
 	if (!CCNObject_IsValid(NAME, py_name1)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a CCN name as 1st"
+		PyErr_SetString(PyExc_TypeError, "Must pass a ndn.Face name as 1st"
 				" argument");
 		return NULL;
 	}
 
 	if (!CCNObject_IsValid(NAME, py_name2)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a CCN name as 2nd"
+		PyErr_SetString(PyExc_TypeError, "Must pass a ndn.Face name as 2nd"
 				" argument");
 		return NULL;
 	}

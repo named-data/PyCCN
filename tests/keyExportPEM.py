@@ -1,6 +1,6 @@
 import os, filecmp
 from base64 import b64encode, b64decode
-from pyccn import Key, _pyccn, CCN
+from ndn import Key, _ndn, Face
 
 print(os.getcwd())
 
@@ -17,7 +17,7 @@ def rm_files(*list):
 
 rm_files(private_pem1, public_pem1, private_pem2, public_pem2)
 
-k = CCN.getDefaultKey()
+k = Face.getDefaultKey()
 
 k.privateToPEM(filename=private_pem1)
 k.publicToPEM(filename=public_pem1)

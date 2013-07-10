@@ -1,14 +1,14 @@
-import pyccn
-from pyccn import _pyccn
+import ndn
+from ndn import _ndn
 
-e = pyccn.ExclusionFilter()
+e = ndn.ExclusionFilter()
 e.add_any()
-e.add_names([pyccn.Name('/one'), pyccn.Name('/two'), pyccn.Name('/three'), pyccn.Name('/four')])
+e.add_names([ndn.Name('/one'), ndn.Name('/two'), ndn.Name('/three'), ndn.Name('/four')])
 e.add_any()
-e.add_name(pyccn.Name('/forty/two'))
+e.add_name(ndn.Name('/forty/two'))
 
 str(e)
-d = _pyccn.ExclusionFilter_obj_from_ccn(e.ccn_data)
+d = _ndn.ExclusionFilter_obj_from_ccn(e.ccn_data)
 str(d)
 
 # I believe separation of /forty/two into /forty and /two is a correct behavior

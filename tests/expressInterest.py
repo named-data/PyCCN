@@ -1,4 +1,4 @@
-from pyccn import CCN, Name, Interest, Closure
+from ndn import Face, Name, Interest, Closure
 from time import sleep
 
 worked = False
@@ -17,7 +17,7 @@ n = Name("ccnx:/ccnx/ping")
 i = Interest()
 closure = MyClosure()
 
-c = CCN()
+c = Face()
 res = c.expressInterest(n, closure, i)
 print(res)
 

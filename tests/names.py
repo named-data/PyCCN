@@ -1,11 +1,11 @@
-from pyccn import _pyccn, CCN, Name
+from ndn import _ndn, Face, Name
 import sys
 
 comps = ['this', 'is', 'some', 'name']
 print(comps)
 
-ccn_name = _pyccn.name_comps_to_ccn(comps)
-comps2 = _pyccn.name_comps_from_ccn(ccn_name)
+ccn_name = _ndn.name_comps_to_ccn(comps)
+comps2 = _ndn.name_comps_from_ccn(ccn_name)
 print(comps2)
 
 #for comp1, comp2 in zip(map(lambda x: bytearray(x), comps), comps2):

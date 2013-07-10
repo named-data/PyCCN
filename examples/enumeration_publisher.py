@@ -7,28 +7,28 @@
 #
 
 import sys
-import pyccn
-from pyccn.impl.enumeration import ccnb_enumerate
-from pyccn.impl.segmenting import segmenter, Wrapper
+import ndn
+from ndn.impl.enumeration import ccnb_enumerate
+from ndn.impl.segmenting import segmenter, Wrapper
 
 def generate_names():
 	names = ["/Hello", "/World", "/This", "/is", "/an", "/enumeration", "/example"]
-	return map(lambda x: pyccn.Name(x), names)
+	return map(lambda x: ndn.Name(x), names)
 
 def main(args):
 	if len(sys.argv) != 2:
 		usage()
 
-	name = pyccn.Name(sys.argv[1])
+	name = ndn.Name(sys.argv[1])
 	data = ccnb_enumerate(generate_names())
 
-	key = pyccn.CCN.getDefaultKey()
+	key = ndn.Face.getDefaultKey()
 	name = name.append('\xc1.E.be').appendKeyID(key).appendVersion()
 
 	wrapper = Wrapper(name, key)
 	sgmtr = segmenter(data, wrapper)
 
-	handle = pyccn.CCN()
+	handle = ndn.Face()
 	for seg in sgmtr:
 		handle.put(seg)
 

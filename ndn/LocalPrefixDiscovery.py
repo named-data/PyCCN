@@ -9,17 +9,21 @@
 # Author: Alexander Afanasyev <alexander.afanasyev@ucla.edu>
 #
 
-from CCN import *
+from Face import *
 from Interest import *
 from Name import *
 import Closure
 import datetime
 import threading
 import time
-from apscheduler.scheduler import Scheduler
-import logging
 
-_LOG = logging.getLogger ("pyccn.LocalPrefixDiscovery")
+import logging
+_LOG = logging.getLogger ("ndn.LocalPrefixDiscovery")
+
+try:
+    from apscheduler.scheduler import Scheduler
+except:
+    pass
 
 class LocalPrefixDiscovery:
 #private:
@@ -36,8 +40,8 @@ class LocalPrefixDiscovery:
         self._scheduler = Scheduler ()
         self._scheduler.start ()
         self._timeouts = 0
-        self._face = CCN ()
-        self._eventLoop = pyccn.EventLoop (self._face)
+        self._face = Face ()
+        self._eventLoop = ndn.EventLoop (self._face)
 
     def subscribe (self, tag, callback):
         self._subscribers[tag] = callback

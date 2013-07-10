@@ -12,7 +12,7 @@
 
 #include <stdlib.h>
 
-#include "pyccn.h"
+#include "py_ndn.h"
 #include "objects.h"
 #include "util.h"
 
@@ -21,7 +21,7 @@ static struct completed_closure *g_completed_closures;
  */
 
 static struct type_to_name {
-	enum _pyccn_capsules type;
+	enum _ndn_capsules type;
 	const char *name;
 } g_types_to_names[] = {
 	{CLOSURE, "Closure_ccn_data"},
@@ -43,7 +43,7 @@ static struct type_to_name {
 };
 
 static inline const char *
-type2name(enum _pyccn_capsules type)
+type2name(enum _ndn_capsules type)
 {
 	struct type_to_name *p;
 
@@ -56,7 +56,7 @@ type2name(enum _pyccn_capsules type)
 	return p->name;
 }
 
-static inline enum _pyccn_capsules
+static inline enum _ndn_capsules
 name2type(const char *name)
 {
 	struct type_to_name *p;
@@ -74,11 +74,11 @@ name2type(const char *name)
 }
 
 static void
-pyccn_Capsule_Destructor(PyObject *capsule)
+py_ndn_Capsule_Destructor(PyObject *capsule)
 {
 	const char *name;
 	void *pointer;
-	enum _pyccn_capsules type;
+	enum _ndn_capsules type;
 
 	assert(PyCapsule_CheckExact(capsule));
 
@@ -179,13 +179,13 @@ pyccn_Capsule_Destructor(PyObject *capsule)
 }
 
 PyObject *
-CCNObject_New(enum _pyccn_capsules type, void *pointer)
+CCNObject_New(enum _ndn_capsules type, void *pointer)
 {
 	PyObject *capsule;
 	int r;
 
 	assert(pointer);
-	capsule = PyCapsule_New(pointer, type2name(type), pyccn_Capsule_Destructor);
+	capsule = PyCapsule_New(pointer, type2name(type), py_ndn_Capsule_Destructor);
 	if (!capsule)
 		return NULL;
 
@@ -230,7 +230,7 @@ error:
 }
 
 PyObject *
-CCNObject_Borrow(enum _pyccn_capsules type, void *pointer)
+CCNObject_Borrow(enum _ndn_capsules type, void *pointer)
 {
 	PyObject *r;
 
@@ -242,7 +242,7 @@ CCNObject_Borrow(enum _pyccn_capsules type, void *pointer)
 }
 
 int
-CCNObject_ReqType(enum _pyccn_capsules type, PyObject *capsule)
+CCNObject_ReqType(enum _ndn_capsules type, PyObject *capsule)
 {
 	int r;
 	const char *t = type2name(type);
@@ -255,13 +255,13 @@ CCNObject_ReqType(enum _pyccn_capsules type, PyObject *capsule)
 }
 
 int
-CCNObject_IsValid(enum _pyccn_capsules type, PyObject *capsule)
+CCNObject_IsValid(enum _ndn_capsules type, PyObject *capsule)
 {
 	return PyCapsule_IsValid(capsule, type2name(type));
 }
 
 void *
-CCNObject_Get(enum _pyccn_capsules type, PyObject *capsule)
+CCNObject_Get(enum _ndn_capsules type, PyObject *capsule)
 {
 	void *p;
 
@@ -295,7 +295,7 @@ CCNObject_New_Closure(struct ccn_closure **closure)
 }
 
 PyObject *
-CCNObject_New_charbuf(enum _pyccn_capsules type,
+CCNObject_New_charbuf(enum _ndn_capsules type,
 		struct ccn_charbuf **charbuf)
 {
 	struct ccn_charbuf *p;

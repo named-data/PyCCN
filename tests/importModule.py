@@ -1,1 +1,1 @@
-from pyccn import _pyccn
+from ndn import _ndn

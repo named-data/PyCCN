@@ -14,12 +14,12 @@
 #    //              in which shortest components go first.
 #
 
-from . import _pyccn
+from . import _ndn
 from . import Name
 import utils
 
 class AOKType(utils.Flag):
-	_prefix = "pyccn"
+	_prefix = "ndn"
 
 AOK_NONE = AOKType.new_flag('AOK_NONE', 0x0)
 AOK_CS = AOKType.new_flag('AOK_CS', 0x1)  # Answer from content store
@@ -49,7 +49,7 @@ class Interest(object):
 		self.interestLifetime = interestLifetime
 		self.nonce = nonce
 
-		# pyccn
+		# py-ndn
 		self.ccn_data_dirty = True
 		self.ccn_data = None  # backing charbuf
 
@@ -67,7 +67,7 @@ class Interest(object):
 				self.ccn_data_dirty = True
 
 			if object.__getattribute__(self, 'ccn_data_dirty'):
-				self.ccn_data = _pyccn.Interest_obj_to_ccn(self)
+				self.ccn_data = _ndn.Interest_obj_to_ccn(self)
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)
 
@@ -109,7 +109,7 @@ class Interest(object):
 		if self.nonce is not None:
 			args += ["nonce=%r" % self.nonce]
 
-		return "pyccn.Interest(%s)" % ", ".join(args)
+		return "ndn.Interest(%s)" % ", ".join(args)
 
 	def get_aok_value(self):
 		global AOK_DEFAULT
@@ -135,7 +135,7 @@ class ExclusionFilter(object):
 	def __init__(self):
 		self.components = []
 
-		# pyccn
+		# py-ndn
 		self.ccn_data_dirty = False
 		self.ccn_data = None  # backing charbuf
 
@@ -164,7 +164,7 @@ class ExclusionFilter(object):
 	def __getattribute__(self, name):
 		if name == "ccn_data":
 			if object.__getattribute__(self, 'ccn_data_dirty'):
-				self.ccn_data = _pyccn.ExclusionFilter_names_to_ccn(
+				self.ccn_data = _ndn.ExclusionFilter_names_to_ccn(
 					self.components)
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)

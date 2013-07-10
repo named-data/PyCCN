@@ -9,7 +9,7 @@
 #include <ccn/ccn.h>
 #include <ccn/signing.h>
 
-#include "pyccn.h"
+#include "py_ndn.h"
 #include "util.h"
 #include "methods_contentobject.h"
 #include "methods_interest.h"
@@ -57,7 +57,7 @@ Name_obj_from_ccn_parsed(PyObject *py_content_object)
 	assert(CCNObject_IsValid(CONTENT_OBJECT, py_content_object));
 
 	content_object = CCNObject_Get(CONTENT_OBJECT, py_content_object);
-	parsed_content_object = _pyccn_content_object_get_pco(py_content_object);
+	parsed_content_object = _ndn_content_object_get_pco(py_content_object);
 	if (!parsed_content_object)
 		return NULL;
 
@@ -140,7 +140,7 @@ error:
 }
 
 struct ccn_parsed_ContentObject *
-_pyccn_content_object_get_pco(PyObject *py_content_object)
+_ndn_content_object_get_pco(PyObject *py_content_object)
 {
 	struct content_object_data *context;
 	int r;
@@ -164,7 +164,7 @@ error:
 }
 
 void
-_pyccn_content_object_set_pco(PyObject *py_content_object,
+_ndn_content_object_set_pco(PyObject *py_content_object,
 		struct ccn_parsed_ContentObject *pco)
 {
 	struct content_object_data *context;
@@ -181,7 +181,7 @@ _pyccn_content_object_set_pco(PyObject *py_content_object,
 }
 
 struct ccn_indexbuf *
-_pyccn_content_object_get_comps(PyObject *py_content_object)
+_ndn_content_object_get_comps(PyObject *py_content_object)
 {
 	struct content_object_data *context;
 	int r;
@@ -205,7 +205,7 @@ error:
 }
 
 void
-_pyccn_content_object_set_comps(PyObject *py_content_object,
+_ndn_content_object_set_comps(PyObject *py_content_object,
 		struct ccn_indexbuf *comps)
 {
 	struct content_object_data *context;
@@ -278,7 +278,7 @@ ContentObject_obj_from_ccn(PyObject *py_content_object)
 		return NULL;
 
 	content_object = CCNObject_Get(CONTENT_OBJECT, py_content_object);
-	parsed_content_object = _pyccn_content_object_get_pco(py_content_object);
+	parsed_content_object = _ndn_content_object_get_pco(py_content_object);
 	if (!parsed_content_object)
 		return NULL;
 
@@ -369,13 +369,13 @@ error:
 }
 
 PyObject *
-_pyccn_cmd_content_to_bytearray(PyObject *UNUSED(self), PyObject *arg)
+_ndn_cmd_content_to_bytearray(PyObject *UNUSED(self), PyObject *arg)
 {
 	PyObject *str, *result;
 
 	if (arg == Py_None)
 		Py_RETURN_NONE;
-	else if (PyFloat_Check(arg) || PyLong_Check(arg) || _pyccn_Int_Check(arg)) {
+	else if (PyFloat_Check(arg) || PyLong_Check(arg) || _ndn_Int_Check(arg)) {
 		PyObject *py_o;
 
 		py_o = PyObject_Str(arg);
@@ -405,13 +405,13 @@ _pyccn_cmd_content_to_bytearray(PyObject *UNUSED(self), PyObject *arg)
 }
 
 PyObject *
-_pyccn_cmd_content_to_bytes(PyObject *UNUSED(self), PyObject *arg)
+_ndn_cmd_content_to_bytes(PyObject *UNUSED(self), PyObject *arg)
 {
 	PyObject *str;
 
 	if (arg == Py_None)
 		Py_RETURN_NONE;
-	else if (PyFloat_Check(arg) || PyLong_Check(arg) || _pyccn_Int_Check(arg)) {
+	else if (PyFloat_Check(arg) || PyLong_Check(arg) || _ndn_Int_Check(arg)) {
 		PyObject *py_o;
 
 		py_o = PyObject_Str(arg);
@@ -434,7 +434,7 @@ _pyccn_cmd_content_to_bytes(PyObject *UNUSED(self), PyObject *arg)
 }
 
 PyObject *
-_pyccn_cmd_encode_ContentObject(PyObject *UNUSED(self), PyObject *args)
+_ndn_cmd_encode_ContentObject(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_content_object, *py_name, *py_content, *py_signed_info,
 			*py_key;
@@ -456,7 +456,7 @@ _pyccn_cmd_encode_ContentObject(PyObject *UNUSED(self), PyObject *args)
 	}
 
 	if (!CCNObject_IsValid(NAME, py_name)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a CCN Name as arg 2");
+		PyErr_SetString(PyExc_TypeError, "Must pass a ndn.Face Name as arg 2");
 		return NULL;
 	} else
 		name = CCNObject_Get(NAME, py_name);
@@ -474,7 +474,7 @@ _pyccn_cmd_encode_ContentObject(PyObject *UNUSED(self), PyObject *args)
 	}
 
 	if (!CCNObject_IsValid(SIGNED_INFO, py_signed_info)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a CCN SignedInfo as arg 4");
+		PyErr_SetString(PyExc_TypeError, "Must pass a ndn.Face SignedInfo as arg 4");
 		return NULL;
 	} else
 		signed_info = CCNObject_Get(SIGNED_INFO, py_signed_info);
@@ -525,19 +525,19 @@ error:
 }
 
 PyObject *
-_pyccn_cmd_ContentObject_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_co)
+_ndn_cmd_ContentObject_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_co)
 {
 	return ContentObject_obj_from_ccn(py_co);
 }
 
 PyObject *
-_pyccn_cmd_ContentObject_obj_from_ccn_buffer(PyObject *UNUSED(self), PyObject *py_buffer)
+_ndn_cmd_ContentObject_obj_from_ccn_buffer(PyObject *UNUSED(self), PyObject *py_buffer)
 {
 	return ContentObject_obj_from_ccn_buffer(py_buffer);
 }
 
 PyObject *
-_pyccn_cmd_digest_contentobject(PyObject *UNUSED(self), PyObject *args)
+_ndn_cmd_digest_contentobject(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_content_object;
 	struct ccn_charbuf *content_object;
@@ -553,7 +553,7 @@ _pyccn_cmd_digest_contentobject(PyObject *UNUSED(self), PyObject *args)
 	}
 
 	content_object = CCNObject_Get(CONTENT_OBJECT, py_content_object);
-	parsed_content_object = _pyccn_content_object_get_pco(py_content_object);
+	parsed_content_object = _ndn_content_object_get_pco(py_content_object);
 	if (!parsed_content_object)
 		return NULL;
 
@@ -576,7 +576,7 @@ _pyccn_cmd_digest_contentobject(PyObject *UNUSED(self), PyObject *args)
 }
 
 PyObject *
-_pyccn_cmd_content_matches_interest(PyObject *UNUSED(self), PyObject *args)
+_ndn_cmd_content_matches_interest(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_content_object, *py_interest;
 	struct ccn_charbuf *content_object, *interest;
@@ -601,11 +601,11 @@ _pyccn_cmd_content_matches_interest(PyObject *UNUSED(self), PyObject *args)
 	content_object = CCNObject_Get(CONTENT_OBJECT, py_content_object);
 	interest = CCNObject_Get(INTEREST, py_interest);
 
-	pco = _pyccn_content_object_get_pco(py_content_object);
+	pco = _ndn_content_object_get_pco(py_content_object);
 	if (!pco)
 		return NULL;
 
-	pi = _pyccn_interest_get_pi(py_interest);
+	pi = _ndn_interest_get_pi(py_interest);
 	if (!pi)
 		return NULL;
 
@@ -619,7 +619,7 @@ _pyccn_cmd_content_matches_interest(PyObject *UNUSED(self), PyObject *args)
 }
 
 PyObject *
-_pyccn_cmd_verify_content(PyObject *UNUSED(self), PyObject *args)
+_ndn_cmd_verify_content(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_handle, *py_content_object;
 	PyObject *res;
@@ -645,7 +645,7 @@ _pyccn_cmd_verify_content(PyObject *UNUSED(self), PyObject *args)
 
 	handle = CCNObject_Get(HANDLE, py_handle);
 	content_object = CCNObject_Get(CONTENT_OBJECT, py_content_object);
-	pco = _pyccn_content_object_get_pco(py_content_object);
+	pco = _ndn_content_object_get_pco(py_content_object);
 	if (!pco)
 		return NULL;
 
@@ -659,7 +659,7 @@ _pyccn_cmd_verify_content(PyObject *UNUSED(self), PyObject *args)
 }
 
 PyObject *
-_pyccn_cmd_verify_signature(PyObject *UNUSED(self), PyObject *args)
+_ndn_cmd_verify_signature(PyObject *UNUSED(self), PyObject *args)
 {
 	PyObject *py_content_object, *py_pub_key;
 	PyObject *res;
@@ -683,7 +683,7 @@ _pyccn_cmd_verify_signature(PyObject *UNUSED(self), PyObject *args)
 	}
 
 	content_object = CCNObject_Get(CONTENT_OBJECT, py_content_object);
-	pco = _pyccn_content_object_get_pco(py_content_object);
+	pco = _ndn_content_object_get_pco(py_content_object);
 	if (!pco)
 		return NULL;
 

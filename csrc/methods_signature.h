@@ -9,7 +9,7 @@
 #  define	METHODS_SIGNATURE_H
 
 PyObject *Signature_obj_from_ccn(PyObject *py_signature);
-PyObject *_pyccn_cmd_Signature_obj_to_ccn(PyObject* self, PyObject* args);
-PyObject *_pyccn_cmd_Signature_obj_from_ccn(PyObject* self, PyObject* args);
+PyObject *_ndn_cmd_Signature_obj_to_ccn(PyObject* self, PyObject* args);
+PyObject *_ndn_cmd_Signature_obj_from_ccn(PyObject* self, PyObject* args);
 
 #endif	/* METHODS_SIGNATURE_H */

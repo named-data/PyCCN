@@ -1,6 +1,6 @@
-from pyccn import CCN, Name
+from ndn import Face, Name
 
-c = CCN()
+c = Face()
 print(c)
 
 n = Name()

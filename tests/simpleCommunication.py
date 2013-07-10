@@ -1,8 +1,8 @@
-import pyccn
-from pyccn import CCN, Name, Interest, ContentObject, SignedInfo, Key, KeyLocator, Closure
+import ndn
+from ndn import Face, Name, Interest, ContentObject, SignedInfo, Key, KeyLocator, Closure
 #from threading import Timer
 
-k = CCN.getDefaultKey()
+k = Face.getDefaultKey()
 kl = KeyLocator(k)
 
 n = Name("/forty/two")
@@ -20,7 +20,7 @@ class SenderClosure(Closure):
 
 		si = SignedInfo()
 		si.publisherPublicKeyDigest = k.publicKeyID
-		si.type = pyccn.CONTENT_DATA
+		si.type = ndn.CONTENT_DATA
 		si.freshnessSeconds = 5
 		si.keyLocator = kl
 
@@ -31,7 +31,7 @@ class SenderClosure(Closure):
 		print("put(co) = ", r)
 		#sender_handle.setRunTimeout(0)
 
-		return pyccn.RESULT_INTEREST_CONSUMED
+		return ndn.RESULT_INTEREST_CONSUMED
 
 class ReceiverClosure(Closure):
 	def upcall(self, kind, upcallInfo):
@@ -49,13 +49,13 @@ class ReceiverClosure(Closure):
 		#receiver_handle.setRunTimeout(0)
 		event_loop.stop()
 
-		return pyccn.RESULT_OK
+		return ndn.RESULT_OK
 
 senderclosure = SenderClosure()
 receiverclosure = ReceiverClosure()
 
-sender_handle = CCN()
-receiver_handle = CCN()
+sender_handle = Face()
+receiver_handle = Face()
 
 #Looks like the CCNx API doesn't deliver messages
 #that we sent to ourselves, so we just push it
@@ -76,7 +76,7 @@ print("Running loops")
 #receiver_handle.run(500)
 
 # New way of doing this
-event_loop = pyccn.EventLoop(sender_handle, receiver_handle)
+event_loop = ndn.EventLoop(sender_handle, receiver_handle)
 event_loop.run()
 
 assert upcall_called

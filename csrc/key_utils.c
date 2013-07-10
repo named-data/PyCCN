@@ -26,7 +26,7 @@
 #include <assert.h>
 
 #include "key_utils.h"
-#include "pyccn.h"
+#include "py_ndn.h"
 #include "objects.h"
 #include "util.h"
 
@@ -247,7 +247,7 @@ error:
 }
 
 PyObject *
-_pyccn_privatekey_dup(const struct ccn_pkey *key)
+_ndn_privatekey_dup(const struct ccn_pkey *key)
 {
 	RSA *private_key_rsa;
 	PyObject *py_private_key = NULL;

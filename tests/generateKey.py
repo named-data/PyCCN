@@ -1,4 +1,4 @@
-from pyccn import CCN,Name,Interest,ContentObject,Key
+from ndn import Face,Name,Interest,ContentObject,Key
 
 k = Key()
 k.generateRSA(1024)

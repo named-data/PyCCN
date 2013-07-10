@@ -9,7 +9,7 @@
 #include <ccn/ccn.h>
 #include <ccn/signing.h>
 
-#include "pyccn.h"
+#include "py_ndn.h"
 #include "util.h"
 #include "key_utils.h"
 #include "methods_key.h"
@@ -387,13 +387,13 @@ error:
  */
 
 PyObject *
-_pyccn_cmd_Key_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_ccn_key)
+_ndn_cmd_Key_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_ccn_key)
 {
 	return Key_obj_from_ccn(py_ccn_key);
 }
 
 PyObject *
-_pyccn_cmd_KeyLocator_to_ccn(PyObject *UNUSED(self), PyObject *args,
+_ndn_cmd_KeyLocator_to_ccn(PyObject *UNUSED(self), PyObject *args,
 		PyObject *kwds)
 {
 	static char *kwlist[] = {"name", "digest", "key", "cert", NULL};
@@ -442,10 +442,10 @@ error:
 }
 
 PyObject *
-_pyccn_cmd_KeyLocator_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_keylocator)
+_ndn_cmd_KeyLocator_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_keylocator)
 {
 	if (!CCNObject_IsValid(KEY_LOCATOR, py_keylocator)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a CCN Key Locator object");
+		PyErr_SetString(PyExc_TypeError, "Must pass a ndn.Face Key Locator object");
 
 		return NULL;
 	}
@@ -454,7 +454,7 @@ _pyccn_cmd_KeyLocator_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_keylocat
 }
 
 PyObject *
-_pyccn_cmd_PEM_read_key(PyObject *UNUSED(self), PyObject *args,
+_ndn_cmd_PEM_read_key(PyObject *UNUSED(self), PyObject *args,
 		PyObject *py_kwds)
 {
 	PyObject *py_file = Py_None, *py_private_pem = Py_None,
@@ -477,13 +477,13 @@ _pyccn_cmd_PEM_read_key(PyObject *UNUSED(self), PyObject *args,
           }
 
 	if (py_file != Py_None) {
-		fin = _pyccn_open_file_handle(py_file, "r");
+		fin = _ndn_open_file_handle(py_file, "r");
 		if (!fin)
 			return NULL;
 
 		r = read_key_pem(fin, &py_private_key, &py_public_key, &py_digest,
                                  &digest_len, password);
-		_pyccn_close_file_handle(fin);
+		_ndn_close_file_handle(fin);
 		if (r < 0)
 			return NULL;
 	} else if (py_private_pem != Py_None) {
@@ -511,7 +511,7 @@ _pyccn_cmd_PEM_read_key(PyObject *UNUSED(self), PyObject *args,
 }
 
 PyObject *
-_pyccn_cmd_PEM_write_key(PyObject *UNUSED(self), PyObject *args,
+_ndn_cmd_PEM_write_key(PyObject *UNUSED(self), PyObject *args,
 		PyObject *py_kwds)
 {
         PyObject *py_pkey, *py_file = Py_None, *py_password = Py_None;
@@ -546,7 +546,7 @@ _pyccn_cmd_PEM_write_key(PyObject *UNUSED(self), PyObject *args,
           }
 
 	if (py_file != Py_None) {
-		of = _pyccn_open_file_handle(py_file, "w");
+		of = _ndn_open_file_handle(py_file, "w");
 		if (!of)
 			return NULL;
 
@@ -555,7 +555,7 @@ _pyccn_cmd_PEM_write_key(PyObject *UNUSED(self), PyObject *args,
 		else
 			r = write_key_pem_public(of, pkey);
 
-		_pyccn_close_file_handle(of);
+		_ndn_close_file_handle(of);
 		if (r < 0)
 			return NULL;
 	} else {
@@ -569,7 +569,7 @@ _pyccn_cmd_PEM_write_key(PyObject *UNUSED(self), PyObject *args,
 }
 
 PyObject *
-_pyccn_cmd_DER_read_key(PyObject *UNUSED(self), PyObject *args,
+_ndn_cmd_DER_read_key(PyObject *UNUSED(self), PyObject *args,
 		PyObject *py_kwds)
 {
 	PyObject *py_private_der = Py_None, *py_public_der = Py_None;
@@ -628,7 +628,7 @@ do_work:
 }
 
 PyObject *
-_pyccn_cmd_DER_write_key(PyObject *UNUSED(self), PyObject *args,
+_ndn_cmd_DER_write_key(PyObject *UNUSED(self), PyObject *args,
 		PyObject *py_kwds)
 {
 	PyObject *py_pkey;

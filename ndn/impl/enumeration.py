@@ -4,8 +4,8 @@
 # Written by: Derek Kulinski <takeda@takeda.tk>
 #
 
-import pyccn
-from pyccn.impl import ccnb
+import ndn
+from ndn.impl import ccnb
 
 def ccnb_enumerate(names):
 	out = bytearray()

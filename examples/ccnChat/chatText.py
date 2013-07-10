@@ -5,7 +5,7 @@
 #
 
 import time, threading
-from pyccn import Key
+from ndn import Key
 from ChatNet import ChatNet, ChatServer
 
 class ChatNoGUI(object):

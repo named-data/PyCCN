@@ -1,7 +1,7 @@
-from pyccn import Interest, Name, Key, CCN, _pyccn
+from ndn import Interest, Name, Key, Face, _ndn
 import datetime
 
-k = CCN.getDefaultKey()
+k = Face.getDefaultKey()
 
 i = Interest()
 i.name = Name('/hello/world')
@@ -18,7 +18,7 @@ i.nonce = b'abababa'
 print(i)
 print(i.ccn_data)
 
-i2 = _pyccn.Interest_obj_from_ccn(i.ccn_data)
+i2 = _ndn.Interest_obj_from_ccn(i.ccn_data)
 print(i2)
 
 assert(i.name == i2.name)

@@ -1,4 +1,4 @@
-from pyccn import Closure, Interest, Name
+from ndn import Closure, Interest, Name
 
 class RepoUpload(Closure.Closure):
 	def __init__(self, handle, name, content):

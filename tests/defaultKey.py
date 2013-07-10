@@ -1,3 +1,3 @@
-from pyccn import CCN
-c = CCN()
+from ndn import Face
+c = Face()
 k = c.getDefaultKey()

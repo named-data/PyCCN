@@ -8,7 +8,7 @@
 #include "python_hdr.h"
 #include <ccn/ccn.h>
 
-#include "pyccn.h"
+#include "py_ndn.h"
 #include "util.h"
 #include "methods_name.h"
 #include "methods_interest.h"
@@ -216,7 +216,7 @@ ExclusionFilter_obj_from_ccn(PyObject *py_exclusion_filter)
 	//    using PyObject_SetAttrString
 	//
 	//    self.components = None
-	//    # pyccn
+	//    # py_ndn
 	//    self.ccn_data_dirty = False
 	//    self.ccn_data = None  # backing charbuf
 
@@ -308,7 +308,7 @@ process_int_attribute(struct ccn_charbuf *interest, enum ccn_dtag tag,
 	if (r <= 0)
 		return r;
 
-	val = _pyccn_Int_AsLong(py_attr);
+	val = _ndn_Int_AsLong(py_attr);
 	Py_DECREF(py_attr);
 	if (PyErr_Occurred())
 		return -1;
@@ -507,7 +507,7 @@ Interest_obj_from_ccn(PyObject *py_interest)
 	if (!py_obj_Interest)
 		return NULL;
 
-	pi = _pyccn_interest_get_pi(py_interest);
+	pi = _ndn_interest_get_pi(py_interest);
 	JUMP_IF_NULL(pi, error);
 
 	// 2) Set ccn_data to a cobject pointing to the c struct
@@ -563,7 +563,7 @@ Interest_obj_from_ccn(PyObject *py_interest)
 			goto error;
 		}
 
-		py_o = _pyccn_Int_FromLong(r);
+		py_o = _ndn_Int_FromLong(r);
 		JUMP_IF_NULL(py_o, error);
 
 		r = PyObject_SetAttrString(py_obj_Interest, "minSuffixComponents",
@@ -585,7 +585,7 @@ Interest_obj_from_ccn(PyObject *py_interest)
 			goto error;
 		}
 
-		py_o = _pyccn_Int_FromLong(r);
+		py_o = _ndn_Int_FromLong(r);
 		JUMP_IF_NULL(py_o, error);
 
 		r = PyObject_SetAttrString(py_obj_Interest, "maxSuffixComponents",
@@ -653,7 +653,7 @@ Interest_obj_from_ccn(PyObject *py_interest)
 			goto error;
 		}
 
-		py_o = _pyccn_Int_FromLong(r);
+		py_o = _ndn_Int_FromLong(r);
 		JUMP_IF_NULL(py_o, error);
 
 		r = PyObject_SetAttrString(py_obj_Interest, "childSelector", py_o);
@@ -674,7 +674,7 @@ Interest_obj_from_ccn(PyObject *py_interest)
 			goto error;
 		}
 
-		py_o = _pyccn_Int_FromLong(r);
+		py_o = _ndn_Int_FromLong(r);
 		JUMP_IF_NULL(py_o, error);
 
 		r = PyObject_SetAttrString(py_obj_Interest, "answerOriginKind", py_o);
@@ -693,7 +693,7 @@ Interest_obj_from_ccn(PyObject *py_interest)
 			goto error;
 		}
 
-		py_o = _pyccn_Int_FromLong(r);
+		py_o = _ndn_Int_FromLong(r);
 		JUMP_IF_NULL(py_o, error);
 
 		r = PyObject_SetAttrString(py_obj_Interest, "scope", py_o);
@@ -766,7 +766,7 @@ error:
 }
 
 struct ccn_parsed_interest *
-_pyccn_interest_get_pi(PyObject *py_interest)
+_ndn_interest_get_pi(PyObject *py_interest)
 {
 	struct interest_data *context;
 	struct ccn_charbuf *interest;
@@ -802,7 +802,7 @@ error:
 }
 
 void
-_pyccn_interest_set_pi(PyObject *py_interest, struct ccn_parsed_interest *pi)
+_ndn_interest_set_pi(PyObject *py_interest, struct ccn_parsed_interest *pi)
 {
 	struct interest_data *context;
 
@@ -821,7 +821,7 @@ _pyccn_interest_set_pi(PyObject *py_interest, struct ccn_parsed_interest *pi)
  */
 
 PyObject *
-_pyccn_cmd_Interest_obj_to_ccn(PyObject *UNUSED(self), PyObject *py_obj_Interest)
+_ndn_cmd_Interest_obj_to_ccn(PyObject *UNUSED(self), PyObject *py_obj_Interest)
 {
 	if (strcmp(py_obj_Interest->ob_type->tp_name, "Interest") != 0) {
 		PyErr_SetString(PyExc_TypeError, "Must pass an Interest");
@@ -832,10 +832,10 @@ _pyccn_cmd_Interest_obj_to_ccn(PyObject *UNUSED(self), PyObject *py_obj_Interest
 }
 
 PyObject *
-_pyccn_cmd_Interest_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_interest)
+_ndn_cmd_Interest_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_interest)
 {
 	if (!CCNObject_IsValid(INTEREST, py_interest)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a CCN Interest as 1st"
+		PyErr_SetString(PyExc_TypeError, "Must pass a ndn.Face Interest as 1st"
 				" argument");
 		return NULL;
 	}
@@ -844,7 +844,7 @@ _pyccn_cmd_Interest_obj_from_ccn(PyObject *UNUSED(self), PyObject *py_interest)
 }
 
 PyObject *
-_pyccn_cmd_ExclusionFilter_names_to_ccn(PyObject *UNUSED(self), PyObject *py_names)
+_ndn_cmd_ExclusionFilter_names_to_ccn(PyObject *UNUSED(self), PyObject *py_names)
 {
 	if (!PyList_Check(py_names)) {
 		PyErr_SetString(PyExc_TypeError, "Must pass a list of CCN names");
@@ -855,11 +855,11 @@ _pyccn_cmd_ExclusionFilter_names_to_ccn(PyObject *UNUSED(self), PyObject *py_nam
 }
 
 PyObject *
-_pyccn_cmd_ExclusionFilter_obj_from_ccn(PyObject *UNUSED(self),
+_ndn_cmd_ExclusionFilter_obj_from_ccn(PyObject *UNUSED(self),
 		PyObject *py_exclusion_filter)
 {
 	if (!CCNObject_IsValid(EXCLUSION_FILTER, py_exclusion_filter)) {
-		PyErr_SetString(PyExc_TypeError, "Must pass a CCN Exclusion Filter");
+		PyErr_SetString(PyExc_TypeError, "Must pass a ndn.Face Exclusion Filter");
 		return NULL;
 	}
 
