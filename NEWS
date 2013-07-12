@@ -1,33 +1,17 @@
-What's new in version 0.2?
---------------------------
+What's new in version 0.3
+-------------------------
 
-Completly changed the way pyccn was being imported. Now the pyccn is imported
-in a very similar way to other Python modules.
-For example, the old way of importing looked like this:
+Code refactoring:
+- The library has been renamed to py-ndn
+- pyccn.CCN is now knows as ndn.Face, being essentialy a handler (face) to the NDN daemon
+- New build system using waf-tools
 
-from pyccn import *
-handle = CCN.CCN()
-key = handle.getDefaultKey()
+New features:
+- LocalPrefixDiscovery
+- New methods in ndn.Face: expressInterestSimple, expressInterestForLatest, setInterestFilterSimple
+- New methods in ndn.Key: createFromDER, createFromPEM, getDefaultKey
+- New method in ndn.KeyLocator: getDefaultKeyLocator
+- Key.fromPEM and Key.privateToPEM allows password-based encryption of the private key
 
-The new version is:
-
-import pyccn
-handle = pyccn.CCN()
-key = handle.getDefaultKey()
-
-The Name objet is now immutable, all opperations that were modifying Name's
-contents now return a new Name object. For example:
-
-Old way:
-from pyccn import Name
-
-n = Name.Name('/hello/world')
-segment = Name.Name(n)
-n.appendSegment(42)
-
-New way:
-import pyccn
-
-n = pyccn.Name('/hello/world')
-segment = n.appendSegment(42)
-
+Modified functionality:
+- Key is saved in slightly different PEM format: generic PEM container, instead of RSA-specific one.

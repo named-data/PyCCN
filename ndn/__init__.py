@@ -7,6 +7,8 @@
 
 __all__ = ['Face', 'Closure', 'ContentObject', 'Interest', 'Key', 'Name']
 
+VERSION = 0.3
+
 import sys as _sys
 
 try:

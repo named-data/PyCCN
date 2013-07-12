@@ -39,4 +39,4 @@ Possible problems:
 Documentation:
 + remove license from every file and point to COPYING
 + mention --enable-shared in doc for Mac
-- explanatory of locking code in CCN.py in the beginning of the file
+- explanatory of locking code in Face.py in the beginning of the file

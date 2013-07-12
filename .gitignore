@@ -26,7 +26,8 @@ Makefile.in
 *.o
 
 *.trs
-
 csrc/namecrypto/.DS_Store
-
 csrc/.DS_Store
+
+.waf*
+.lock*
