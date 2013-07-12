@@ -91,7 +91,7 @@ class TestContext(Build.BuildContext):
                 sys.path.append (self.env['PYTHONARCHDIR'])
                 import ndn
             except:
-                self.fatal ("In order to run tests, py-ndn needs to be installed (run ./waf install or sudo ./waf install first)")
+                self.fatal ("In order to run tests, PyNDN needs to be installed (run ./waf install or sudo ./waf install first)")
 
             try:
                 import subprocess
