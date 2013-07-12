@@ -28,5 +28,6 @@ PyObject *_ndn_cmd_clear_interest_filter(PyObject *UNUSED(self), PyObject *args)
 PyObject *_ndn_cmd_get(PyObject *UNUSED(self), PyObject *args);
 PyObject *_ndn_cmd_put(PyObject *UNUSED(self), PyObject *args);
 PyObject *_ndn_cmd_get_default_key(PyObject *self, PyObject *arg);
+PyObject *_ndn_cmd_get_default_key_name(PyObject *self, PyObject *arg);
 
 #endif	/* METHODS_HANDLE_H */

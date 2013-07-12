@@ -51,7 +51,7 @@ UpcallInfo_obj_from_ccn(enum ccn_upcall_kind upcall_kind,
 	JUMP_IF_NULL(py_o, error);
 
 	if (upcall_kind == CCN_UPCALL_CONTENT ||
-            upcall_kind == CCN_UPCALL_CONTENT_UNVERIFIED ||
+			upcall_kind == CCN_UPCALL_CONTENT_UNVERIFIED ||
             upcall_kind == CCN_UPCALL_CONTENT_BAD ||
             upcall_kind == CCN_UPCALL_CONTENT_KEYMISSING ||
             upcall_kind == CCN_UPCALL_CONTENT_RAW) {
@@ -72,10 +72,10 @@ UpcallInfo_obj_from_ccn(enum ccn_upcall_kind upcall_kind,
 	}
 
 	if (upcall_kind == CCN_UPCALL_INTEREST ||
-            upcall_kind == CCN_UPCALL_CONSUMED_INTEREST ||
-            upcall_kind == CCN_UPCALL_CONTENT ||
-            upcall_kind == CCN_UPCALL_INTEREST_TIMED_OUT ||
-            upcall_kind == CCN_UPCALL_CONTENT_UNVERIFIED ||
+			upcall_kind == CCN_UPCALL_CONSUMED_INTEREST ||
+			upcall_kind == CCN_UPCALL_CONTENT ||
+			upcall_kind == CCN_UPCALL_INTEREST_TIMED_OUT ||
+			upcall_kind == CCN_UPCALL_CONTENT_UNVERIFIED ||
             upcall_kind == CCN_UPCALL_CONTENT_BAD ||
             upcall_kind == CCN_UPCALL_CONTENT_KEYMISSING ||
             upcall_kind == CCN_UPCALL_CONTENT_RAW) {
@@ -767,4 +767,34 @@ error:
 	ccn_keystore_destroy(&keystore);
 	ccn_charbuf_destroy(&buf);
 	return NULL;
+}
+
+PyObject *
+_ndn_cmd_get_default_key_name(PyObject *UNUSED(self), PyObject *UNUSED(arg))
+{
+  PyObject *py_name, *py_cname;
+  struct ccn_charbuf *defaultKeyName;
+  int r;
+  struct ccn_signing_params sp = CCN_SIGNING_PARAMS_INIT;
+  struct ccn *handle = ccn_create ();
+
+  handle = ccn_create ();
+
+  defaultKeyName = ccn_charbuf_create ();
+  if (!defaultKeyName)
+    return PyErr_NoMemory ();
+
+  py_cname = CCNObject_New (NAME, defaultKeyName);
+  if (!py_cname) {
+    ccn_charbuf_destroy (&defaultKeyName);
+    return NULL;
+  }
+  
+  r = ccn_get_public_key_and_name (handle, &sp, NULL, NULL, defaultKeyName);
+
+  py_name = r < 0 ? PyErr_NoMemory() : Name_obj_from_ccn (py_cname);
+  Py_DECREF(py_cname);
+
+  ccn_destroy (&handle);
+  return py_name;
 }

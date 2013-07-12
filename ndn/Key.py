@@ -86,6 +86,10 @@ class Key(object):
                 key.fromPEM (filename, private, public, password)
                 return key
 
+        @staticmethod
+        def getDefaultKey():
+                return _ndn.get_default_key()
+
 # plus library helper functions to generate and serialize keys?
 
 class KeyLocator(object):
@@ -122,3 +126,7 @@ class KeyLocator(object):
 
 				self.ccn_data_dirty = False
 		return object.__getattribute__(self, name)
+
+        @staticmethod
+        def getDefaultKeyLocator():
+                return KeyLocator (_ndn.get_default_key_name ())

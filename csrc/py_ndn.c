@@ -74,6 +74,7 @@ static PyMethodDef g_module_methods[] = {
 	{"get", _ndn_cmd_get, METH_VARARGS, NULL},
 	{"put", _ndn_cmd_put, METH_VARARGS, NULL},
 	{"get_default_key", _ndn_cmd_get_default_key, METH_NOARGS, NULL},
+        {"get_default_key_name", _ndn_cmd_get_default_key_name, METH_NOARGS, NULL},
 	{"generate_RSA_key", _ndn_cmd_generate_RSA_key, METH_VARARGS, NULL},
 	{"PEM_read_key", (PyCFunction) _ndn_cmd_PEM_read_key,
 		METH_VARARGS | METH_KEYWORDS, NULL},

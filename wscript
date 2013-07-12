@@ -29,7 +29,6 @@ def configure(conf):
     conf.check_ndnx ()
     conf.check_openssl ()
 
-
     conf.check_python_version ((2,7))
     conf.check_python_headers ()
 

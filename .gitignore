@@ -24,6 +24,8 @@ Makefile.in
 *.la
 *.lo
 *.o
+*.pyc
+*.pyo
 
 *.trs
 csrc/namecrypto/.DS_Store

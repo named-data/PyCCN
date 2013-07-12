@@ -5,7 +5,7 @@
  * Updated by: Wentao Shang <wentao@cs.ucla.edu>
  */
 
-#include <python_hdr.h>
+#include "python_hdr.h"
 
 #include <ccn/ccn.h>
 
