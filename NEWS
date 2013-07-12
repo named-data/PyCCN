@@ -2,8 +2,8 @@ What's new in version 0.3
 -------------------------
 
 Code refactoring:
-- The library has been renamed to py-ndn
-- pyccn.CCN is now knows as ndn.Face, being essentialy a handler (face) to the NDN daemon
+- The library has been renamed to PyNDN
+- pyccn.CCN is now knows as ndn.Face, being essentially a handler (face) to the NDN daemon
 - New build system using waf-tools
 
 New features:
@@ -15,3 +15,4 @@ New features:
 
 Modified functionality:
 - Key is saved in slightly different PEM format: generic PEM container, instead of RSA-specific one.
+
