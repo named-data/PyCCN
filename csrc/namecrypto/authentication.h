@@ -63,3 +63,4 @@ void authenticateCommandSig(state * st, struct ccn_charbuf * commandname, unsign
 int verifyCommand(struct ccn_charbuf * authenticatedname, unsigned char * fixtureKey, unsigned int keylen, RSA * pubkey, state * currstate, unsigned long int maxTimeDifferenceMsec);
 
 #endif
+
