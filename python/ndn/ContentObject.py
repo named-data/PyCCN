@@ -5,7 +5,7 @@
 #             Jeff Burke <jburke@ucla.edu>
 #
 
-from . import _ndn
+from ndn import _ndn
 import utils
 
 class ContentType(utils.Enum):

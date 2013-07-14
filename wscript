@@ -52,8 +52,8 @@ def build (bld):
                )
 
     bld (features = "pyext",
-         source = bld.path.ant_glob (["ndn/**/*.py"]),
-         install_from = "."
+         source = bld.path.ant_glob (["python/**/*.py"]),
+         install_from = "python"
          )
 
 @Configure.conf

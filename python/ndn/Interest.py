@@ -14,8 +14,8 @@
 #    //              in which shortest components go first.
 #
 
-from . import _ndn
-from . import Name
+from ndn import _ndn
+from ndn import Name
 import utils
 
 class AOKType(utils.Flag):

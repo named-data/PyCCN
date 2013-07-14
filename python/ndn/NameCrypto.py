@@ -5,7 +5,7 @@
 # Updated by: Wentao Shang <wentao@cs.ucla.edu>
 #
 
-from . import _ndn, Name
+from ndn import _ndn, Name
 
 def new_state():
 	return _ndn.nc_new_state()

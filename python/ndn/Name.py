@@ -6,7 +6,7 @@
 #
 
 import ndn
-from . import _ndn
+from ndn import _ndn
 
 from copy import copy
 import time, struct, random

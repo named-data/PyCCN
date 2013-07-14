@@ -6,8 +6,8 @@
 #
 
 # Fronts ccn_pkey.
-from . import _ndn
-from . import Name
+from ndn import _ndn
+from ndn import Name
 
 class Key(object):
 	def __init__(self):

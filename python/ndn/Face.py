@@ -1,12 +1,12 @@
 #
-# Copyright (c) 2011, Regents of the University of California
+# Copyright (c) 2011-2013, Regents of the University of California
 # BSD license, See the COPYING file for more information
 # Written by: Derek Kulinski <takeda@takeda.tk>
 #             Jeff Burke <jburke@ucla.edu>
 #             Alexander Afanasyev <alexander.afanasyev@ucla.edu>
 #
 
-from . import _ndn
+from ndn import _ndn
 
 import Closure
 import Interest
